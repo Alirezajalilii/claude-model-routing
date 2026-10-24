@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "plugin_name": "claude-model-routing",
+  "dispatcher": {"model_family": "sonnet", "effort": "high"},
+  "tunables": {
+    "planner_evidence_budget": 5,
+    "skill_cap_haiku": 2,
+    "skill_cap_other": 4,
+    "calibration_first_tasks": 50,
+    "calibration_sample_rate": 0.2,
+    "calibration_low_defect_rate": 0.05,
+    "calibration_reduced_sample_rate": 0.05,
+    "calibration_high_defect_rate": 0.1,
+    "max_fix_rounds_per_tier": 2,
+    "max_executor_escalations": 2,
+    "max_evidence_rounds": 2
+  },
+  "roles": {
+    "scout": {"prefix": "scout", "tools": ["Read", "Grep", "Glob", "Bash", "Skill"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
+    "planner": {"prefix": "planner", "tools": ["Read", "Grep", "Glob", "Skill", "Write"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage"], "uses_advisor": true},
+    "executor": {"prefix": "exec", "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
+    "verifier": {"prefix": "verifier", "tools": ["Read", "Grep", "Glob", "Bash", "Skill"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false}
+  },
+  "extra_rules_by_model": {
+    "haiku": ["Stay inside the paths, line ranges and question you were given. Do not read beyond them or explore the wider repository; if the answer is not there, say so and stop."]
+  },
+  "tiers": [
+      {"name": "scout-haiku-low", "role": "scout", "model": "haiku", "effort": "low", "description": "Read-only scout, cheapest tier: locate files, symbols, call sites and configs; map directory structure. Give it a narrow question, exact starting paths and a Skills line. Never edits files."},
+      {"name": "scout-haiku-medium", "role": "scout", "model": "haiku", "effort": "medium", "description": "Read-only scout: read and summarize code paths, logs, stack traces, migrations and configs; reproduce bugs with existing commands. Give it exact paths, the commands to run and a Skills line. Never edits files."},
+      {"name": "scout-sonnet-high", "role": "scout", "model": "sonnet", "effort": "high", "description": "Read-only deep-investigation scout: cross-module investigation, unclear root causes, async and concurrency issues, data-flow tracing across services. Returns evidence, never the diagnosis. Never edits files."},
+      {"name": "planner-sonnet-high", "role": "planner", "model": "sonnet", "effort": "high", "description": "Planner for work confined to one module, with clear evidence and roughly five tasks or fewer. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan."},
+      {"name": "planner-opus-high", "role": "planner", "model": "opus", "effort": "high", "description": "Planner for multi-module work, root causes still unclear after scouting, refactors, and anything touching authentication, payments, data integrity or migrations. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan."},
+      {"name": "planner-opus-xhigh", "role": "planner", "model": "opus", "effort": "xhigh", "description": "Planner for architecture or system design, large refactors, cross-service changes, or a second REPLAN after a planner-opus-high plan. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan."},
+      {"name": "exec-haiku-low", "role": "executor", "model": "haiku", "effort": "low", "description": "Executor for renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and docs changes, and tests from cases given in the plan. Receives a plan path, a task ID and a Skills line (at most 2 skills); works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "exec-haiku-medium", "role": "executor", "model": "haiku", "effort": "medium", "description": "Executor for single-module logic with clear tests: serializers, simple endpoints, utilities, small components. Receives a plan path, a task ID and a Skills line (at most 2 skills); works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "exec-haiku-high", "role": "executor", "model": "haiku", "effort": "high", "description": "Executor for tricky but well-specified single-module logic: parsing, validation, edge-case-heavy functions. Receives a plan path, a task ID and a Skills line (at most 2 skills); works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "exec-sonnet-medium", "role": "executor", "model": "sonnet", "effort": "medium", "description": "Executor for standard multi-file feature work across roughly two to five files. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "exec-sonnet-high", "role": "executor", "model": "sonnet", "effort": "high", "description": "Executor for cross-module changes, refactors, Celery and BullMQ work, Docker and terminal-heavy run-fix loops, and non-trivial merge conflicts. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "exec-sonnet-xhigh", "role": "executor", "model": "sonnet", "effort": "xhigh", "description": "Delegation ceiling executor: large refactors, concurrency, performance, security-sensitive code, and tasks that already failed at exec-sonnet-high. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "verifier-sonnet-medium", "role": "verifier", "model": "sonnet", "effort": "medium", "description": "Verifier for tasks done by any Haiku executor tier. Runs only when a verification trigger applies (Verify: yes, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Never edits code."},
+      {"name": "verifier-sonnet-high", "role": "verifier", "model": "sonnet", "effort": "high", "description": "Verifier for tasks done by exec-sonnet-medium or exec-sonnet-high. Runs only when a verification trigger applies (Verify: yes, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Never edits code."},
+      {"name": "verifier-opus-high", "role": "verifier", "model": "opus", "effort": "high", "description": "Verifier for tasks done by exec-sonnet-xhigh and any task touching authentication, payments, data integrity, migrations or security. Runs only when a verification trigger applies (Verify: yes, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Never edits code."}
+  ],
+  "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
+  "policy": {
+    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost"],
+    "dispatcher_parts": [
+      {"title": "Roles, tiers and lanes", "sections": ["overview", "roles", "lanes", "planner-tiers", "advisor"]},
+      {"title": "Full-lane workflow", "sections": ["full-lane", "escalation"]},
+      {"title": "Dispatch mechanics and skills", "sections": ["dispatch-mechanics", "skills-inventory", "skill-assignment", "haiku-context"]},
+      {"title": "Calibration, logging and limits", "sections": ["calibration", "logging", "forbidden", "cost"]}
+    ]
+  }
+}

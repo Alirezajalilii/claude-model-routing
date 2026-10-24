@@ -1,0 +1,3 @@
+## Calibration sampling
+- For each project's first {{calibration_first_tasks}} full-lane tasks (count the rows in its `docs/model-routing-log.md`), the main session also sends a random {{calibration_sample_percent}}% of Verify: no tasks to their verifier. Draw with `{{calibration_draw_command}}` and log the draw.
+- After those {{calibration_first_tasks}} tasks, read the log. If sampled verifiers found real defects (FIX or REPLAN) in under {{calibration_low_defect_percent}}% of samples, drop sampling to {{calibration_reduced_sample_percent}}%. If they found defects in more than {{calibration_high_defect_percent}}% of samples for a given executor tier or task type, propose in the project's CLAUDE.md that this tier or task type becomes Verify: yes.

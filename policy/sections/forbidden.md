@@ -1,0 +1,12 @@
+## Forbidden
+- Effort `max` on any agent. It burns several times the tokens without scoring better, and on Sonnet it fans out into out-of-scope work.
+- Effort `xhigh` on Haiku.
+- Opus as an executor.
+- Any agent outside the defined tiers.
+- Passing a paraphrase of a plan task instead of the plan path and task ID.
+- A delegation message without a Skills line.
+- A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.
+- The main session writing a multi-task plan or choosing executor tiers outside the fast lane.
+- Using the frontmatter `skills` field to preload skills on tier agents.
+- Assigning skills that set `disable-model-invocation`, or skills that are not in the inventory.
+- Nested delegation of any kind: no subagent spawns subagents, forks, creates agent teams, or messages other agents. Only the main session delegates, and it alone relays between agents. If a subagent needs more work done, it returns that need to the main session.

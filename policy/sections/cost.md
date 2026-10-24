@@ -1,0 +1,2 @@
+## Cost reference
+Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: Haiku 5.5 0.10 / 0.50 with prompts under 100K tokens; Sonnet 5.5 2 / 10; Opus 5.5 4 / 20. Executors produce the most tokens, so they run on the cheapest tier that passes verification. Planners produce few tokens, so a stronger model there is cheap insurance. A verifier costs about as much as the work it checks, and for Haiku tasks often more, so it runs only where risk or a failed check justifies it.

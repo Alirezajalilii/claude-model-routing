@@ -97,10 +97,10 @@ class PartTest(unittest.TestCase):
             self.assertEqual(pt.part_count(config), 2)
             out = pt.render_part(config, 1, Path(tmp))
         self.assertTrue(
-            out.startswith("# claude-model-routing policy, part 1 of 2: First\n\n")
+            out.startswith("# model-routing policy, part 1 of 2: First\n\n")
         )
         body = out.split("\n\n", 1)[1]
-        self.assertEqual(body, "Alpha\n\nBeta claude-model-routing")
+        self.assertEqual(body, "Alpha\n\nBeta model-routing")
 
     def test_out_of_range(self):
         with tempfile.TemporaryDirectory() as tmp:

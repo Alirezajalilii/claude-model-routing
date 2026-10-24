@@ -190,9 +190,9 @@ class ResolveTest(unittest.TestCase):
     def test_bare_and_scoped_resolve(self):
         for agent_type in (
             "exec-haiku-low",
-            "claude-model-routing:exec-haiku-low",
-            "claude-model-routing@inline:exec-haiku-low",
-            "claude-model-routing@market:exec-haiku-low",
+            "model-routing:exec-haiku-low",
+            "model-routing@inline:exec-haiku-low",
+            "model-routing@market:exec-haiku-low",
         ):
             tier = rc.resolve_tier(agent_type, self.config)
             self.assertIsNotNone(tier, agent_type)
@@ -204,10 +204,22 @@ class ResolveTest(unittest.TestCase):
 
     def test_bare_name(self):
         c = self.config
-        self.assertEqual(rc.bare_name("claude-model-routing:x", c), "x")
-        self.assertEqual(rc.bare_name("claude-model-routing@m:x", c), "x")
+        self.assertEqual(rc.bare_name("model-routing:x", c), "x")
+        self.assertEqual(rc.bare_name("model-routing@m:x", c), "x")
         self.assertEqual(rc.bare_name("other:x", c), "other:x")
         self.assertEqual(rc.bare_name("x", c), "x")
+
+    def test_install_id_prefix_resolves(self):
+        tier = rc.resolve_tier("model-routing@claude-model-routing:exec-haiku-low", self.config)
+        self.assertIsNotNone(tier)
+        self.assertEqual(tier.name, "exec-haiku-low")
+
+    def test_old_plugin_id_prefix_is_not_a_tier(self):
+        old_id = "claude-" + "model-routing"
+        self.assertIsNone(rc.resolve_tier(old_id + ":exec-haiku-low", self.config))
+
+    def test_bare_name_strips_install_id_prefix(self):
+        self.assertEqual(rc.bare_name("model-routing@claude-model-routing:x", self.config), "x")
 
     def test_tier_names_and_role_of(self):
         names = rc.tier_names(self.config)
@@ -226,6 +238,20 @@ class ModelFamilyTest(unittest.TestCase):
     def test_unknown_values(self):
         for value in ("gpt-x", "", None):
             self.assertIsNone(rc.model_family(value), value)
+
+
+class ReservedPrefixTest(unittest.TestCase):
+    def test_reserved_plugin_prefixes_are_rejected(self):
+        for name in ("claude-x", "anthropic-x", "anthropics-x", "cc-plugin-x"):
+            raw = raw_config()
+            raw["plugin_name"] = name
+            messages = rc.validate(raw)
+            self.assertTrue(any("reserved prefix" in m for m in messages), name)
+
+    def test_plugin_name_without_reserved_prefix_is_accepted(self):
+        raw = raw_config()
+        raw["plugin_name"] = "model-routing"
+        self.assertFalse(any("reserved prefix" in m for m in rc.validate(raw)))
 
 
 class ImmutabilityTest(unittest.TestCase):

@@ -63,7 +63,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertEqual(hook["hookEventName"], "SessionStart")
         self.assertTrue(
             hook["additionalContext"].startswith(
-                "# claude-model-routing policy, part 1 of 2:"
+                "# model-routing policy, part 1 of 2:"
             )
         )
         self.assertIn(f"Session id: `{SESSION_ID}`", hook["additionalContext"])
@@ -75,7 +75,7 @@ class MainOutputTest(FixtureTestCase):
         code, out, _ = self.run_main(2, stdin, env=env)
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        self.assertTrue(text.startswith("# claude-model-routing policy, part 2 of 2: Beta"))
+        self.assertTrue(text.startswith("# model-routing policy, part 2 of 2: Beta"))
         self.assertNotIn("## Session", text)
         self.assertNotIn("## Configuration warnings", text)
 
@@ -95,7 +95,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertTrue(err.startswith("session_context:"))
 
     def test_tier_agent_type_prints_nothing_scoped(self):
-        stdin = event_json(agent_type="claude-model-routing:exec-haiku-low")
+        stdin = event_json(agent_type="model-routing:exec-haiku-low")
         code, out, _ = self.run_main(1, stdin)
         self.assertEqual(code, 0)
         self.assertEqual(out, "")
@@ -116,7 +116,7 @@ class MainOutputTest(FixtureTestCase):
         code, out, _ = self.run_main(1, "not json {")
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        self.assertTrue(text.startswith("# claude-model-routing policy, part 1 of 2:"))
+        self.assertTrue(text.startswith("# model-routing policy, part 1 of 2:"))
         self.assertNotIn("## Session", text)
 
     def test_oversized_part_is_replaced_by_skill_pointer(self):
@@ -125,7 +125,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
         self.assertLess(len(text), 10000)
-        self.assertIn("claude-model-routing:routing-policy", text)
+        self.assertIn("model-routing:routing-policy", text)
         self.assertIn("sec-a", text)
         self.assertNotIn("x" * 100, text)
 
@@ -227,7 +227,7 @@ class BuildContextTest(FixtureTestCase):
         text = sc.build_context(self.config, 1, {}, SPAWN_OK, sections_dir=self.sections)
         self.assertNotIn("## Session", text)
         self.assertNotIn("## Configuration warnings", text)
-        self.assertIn("Alpha body for claude-model-routing.", text)
+        self.assertIn("Alpha body for model-routing.", text)
 
     def test_session_line_names_routing_tools(self):
         text = sc.build_context(

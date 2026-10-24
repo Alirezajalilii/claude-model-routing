@@ -114,13 +114,13 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc1_scoped_and_bare_names_share_one_row(self):
         base = write_session(self.root, sid(10), [
-            agent("pppppppppppppp1", "claude-model-routing:exec-haiku-low",
+            agent("pppppppppppppp1", "model-routing:exec-haiku-low",
                   HAIKU_PROMPT),
             agent("qqqqqqqqqqqqqq2", "exec-haiku-low", HAIKU_PROMPT),
         ])
         _, out = self.run_report(base)
         self.assertIn("- exec-haiku-low: 2", out)
-        self.assertNotIn("claude-model-routing:exec-haiku-low: ", out)
+        self.assertNotIn("model-routing:exec-haiku-low: ", out)
 
     def test_tc2_planner_budget_six_is_flagged(self):
         base = write_session(self.root, sid(2), [
@@ -150,7 +150,7 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc3_scoped_every_use_tier_is_flagged(self):
         base = write_session(self.root, sid(11), [
-            agent("rrrrrrrrrrrrrrr3", "claude-model-routing:scout-sonnet-high",
+            agent("rrrrrrrrrrrrrrr3", "model-routing:scout-sonnet-high",
                   "Skills: none\nNever consult the advisor.\nFind it."),
         ])
         _, out = self.run_report(base)

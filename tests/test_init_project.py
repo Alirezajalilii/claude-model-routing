@@ -13,16 +13,17 @@ import unittest
 from unittest import mock
 
 import init_project
+import routing_config
 
-POINTER = (
-    "Model routing: this project follows the claude-model-routing policy "
-    "(plans in docs/plans/, routing log in docs/model-routing-log.md)."
-)
 TEMPLATES = ROOT / "templates"
 PLANS_PATH = "docs/plans/README.md"
 LOG_PATH = "docs/model-routing-log.md"
 # Built by concatenation so that no literal in this file matches the scanner rules.
 HOME_MARKERS = ("~/" + ".claude", "/" + "home/", "subagent-" + "usage.py", "routing-" + "audit.py")
+
+
+def expected_pointer() -> str:
+    return init_project.pointer_line(routing_config.load_config().plugin_name)
 
 
 class InitProjectTest(unittest.TestCase):
@@ -51,7 +52,7 @@ class InitProjectTest(unittest.TestCase):
         self.assertFalse((self.project / "CLAUDE.md").exists())
         self.assertIn("created docs/plans/README.md", lines)
         self.assertIn("created docs/model-routing-log.md", lines)
-        self.assertIn(f"pointer: {POINTER}", lines)
+        self.assertIn(f"pointer: {expected_pointer()}", lines)
 
     def test_existing_files_are_not_overwritten(self) -> None:
         (self.project / PLANS_PATH).parent.mkdir(parents=True)
@@ -71,7 +72,7 @@ class InitProjectTest(unittest.TestCase):
         code, out, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
 
         self.assertEqual(code, 0)
-        self.assertEqual(self.read("CLAUDE.md"), POINTER + "\n")
+        self.assertEqual(self.read("CLAUDE.md"), expected_pointer() + "\n")
         self.assertIn("appended CLAUDE.md pointer", out.splitlines())
 
     def test_claude_md_gets_blank_line_before_pointer(self) -> None:
@@ -80,7 +81,7 @@ class InitProjectTest(unittest.TestCase):
         code, out, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
 
         self.assertEqual(code, 0)
-        self.assertEqual(self.read("CLAUDE.md"), "# P\n\n" + POINTER + "\n")
+        self.assertEqual(self.read("CLAUDE.md"), "# P\n\n" + expected_pointer() + "\n")
         self.assertIn("appended CLAUDE.md pointer", out.splitlines())
 
     def test_claude_md_without_trailing_newline_is_kept_intact(self) -> None:
@@ -89,10 +90,10 @@ class InitProjectTest(unittest.TestCase):
         code, _, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
 
         self.assertEqual(code, 0)
-        self.assertEqual(self.read("CLAUDE.md"), "# P\n\n" + POINTER + "\n")
+        self.assertEqual(self.read("CLAUDE.md"), "# P\n\n" + expected_pointer() + "\n")
 
     def test_claude_md_already_mentioning_policy_is_unchanged(self) -> None:
-        original = "# P\n\nSee claude-model-routing notes.\n"
+        original = "# P\n\n" + init_project.pointer_line("model-routing") + "\n"
         (self.project / "CLAUDE.md").write_text(original, encoding="utf-8")
 
         code, out, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
@@ -100,6 +101,24 @@ class InitProjectTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(self.read("CLAUDE.md"), original)
         self.assertIn("exists CLAUDE.md pointer", out.splitlines())
+
+    def test_claude_md_mentioning_log_path_still_gets_pointer(self) -> None:
+        original = "See docs/model-routing-log.md.\n"
+        (self.project / "CLAUDE.md").write_text(original, encoding="utf-8")
+
+        code, out, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
+
+        self.assertEqual(code, 0)
+        self.assertEqual(self.read("CLAUDE.md"), original + "\n" + expected_pointer() + "\n")
+        self.assertIn("appended CLAUDE.md pointer", out.splitlines())
+
+    def test_new_claude_md_pointer_names_the_plugin(self) -> None:
+        code, _, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
+
+        pointer = init_project.pointer_line("model-routing")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.read("CLAUDE.md"), pointer + "\n")
+        self.assertIn("the model-routing plugin", pointer)
 
     def test_missing_project_dir_exits_2(self) -> None:
         missing = self.project / "nope"

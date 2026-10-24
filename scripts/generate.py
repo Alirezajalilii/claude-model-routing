@@ -25,10 +25,9 @@ GENERATED_NOTE = (
     "edit those and regenerate. -->"
 )
 REFERENCE_DESCRIPTION = (
-    "Full text of the Model Routing Policy that claude-model-routing enforces: lanes, "
-    "the full-lane workflow and gate, tier selection, the Plan Contract, verification "
-    "triggers, calibration sampling, logging and limits. Use when you need the exact "
-    "wording of a routing rule."
+    "Full text of the Model Routing Policy: lanes, the full-lane workflow and gate, tier "
+    "selection, the Plan Contract, verification triggers, calibration sampling, logging and "
+    "limits. Use when you need the exact wording of a routing rule."
 )
 EXTRA_RULES_PLACEHOLDER = "{{extra_rules}}"
 SKILL_RELPATH = Path("skills") / "routing-policy" / "SKILL.md"

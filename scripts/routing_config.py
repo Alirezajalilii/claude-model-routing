@@ -32,6 +32,7 @@ RATE_TUNABLES = (
     "calibration_high_defect_rate",
 )
 SLUG = re.compile(r"^[a-z0-9-]+$")
+RESERVED_PLUGIN_PREFIXES = ("claude-", "anthropic-", "anthropics-", "cc-plugin-")
 
 
 class ConfigError(Exception):
@@ -263,6 +264,11 @@ def _validate_header(raw: Mapping) -> list:
     name = raw.get("plugin_name")
     if not isinstance(name, str) or not SLUG.match(name):
         errors.append("plugin_name: must match ^[a-z0-9-]+$")
+    if isinstance(name, str) and name.startswith(RESERVED_PLUGIN_PREFIXES):
+        errors.append(
+            f"plugin_name '{name}' uses a reserved prefix "
+            "(claude-, anthropic-, anthropics-, cc-plugin-)"
+        )
     dispatcher = raw.get("dispatcher")
     if not isinstance(dispatcher, dict):
         return errors + ["dispatcher: must be an object"]

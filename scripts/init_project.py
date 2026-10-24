@@ -5,13 +5,15 @@ import os
 import sys
 from pathlib import Path
 
+import routing_config
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = REPO_ROOT / "templates"
-POINTER = (
-    "Model routing: this project follows the claude-model-routing policy "
+POINTER_TEMPLATE = (
+    "Model routing: this project follows the Model Routing Policy of the {plugin_name} plugin "
     "(plans in docs/plans/, routing log in docs/model-routing-log.md)."
 )
-POLICY_MARKER = "claude-model-routing"
+POLICY_MARKER = "Model routing: this project follows"
 TEMPLATE_TARGETS = (
     ("plans-README.md", "docs/plans/README.md"),
     ("model-routing-log.md", "docs/model-routing-log.md"),
@@ -35,7 +37,11 @@ def write_template(project: Path, template: str, relpath: str) -> str:
     return f"created {relpath}"
 
 
-def append_pointer(project: Path) -> str:
+def pointer_line(plugin_name: str) -> str:
+    return POINTER_TEMPLATE.format(plugin_name=plugin_name)
+
+
+def append_pointer(project: Path, pointer: str) -> str:
     target = project / "CLAUDE.md"
     current = target.read_text(encoding="utf-8") if target.exists() else ""
     if POLICY_MARKER in current:
@@ -44,14 +50,17 @@ def append_pointer(project: Path) -> str:
         if not current.endswith("\n"):
             current += "\n"
         current += "\n"
-    target.write_text(current + POINTER + "\n", encoding="utf-8")
+    target.write_text(current + pointer + "\n", encoding="utf-8")
     return "appended CLAUDE.md pointer"
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="model-routing-init",
-        description="Bootstrap a project for the claude-model-routing policy.",
+        description=(
+            "Prepare a project for the Model Routing Policy: create docs/plans/README.md and "
+            "docs/model-routing-log.md from the plugin templates and add the policy pointer to CLAUDE.md."
+        ),
     )
     parser.add_argument(
         "--project-dir",
@@ -74,10 +83,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     for template, relpath in TEMPLATE_TARGETS:
         print(write_template(project, template, relpath))
+    pointer = pointer_line(routing_config.load_config().plugin_name)
     if args.claude_md:
-        print(append_pointer(project))
+        print(append_pointer(project, pointer))
     else:
-        print(f"pointer: {POINTER}")
+        print(f"pointer: {pointer}")
     return 0
 
 

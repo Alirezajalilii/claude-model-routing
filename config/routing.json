@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "plugin_name": "claude-model-routing",
+  "plugin_name": "model-routing",
   "dispatcher": {"model_family": "sonnet", "effort": "high"},
   "tunables": {
     "planner_evidence_budget": 5,

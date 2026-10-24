@@ -88,6 +88,23 @@ class NamingTest(unittest.TestCase):
         self.assertIn("Model Routing Policy", text)
         self.assertNotIn(OLD, text)
 
+    def test_no_bare_old_plugin_id_in_prose(self):
+        # Allowed: the repository URL (github.com/Alirezajalilii/<old>), an install id (@<old>),
+        # and the marketplace "name" entry in .claude-plugin/marketplace.json.
+        bare = re.compile(r"(?<!@)(?<!github\.com/Alirezajalilii/)" + re.escape(OLD))
+        marketplace = ROOT / ".claude-plugin" / "marketplace.json"
+        name_entry = re.compile(r'"name"\s*:')
+        hits = []
+        for path in tracked_and_untracked_files():
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for number, line in enumerate(text.splitlines(), start=1):
+                if not bare.search(line):
+                    continue
+                if path == marketplace and name_entry.search(line):
+                    continue
+                hits.append(f"{path.relative_to(ROOT)}:{number}")
+        self.assertEqual(hits, [], "bare old plugin id in prose:\n" + "\n".join(hits))
+
 
 if __name__ == "__main__":
     unittest.main()

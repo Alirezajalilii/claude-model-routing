@@ -175,7 +175,8 @@ class RevisionTwoTest(unittest.TestCase):
         data = load_json(".claude-plugin/marketplace.json")
         self.assertIsInstance(data.get("description"), str)
         self.assertTrue(data["description"].strip())
-        self.assertEqual(data["name"], "claude-model-routing")
+        repository = load_json(".claude-plugin/plugin.json")["repository"]
+        self.assertEqual(data["name"], repository.rstrip("/").rsplit("/", 1)[-1])
         self.assertEqual(data["plugins"][0]["name"], load_config().plugin_name)
 
     def test_icon_svg(self) -> None:

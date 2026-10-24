@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Claude Model Routing">
+  <rect width="64" height="64" rx="14" fill="#1f2937"/>
+  <circle cx="15" cy="32" r="6" fill="#f59e0b"/>
+  <path d="M21 32 C30 32 30 16 40 16 M21 32 H40 M21 32 C30 32 30 48 40 48" fill="none" stroke="#e5e7eb" stroke-width="3" stroke-linecap="round"/>
+  <rect x="40" y="11" width="14" height="10" rx="3" fill="#60a5fa"/>
+  <rect x="40" y="27" width="14" height="10" rx="3" fill="#34d399"/>
+  <rect x="40" y="43" width="14" height="10" rx="3" fill="#a78bfa"/>
+</svg>

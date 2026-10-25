@@ -74,8 +74,24 @@ class PolicyConsistencyTest(unittest.TestCase):
                 self.assertIn(budget, text)
                 self.assertIn("## Plan Contract", text)
                 self.assertIn("## Executor tier selection (made by the planner)", text)
+                self.assertIn("OUT_OF_TOPIC", text)
+                self.assertIn("NO_PLAN_NEEDED", text)
+                self.assertIn("Do not consult it again to check the revision.", text)
+                self.assertIn("One instance per topic", text)
+                self.assertIn("tools: Read, Grep, Glob, Skill, Write, Edit", text)
             else:
                 self.assertIn("Never consult the advisor.", text, tier.name)
+
+    def test_dispatcher_planner_scope(self):
+        count = pt.part_count(self.config)
+        text = "\n".join(pt.render_part(self.config, i) for i in range(1, count + 1))
+        for phrase in (
+            "passes it the problem, not a solution",
+            "One planner instance per topic",
+            "never spawns or resumes a planner",
+            "It never consults again to check the revision.",
+        ):
+            self.assertIn(phrase, text)
 
     def test_committed_outputs_are_fresh(self):
         outputs = gen.expected_outputs(self.config, ROOT)

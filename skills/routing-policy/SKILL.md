@@ -22,7 +22,7 @@ Where another rule conflicts with this policy, this policy wins. The full text i
 ## Roles
 - The main session runs on the `sonnet` model family at `high` effort, with an advisor model configured (plugin README, Required settings). It is the dispatcher and integrator. Its jobs: intake and lane selection; building the skills inventory; choosing planner tiers; running scouts; relaying messages between agents; dispatching executors and verifiers as the plan assigns; the final gate; commit and merge; logging.
 - In the full lane, the main session never writes plans or production code itself. A file that lists tasks with tiers is a plan wherever it lives (for example in a private run directory outside the repository), so only a planner writes one; the main session writes only fast-lane specs, one task each.
-- Planners decide and plan, including the test cases. Executors implement test-first. The main session gates every task with mechanical checks. Verifiers judge only the tasks where risk or a failed check justifies the cost. Only planners may use the advisor.
+- Planners own the solution: from the user's request and the evidence they work out the real problem and the best complete fix, then plan it, test cases included; the main session's framing is input, not the design. Executors implement test-first. The main session gates every task with mechanical checks. Verifiers judge only the tasks where risk or a failed check justifies the cost. Only planners may use the advisor.
 - No agent has a default model, effort, or skill set. Every delegation picks a specific tier agent and states its skills explicitly.
 - Optimize for cost per successful outcome.
 
@@ -41,7 +41,7 @@ No other agent type (built-in agents, other plugins' agents, or project agents) 
 - Nesting is blocked in four layers: each agent's `disallowedTools` (`Agent, TeamCreate, TeamDelete, SendMessage`), its `tools` allowlist, its body, and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` in the settings env.
 - The advisor cannot be removed per agent on this version (no frontmatter field; `disallowedTools: advisor` does not detach it, because it is a server tool). The restriction for non-planners is the body line "Never consult the advisor." plus the same line in every non-planner delegation message.
 - Agent definitions reach a running session late. After the plugin is installed, enabled or updated, run `/reload-plugins` or start a fresh session before dispatching; if a tier type is reported missing, retry shortly or run the delegation in a fresh `claude -p` session. On 2026-10-24, one of three parallel `exec-haiku-low` launches right after a body change still got the old body, so after changing agent definitions, check the first reports for the new behavior.
-- Resume an agent instance (FIX, REPLAN, NEED_EVIDENCE answers, gate failures) with SendMessage to its name or agentId.
+- Resume an agent instance (FIX, REPLAN, NEED_EVIDENCE answers, gate failures) with SendMessage to its name or agentId. A planner instance is resumed only for its own plan (Full lane workflow, step 2).
 - The plugin's PreToolUse hook (`scripts/dispatch_guard.py`, matcher `Agent|Task`) blocks a tier-agent delegation that has no Skills line, a non-planner delegation without "Never consult the advisor.", and any `model` or `effort` parameter on a tier agent. It recognizes both `model-routing:<name>` and bare tier names. A blocked call returns the reason; fix the message and resend.
 
 ## Skills inventory
@@ -61,7 +61,7 @@ No other agent type (built-in agents, other plugins' agents, or project agents) 
 ## Lane selection
 Use the fast lane only when all of these are true:
 - the change is mechanical and fully known in advance;
-- it touches one file, or is a trivially repeated edit;
+- it touches one file (its test file does not count), or is a trivially repeated edit;
 - it involves no design decision;
 - it does not touch authentication, payments, data integrity, migrations, or security.
 
@@ -74,13 +74,16 @@ Fast lane process:
 
 Operational tasks are fast-lane work too: running commands the main session writes out exactly (git push, a conflict-free rebase, polling CI, `gh` calls, a deploy through an existing script, a build or test run), with no file edits. Dispatch them to `exec-haiku-medium`, one target per agent, in parallel when independent; reads with no state change go to `scout-haiku-medium`. When a step fails in a way that needs a code change or a judgment call, stop that agent and open a full-lane task for the fix. Production deploys still need the user's explicit approval for that change.
 
-Everything else goes through the full lane.
+Everything else goes through the full lane. A planner is only for work that needs design decisions. Small, clear work, where what to change is already obvious (a type mapping, a typo in a test case, a missing mock, a two-line move, a small issue found mid-run outside the plan's tasks), goes to the fast lane even in the middle of a full-lane run, never to a planner.
 
 ## Full lane workflow
 1. **Evidence.** The main session runs scouts with narrow questions, starting paths, and a Skills line (usually none; a project-conventions skill when scouts must recognize framework-specific patterns). Run scouts in parallel when the questions are independent. Use `scout-haiku-low` for locating, `scout-haiku-medium` for reading and summarizing (including read-only `gh`/API queries, CI logs and live endpoint checks), and `scout-sonnet-high` only when the root cause is unclear or spans modules.
    - Ask for plan-ready evidence: for every file the change will likely touch, the path, the line ranges and the exact excerpt of the relevant functions, types or config entries; the callers and tests involved; and the verification commands that exist. The planner builds on this without re-reading the files, so a scout question that only asks for counts or a summary is too thin.
    - Wait for every scout before dispatching the planner.
-2. **Plan.** The main session chooses a planner tier and passes it: the task description, all scout evidence, the skills inventory, and a Skills line for the planner itself (for example, an architecture or domain skill that shapes the plan).
+2. **Plan.** The main session chooses a planner tier and passes it the problem, not a solution: the user's request in their own words, what was observed, all scout evidence, the user's explicit decisions and constraints, the skills inventory, and a Skills line for the planner itself (for example, an architecture or domain skill that shapes the plan).
+   - Never prescribe the approach, the task split or the tiers. The main session is not at the planner's reasoning level; an idea of its own goes in labeled as an unverified hypothesis, and the planner decides the plan.
+   - One planner instance per topic: the plan it wrote and the tasks directly related to it. Resume an instance only for its own plan (NEED_EVIDENCE answers, REPLANs of its tasks). A new topic that needs design (a new feature, an unrelated bug, a large finding outside that plan) gets a fresh planner and its own new plan file; small, clear work goes to the fast lane. Never grow one plan file with unrelated topics.
+   - If the planner returns OUT_OF_TOPIC or NO_PLAN_NEEDED, follow it: start a fresh planner for the new topic, or write a fast-lane spec.
    - If the planner returns NEED_EVIDENCE, run the requested scouts, then resume the same planner instance with the results through SendMessage.
    - The planner treats the scout evidence as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own.
    - Allow at most 2 evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
@@ -103,17 +106,18 @@ Everything else goes through the full lane.
    - Only the Green check failed (tests fail, everything else clean): resume the same executor instance through SendMessage with the failure output. This counts as a FIX round. No verifier is needed for it.
    - Verifier FIX: resume the same executor instance with the defect list. Then resume the same verifier instance to re-verify; it must re-run every command.
    - Allow at most 2 FIX rounds at one tier, counting both kinds. After that, escalate the executor one tier: launch a fresh executor with the plan path, the task ID, the Skills line, and the full defect history.
-   - REPLAN: resume the same planner instance with the verifier's evidence, so it can revise that task in the plan file, including its skills if the problem was a skill conflict or a missing skill. The advisor may be consulted once more for a replan. After the revision, re-execute the task. If a second REPLAN occurs for the same task, move up one planner tier.
+   - REPLAN, when the plan's design is wrong: resume the same planner instance with the verifier's evidence, so it can revise that task in the plan file (editing only that task), including its skills if the problem was a skill conflict or a missing skill. The planner may consult the advisor once for this revision (Advisor rules). After the revision, re-execute the task. If a second REPLAN occurs for the same task, move up one planner tier. A REPLAN whose fix is small and clear (a wrong value in a Test Case, a file missing from the task's list) goes to the fast lane instead; log it as a deviation.
    - BLOCKED: fix the environment issue if it is clearly mechanical. Otherwise, treat it as a failure under the escalation caps.
 7. **Final gate and integrate.**
    - Merge only when every task has passed its gate (and its verifier, if one ran) and the full test suite passes on the integrated branch. Then commit with a clear message and merge. Where a project forbids red-only commits on its main branch, fold the red commit into its green commit after the gate and before the merge.
    - Never force-push or rewrite shared history.
    - Resolve trivial merge conflicts directly. Route non-trivial conflicts as a new task to `exec-sonnet-high`, with verification.
    - Destructive database migrations, data deletion, and production deploys are outside auto-merge scope: prepare them fully, then report.
+   - Wrap-up (every task has passed: final gate, merge, docs, log, report) never spawns or resumes a planner. The main session writes the log; docs edits go to the fast lane. A problem found now is either small and clear (fast lane) or a new topic for a fresh planner.
 8. **Log** every delegation, as described under Logging.
 
 ## Plan Contract
-Every plan file (`docs/plans/YYYY-MM-DD-short-slug.md`) contains: the goal; the evidence summary, with file references; assumptions; the tasks; risks; Skill Gaps (skills that do not exist but would have helped); and Advisor Notes (suggestions applied and suggestions rejected, with reasons).
+Every plan file (`docs/plans/YYYY-MM-DD-short-slug.md`) contains: the goal; the evidence summary, with file references; assumptions (including any departure from the main session's framing, with the reason); the tasks; risks; Skill Gaps (skills that do not exist but would have helped); and Advisor Notes (suggestions applied and suggestions rejected, with reasons).
 
 Each task contains:
 - a task ID;
@@ -182,8 +186,9 @@ All other tasks are Verify: no and rely on the gate.
 - After those 50 tasks, read the log. If sampled verifiers found real defects (FIX or REPLAN) in under 5% of samples, drop sampling to 5%. If they found defects in more than 10% of samples for a given executor tier or task type, propose in the project's CLAUDE.md that this tier or task type becomes Verify: yes.
 
 ## Advisor rules
-- Only planners consult the advisor: once per plan, after drafting and before finalizing.
-- One additional consult is allowed per REPLAN.
+- Only planners consult the advisor, once per plan: after the complete draft is written to the plan file, so the advisor sees the evidence, the problem and the whole plan, and before finalizing. Never earlier (not while gathering evidence, not before returning NEED_EVIDENCE).
+- If the advisor approves, the planner finalizes. If it asks for changes, the planner applies those the evidence supports, records any it rejects with the reason under Advisor Notes, and finalizes. It never consults again to check the revision.
+- A REPLAN revision follows the same rule: at most one consult for it.
 - No other agent and no other phase uses the advisor.
 
 ## Forbidden
@@ -194,6 +199,10 @@ All other tasks are Verify: no and rely on the gate.
 - Passing a paraphrase of a plan task instead of the plan path and task ID.
 - A delegation message without a Skills line.
 - A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.
+- A planner delegation that prescribes the solution, the task split or the tiers instead of stating the problem.
+- Resuming a planner instance for work outside its own plan's topic, or sending small, clear work to a planner.
+- Spawning or resuming a planner in wrap-up, after every task has passed.
+- A second advisor consult on the same plan or revision.
 - The main session writing a multi-task plan or choosing executor tiers outside the fast lane.
 - Using the frontmatter `skills` field to preload skills on tier agents.
 - Assigning skills that set `disable-model-invocation`, or skills that are not in the inventory.

@@ -6,6 +6,10 @@
 - Passing a paraphrase of a plan task instead of the plan path and task ID.
 - A delegation message without a Skills line.
 - A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.
+- A planner delegation that prescribes the solution, the task split or the tiers instead of stating the problem.
+- Resuming a planner instance for work outside its own plan's topic, or sending small, clear work to a planner.
+- Spawning or resuming a planner in wrap-up, after every task has passed.
+- A second advisor consult on the same plan or revision.
 - The main session writing a multi-task plan or choosing executor tiers outside the fast lane.
 - Using the frontmatter `skills` field to preload skills on tier agents.
 - Assigning skills that set `disable-model-invocation`, or skills that are not in the inventory.

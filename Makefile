@@ -1,32 +1,55 @@
 # Standard command interface (see ~/Work/AGENTS.md section 7).
-# Replace each placeholder recipe with the real commands as apps are added.
-# A target that does not apply should print why and exit 0.
+# model-routing is a Claude Code plugin with no runtime dependencies: Python 3.9+ standard library only.
+# A target that does not apply prints why and exits 0.
+
+PY ?= python3
+PYFLAGS := -B
 
 .PHONY: help setup dev test lint fmt typecheck build clean
 
 help:
 	@echo "Targets: setup dev test lint fmt typecheck build clean"
+	@echo "  setup      check the Python interpreter (nothing to install)"
+	@echo "  dev        not applicable (plugin is loaded by Claude Code)"
+	@echo "  test       unittest suite in tests/"
+	@echo "  lint       regenerate check, plugin validation, sensitive-data scan"
+	@echo "  fmt        not applicable (no formatter configured)"
+	@echo "  typecheck  not applicable (no type checker configured)"
+	@echo "  build      regenerate agents/ and skills/routing-policy/SKILL.md from config/ and policy/"
+	@echo "  clean      remove Python bytecode caches"
 
 setup:
-	@echo "make setup: not configured yet - define it in the Makefile"
+	@$(PY) --version
+	@echo "make setup: no dependencies to install; the plugin uses the standard library only"
 
 dev:
-	@echo "make dev: not configured yet - define it in the Makefile"
+	@echo "make dev: not applicable; the plugin has no dev server. Load it in Claude Code from this checkout."
 
 test:
-	@echo "make test: not configured yet - define it in the Makefile"
+	PYTHONDONTWRITEBYTECODE=1 $(PY) -m unittest discover -s tests -v
 
 lint:
-	@echo "make lint: not configured yet - define it in the Makefile"
+	$(PY) $(PYFLAGS) scripts/generate.py --check
+	@if command -v claude >/dev/null 2>&1; then \
+		claude plugin validate . --strict; \
+	else \
+		echo "make lint: claude CLI not on PATH; plugin validation skipped"; \
+	fi
+	@if [ -f scripts/scan_sensitive.py ]; then \
+		$(PY) $(PYFLAGS) scripts/scan_sensitive.py --history; \
+	else \
+		echo "make lint: scripts/scan_sensitive.py is not on this branch (it exists on agent/T09); sensitive-data scan skipped"; \
+	fi
 
 fmt:
-	@echo "make fmt: not configured yet - define it in the Makefile"
+	@echo "make fmt: not applicable; no formatter is configured"
 
 typecheck:
-	@echo "make typecheck: not configured yet - define it in the Makefile"
+	@echo "make typecheck: not applicable; no type checker is configured"
 
 build:
-	@echo "make build: not configured yet - define it in the Makefile"
+	$(PY) $(PYFLAGS) scripts/generate.py
 
 clean:
-	@echo "make clean: not configured yet - define it in the Makefile"
+	find . -name __pycache__ -type d -not -path './.git/*' -prune -exec rm -rf {} +
+	@echo "make clean: removed Python bytecode caches"

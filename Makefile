@@ -30,8 +30,12 @@ test:
 
 lint:
 	$(PY) $(PYFLAGS) scripts/generate.py --check
+	@# Validate what git would ship (tracked + untracked, not ignored): the workspace's
+	@# git-ignored CLAUDE.md pointer and .agent/ run state are not part of the plugin.
 	@if command -v claude >/dev/null 2>&1; then \
-		claude plugin validate . --strict; \
+		tmp=$$(mktemp -d) && git ls-files -z --cached --others --exclude-standard \
+		  | rsync -a --from0 --files-from=- . "$$tmp/" \
+		  && claude plugin validate "$$tmp" --strict; rc=$$?; rm -rf "$$tmp"; exit $$rc; \
 	else \
 		echo "make lint: claude CLI not on PATH; plugin validation skipped"; \
 	fi

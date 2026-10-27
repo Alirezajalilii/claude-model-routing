@@ -22,7 +22,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `make setup`: prints the Python version. Nothing to install.
 - `make dev`: not applicable; prints why and exits 0. Load the plugin in Claude Code from this checkout.
 - `make test`: `python3 -m unittest discover -s tests -v` with `PYTHONDONTWRITEBYTECODE=1`.
-- `make lint`: `scripts/generate.py --check` (fails if generated files are stale), then `claude plugin validate . --strict` if the `claude` CLI is on PATH, then `scripts/scan_sensitive.py --history` if that file exists.
+- `make lint`: `scripts/generate.py --check` (fails if generated files are stale), then `claude plugin validate --strict` on a temporary copy of what git would ship (tracked plus untracked, not ignored, so the git-ignored `CLAUDE.md` pointer and `.agent/` are left out) if the `claude` CLI is on PATH, then `scripts/scan_sensitive.py --history` if that file exists.
 - `make fmt`, `make typecheck`: not applicable; print why and exit 0.
 - `make build`: runs `scripts/generate.py` and rewrites the generated files `agents/*.md` and `skills/routing-policy/SKILL.md`.
 - `make clean`: removes `__pycache__` directories outside `.git`.

@@ -84,7 +84,7 @@ def is_active(inst: dict, enabled: bool, project_dir: Path) -> bool:
         return True
     if inst.get("scope") != "local" or not inst.get("projectPath"):
         return False
-    return Path(inst["projectPath"]).resolve() == project_dir
+    return Path(inst["projectPath"]).resolve() == Path(project_dir).resolve()
 
 
 def directory_source(key: str, markets: dict):

@@ -1,5 +1,7 @@
 import ast
+import fnmatch
 import importlib.util
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -12,7 +14,14 @@ MAX_FILE_LINES = 800
 
 
 def repo_files(pattern):
-    return [p for p in ROOT.rglob(pattern) if ".git" not in p.relative_to(ROOT).parts]
+    """Files git would ship (tracked plus untracked-but-not-ignored) that match *pattern*.
+    Ignored local state (.agent/ run records, .claude/) is not part of the plugin."""
+    result = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT, capture_output=True, check=True,
+    )
+    names = [n for n in result.stdout.decode("utf-8").split("\0") if n]
+    return [ROOT / n for n in names if fnmatch.fnmatch(Path(n).name, pattern) and (ROOT / n).is_file()]
 
 
 def python_sources():

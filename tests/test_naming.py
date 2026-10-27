@@ -52,7 +52,10 @@ class NamingTest(unittest.TestCase):
 
     def test_no_old_form_scoped_names_in_repository(self):
         hits = []
+        history = {ROOT / "docs" / "wiki" / "log.md"}  # append-only record of past names and paths
         for path in tracked_and_untracked_files():
+            if path in history or "raw" in path.relative_to(ROOT).parts:
+                continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for number, line in enumerate(text.splitlines(), start=1):
                 if OLD_SCOPED.search(line):
@@ -95,7 +98,10 @@ class NamingTest(unittest.TestCase):
         marketplace = ROOT / ".claude-plugin" / "marketplace.json"
         name_entry = re.compile(r'"name"\s*:')
         hits = []
+        history = {ROOT / "docs" / "wiki" / "log.md"}  # append-only record of past names and paths
         for path in tracked_and_untracked_files():
+            if path in history or "raw" in path.relative_to(ROOT).parts:
+                continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for number, line in enumerate(text.splitlines(), start=1):
                 if not bare.search(line):

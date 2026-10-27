@@ -16,3 +16,22 @@ CLAUDE.local.md
 # Routing artifacts of projects that use the plugin; this repository keeps them outside
 docs/plans/
 docs/model-routing-log.md
+
+# workspace standard (~/Work/AGENTS.md)
+.env
+.env.*
+!.env.example
+.venv/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+.expo/
+dist/
+build/
+coverage/
+data/*
+!data/.gitkeep
+.agent/
+*.log

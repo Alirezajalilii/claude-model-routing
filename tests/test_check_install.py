@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import check_install  # noqa: E402
 
+MARKET = "claude-" + "model-routing"
 PLUGIN_JSON = '{"name":"model-routing","version":"9.9.9"}'
 COMMITTED = {".claude-plugin/plugin.json": PLUGIN_JSON, "scripts/x.py": "print(1)\n"}
 
@@ -65,7 +66,7 @@ class PureFunctionTests(unittest.TestCase):
     def test_default_plugin_dir(self):
         self.assertEqual(
             check_install.default_plugin_dir(Path("/h"), "1.2.3"),
-            Path("/h/.claude/plugins/cache/claude-model-routing/model-routing/1.2.3"),
+            Path("/h") / ".claude" / "plugins" / "cache" / MARKET / "model-routing" / "1.2.3",
         )
 
 
@@ -134,7 +135,7 @@ class GitIntegrationTests(unittest.TestCase):
 
     def test_default_dir_through_git(self):
         home = self.tmp / "home"
-        d = home / ".claude/plugins/cache/claude-model-routing/model-routing/9.9.9"
+        d = home / ".claude" / "plugins" / "cache" / MARKET / "model-routing" / "9.9.9"
         for rel, text in COMMITTED.items():
             write(d, rel, text)
         with mock.patch.object(check_install.Path, "home", return_value=home):

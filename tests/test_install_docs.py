@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+MARKET = "claude-" + "model-routing"
 
 
 def read(name):
@@ -18,11 +19,13 @@ class InstallDocsTests(unittest.TestCase):
         for text in (
             "claude plugin marketplace add git@github.com:<owner>/model-routing.git",
             "claude plugin install model-routing@claude-model-routing --scope user",
-            "claude plugin marketplace update claude-model-routing",
+            "claude plugin marketplace update",
             "claude plugin update model-routing@claude-model-routing",
             "make check-install",
         ):
             self.assertIn(text, readme)
+        for line in lines:
+            self.assertIsNone(re.search("(?<!@)" + re.escape(MARKET), line), line)
 
     def test_no_directory_source_or_home_paths(self):
         for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md", "CHANGELOG.md"):

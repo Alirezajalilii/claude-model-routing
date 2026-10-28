@@ -204,5 +204,87 @@ class AgentBodyHandoffTest(unittest.TestCase):
                 self.assertIn("--help", text, tier.name)
 
 
+class DispatcherHandoffTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.config = rc.load_config()
+        count = pt.part_count(cls.config)
+        cls.text = "\n".join(pt.render_part(cls.config, i) for i in range(1, count + 1))
+
+    def test_handoffs_section_and_part(self):
+        self.assertIn("handoffs", self.config.policy_sections)
+        parts = self.config.dispatcher_parts
+        self.assertEqual(len(parts), 5)
+        self.assertEqual(parts[-1]["title"] if isinstance(parts[-1], dict) else parts[-1].title, "Handoffs between agents")
+        sections = parts[-1]["sections"] if isinstance(parts[-1], dict) else parts[-1].sections
+        self.assertEqual(list(sections)[0], "handoffs")
+
+    def test_session_start_hooks_cover_five_parts(self):
+        import json
+
+        hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        cmds = [h["command"] for g in hooks["hooks"]["SessionStart"] for h in g["hooks"]]
+        self.assertEqual(len(cmds), 5)
+        for n, cmd in enumerate(cmds, 1):
+            self.assertTrue(cmd.endswith(f"--part {n}"), cmd)
+
+    def test_rendered_parts_contain_handoff_policy(self):
+        for phrase in (
+            "never reads these files",
+            "BLOCKED <plan path> reason=<one line>",
+            "does not count against the budget",
+            "Output:",
+            "Project rules:",
+            "findings=<n>",
+            "reason=<one line>",
+            "fix=small|design",
+            "`fix=small` goes to the fast lane",
+            "dispatch.allow_agents",
+            "omitClaudeMd",
+            "general-purpose",
+            "SKILL.md path",
+            "model-routing-skills --out",
+            "executor's report path",
+            "the verdict file path",
+        ):
+            self.assertIn(phrase, self.text)
+
+    def test_old_report_gate_wording_removed(self):
+        self.assertNotIn("the executor's claims match the diff", self.text)
+
+    def test_planner_files_carry_docs_and_haiku_rules(self):
+        for tier in self.config.tiers:
+            if tier.role != "planner":
+                continue
+            text = _agent_text(tier)
+            for phrase in (
+                "more than about 25 tool calls",
+                "fact sheet",
+                "Docs that state commands, procedures or behavior",
+                "wording-only docs",
+                "the Project rules line",
+                "alone on its own line",
+            ):
+                self.assertIn(phrase, text, f"{tier.name}: {phrase}")
+
+    def test_part_five_session_context(self):
+        import io
+        import json
+
+        import session_context as sc
+
+        out = io.StringIO()
+        code = sc.main(
+            ["--part", "5"],
+            stdin=io.StringIO("{}"),
+            stdout=out,
+            stderr=io.StringIO(),
+            env={"CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"},
+        )
+        self.assertEqual(code, 0)
+        ctx = json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"]
+        self.assertTrue(ctx.startswith("# model-routing policy, part 5 of 5:"), ctx[:80])
+
+
 if __name__ == "__main__":
     unittest.main()

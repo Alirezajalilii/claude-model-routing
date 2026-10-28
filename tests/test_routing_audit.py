@@ -28,10 +28,30 @@ def sid(n: int) -> str:
     return f"00000000-0000-4000-8000-0000000000{n:02d}"
 
 
-def agent(aid, atype, prompt, calls=(), ts=TS):
-    """Describe one subagent for the fixture writer."""
-    return {"id": aid, "type": atype, "prompt": prompt,
-            "calls": list(calls), "ts": ts}
+def agent(aid, atype, prompt, calls=(), ts=TS, requests=(), final=None):
+    """Describe one subagent for the fixture writer.
+
+    requests: (message id, model, prompt tokens) tuples, one assistant record each.
+    final: text of a closing assistant message.
+    """
+    return {"id": aid, "type": atype, "prompt": prompt, "calls": list(calls),
+            "ts": ts, "requests": list(requests), "final": final}
+
+
+def assistant(ts, content, mid=None, model=None, prompt_tokens=None):
+    """Build one assistant transcript record."""
+    message = {"role": "assistant", "content": content}
+    if mid is not None:
+        message["id"] = mid
+        message["model"] = model
+        message["usage"] = {"input_tokens": prompt_tokens, "output_tokens": 1}
+    return {"type": "assistant", "timestamp": ts, "message": message}
+
+
+def agent_call(tid, subagent_type, **params):
+    """Return an Agent tool_use block as the main session would emit it."""
+    return {"type": "tool_use", "id": tid, "name": "Agent",
+            "input": {"subagent_type": subagent_type, **params}}
 
 
 def reads(n):
@@ -39,13 +59,14 @@ def reads(n):
     return [("Read", {"file_path": f"/repo/file{i}.md"}) for i in range(n)]
 
 
-def write_session(root, session_id, agents, project="proj"):
+def write_session(root, session_id, agents, project="proj", main_events=()):
     """Write <root>/<project>/<session_id>/subagents and the sibling transcript."""
     base = os.path.join(root, project, session_id)
     sub = os.path.join(base, "subagents")
     os.makedirs(sub, exist_ok=True)
     with open(base + ".jsonl", "w") as f:
-        f.write("")
+        for e in main_events:
+            f.write(json.dumps(e) + "\n")
     for a in agents:
         with open(os.path.join(sub, f"agent-{a['id']}.meta.json"), "w") as f:
             json.dump({"agentType": a["type"]}, f)
@@ -57,6 +78,9 @@ def write_session(root, session_id, agents, project="proj"):
             {"type": "assistant", "timestamp": a["ts"],
              "message": {"role": "assistant", "content": blocks}},
         ]
+        events += [assistant(a["ts"], [], *r) for r in a["requests"]]
+        if a["final"] is not None:
+            events.append(assistant(a["ts"], [{"type": "text", "text": a["final"]}]))
         with open(os.path.join(sub, f"agent-{a['id']}.jsonl"), "w") as f:
             for e in events:
                 f.write(json.dumps(e) + "\n")
@@ -231,7 +255,7 @@ class RoutingAuditTest(unittest.TestCase):
         self.assertEqual(out, "")
         self.assertFalse(os.path.exists(self.audits_dir()))
 
-    def test_tc6_hook_without_tier_dispatch_writes_nothing(self):
+    def test_tc4_hook_writes_report_for_non_tier_only_session(self):
         base = write_session(self.root, sid(14), [
             agent("mmmmmmmmmmmmmmm3", "general-purpose", "Do a thing."),
         ])
@@ -240,7 +264,10 @@ class RoutingAuditTest(unittest.TestCase):
         code, out = self.run_hook(event, plugin_data=self.plugin_data)
         self.assertEqual(code, 0)
         self.assertEqual(out, "")
-        self.assertFalse(os.path.exists(self.audits_dir()))
+        expected = os.path.join(
+            self.audits_dir(),
+            f"{datetime.date.today().isoformat()}-00000000.md")
+        self.assertTrue(os.path.isfile(expected))
 
     def test_tc6_hook_without_subagents_writes_nothing(self):
         transcript = os.path.join(self.root, "proj", "nosub.jsonl")
@@ -254,9 +281,9 @@ class RoutingAuditTest(unittest.TestCase):
         self.assertEqual(out, "")
         self.assertFalse(os.path.exists(self.audits_dir()))
 
-    def test_hook_with_only_non_tier_agents_writes_nothing(self):
+    def test_tc5_hook_with_only_allowlisted_agents_writes_nothing(self):
         base = write_session(self.root, sid(16), [
-            agent("nnnnnnnnnnnnnnn4", "general-purpose", "Do a thing."),
+            agent("nnnnnnnnnnnnnnn4", "statusline-setup", "Do a thing."),
         ])
         event = json.dumps({"session_id": sid(16),
                             "transcript_path": base + ".jsonl"})
@@ -272,6 +299,124 @@ class RoutingAuditTest(unittest.TestCase):
         code, out = self.run_hook("[1]", plugin_data=self.plugin_data)
         self.assertEqual(code, 0)
         self.assertFalse(os.path.exists(self.audits_dir()))
+
+    def flags_of(self, out):
+        return out.split("## Flags", 1)[1]
+
+    def haiku_session(self, n, requests, atype="exec-haiku-medium", final="DONE x"):
+        return write_session(self.root, sid(n), [
+            agent("hh%014d" % n, atype, HAIKU_PROMPT, requests=requests, final=final),
+        ])
+
+    def test_tc1_general_purpose_only_is_flagged(self):
+        base = write_session(self.root, sid(30), [
+            agent("gp00000000000001", "general-purpose", "Do a thing."),
+        ])
+        _, out = self.run_report(base)
+        self.assertIn("- non-tier agent `general-purpose` dispatched", out)
+
+    def test_tc2_fork_next_to_tier_agent_is_flagged(self):
+        base = write_session(self.root, sid(31), [
+            agent("fk00000000000001", "exec-haiku-low", HAIKU_PROMPT),
+            agent("fk00000000000002", "fork", "Do a thing."),
+        ])
+        _, out = self.run_report(base)
+        self.assertIn("- non-tier agent `fork` dispatched", out)
+
+    def test_tc3_allowlisted_agent_gives_no_non_tier_line(self):
+        base = write_session(self.root, sid(32), [
+            agent("sl00000000000001", "statusline-setup", "Do a thing."),
+        ])
+        _, out = self.run_report(base)
+        self.assertNotIn("non-tier agent", out)
+
+    def test_tc6_haiku_requests_over_limit_deduplicated(self):
+        m = "claude-haiku-5-5"
+        base = self.haiku_session(33, [("m1", m, 50000), ("m2", m, 120000),
+                                       ("m3", m, 150000), ("m2", m, 120000)])
+        _, out = self.run_report(base)
+        self.assertIn("2 Haiku requests over 100000 prompt tokens (peak 150000)", out)
+
+    def test_tc7_haiku_request_at_limit_is_not_flagged(self):
+        base = self.haiku_session(34, [("m1", "claude-haiku-5-5", 100000)])
+        _, out = self.run_report(base)
+        self.assertNotIn("Haiku requests over", out)
+
+    def test_tc8_sonnet_over_limit_is_not_flagged(self):
+        base = self.haiku_session(35, [("m1", "claude-sonnet-5-5", 150000)],
+                                  atype="exec-sonnet-high")
+        _, out = self.run_report(base)
+        self.assertNotIn("Haiku requests over", out)
+
+    def test_tc9_non_tier_haiku_agent_is_flagged(self):
+        base = write_session(self.root, sid(36), [
+            agent("gh00000000000001", "general-purpose", "Do a thing.",
+                  requests=[("m1", "claude-haiku-5-5", 120000)]),
+        ])
+        _, out = self.run_report(base)
+        self.assertIn("1 Haiku requests over 100000 prompt tokens (peak 120000)", out)
+
+    def test_tc10_status_line_check(self):
+        good = self.haiku_session(37, [], final="DONE /tmp/h/report.md commits=abc,def")
+        _, out = self.run_report(good)
+        self.assertNotIn("not a status line", out)
+        long_report = "DONE\n" + "x" * 1994
+        _, out = self.run_report(self.haiku_session(38, [], final=long_report))
+        self.assertIn("reply is not a status line (2000 chars)", out)
+        _, out = self.run_report(self.haiku_session(39, [], final="DONE " + "y" * 396))
+        self.assertIn("reply is not a status line (401 chars)", out)
+        _, out = self.run_report(self.haiku_session(40, [], final="Here is my report"))
+        self.assertIn("reply is not a status line", out)
+        base = write_session(self.root, sid(41), [
+            agent("lg00000000000001", "general-purpose", "Do a thing.",
+                  final="Here is my long report\n" * 50),
+        ])
+        _, out = self.run_report(base)
+        self.assertNotIn("not a status line", out)
+
+    def test_tc11_main_session_model_and_effort_params(self):
+        block = agent_call("t1", "exec-haiku-low", model="opus", effort="")
+        base = write_session(self.root, sid(42), [], main_events=[
+            assistant(TS, [block]), assistant(TS, [block])])
+        _, out = self.run_report(base)
+        self.assertEqual(
+            out.count("- main session: Agent call to `exec-haiku-low` passed `model`"), 1)
+        self.assertNotIn("passed `effort`", out)
+
+    def test_tc11_effort_param_gives_its_own_line(self):
+        block = agent_call("t2", "exec-haiku-low", model="opus", effort="high")
+        base = write_session(self.root, sid(43), [], main_events=[assistant(TS, [block])])
+        _, out = self.run_report(base)
+        lines = [ln for ln in out.splitlines() if ln.startswith("- main session: Agent")]
+        self.assertEqual(len(lines), 2)
+        self.assertIn("`model`", lines[0])
+        self.assertIn("`effort`", lines[1])
+
+    def test_tc12_main_session_model_family(self):
+        base = write_session(self.root, sid(44), [], main_events=[
+            assistant(TS, [], "a1", "claude-opus-5-5", 1),
+            assistant(TS, [], "a2", "claude-sonnet-5-5", 1),
+            assistant(TS, [], "a3", "<synthetic>", 1)])
+        _, out = self.run_report(base)
+        lines = [ln for ln in out.splitlines() if ln.startswith("- main session ran on")]
+        self.assertEqual(lines, ["- main session ran on `claude-opus-5-5`; "
+                                 "the policy expects the `sonnet` family"])
+        _, out = self.run_report(write_session(self.root, sid(45), []))
+        self.assertNotIn("main session", out)
+
+    def test_tc13_flags_order(self):
+        block = agent_call("t3", "exec-haiku-low", model="opus")
+        base = write_session(self.root, sid(46), [
+            agent("or00000000000001", "scout-haiku-low", "Find it."),
+            agent("or00000000000002", "general-purpose", "Do a thing."),
+        ], main_events=[assistant(TS, [block])])
+        _, out = self.run_report(base)
+        flags = self.flags_of(out)
+        main_at = flags.index("- main session")
+        agent_at = flags.index("missing Skills line")
+        tier_at = flags.index("non-tier agent")
+        self.assertLess(main_at, agent_at)
+        self.assertLess(agent_at, tier_at)
 
     def test_tc7_unknown_session_exits_two_with_stderr(self):
         out, err = io.StringIO(), io.StringIO()

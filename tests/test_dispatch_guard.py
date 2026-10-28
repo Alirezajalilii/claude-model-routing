@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import io  # noqa: E402
+import os  # noqa: E402
 import json  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
@@ -22,8 +23,14 @@ ADVISOR_MSG = "Never consult the advisor"
 MODEL_MSG = "parameter 'model'"
 EFFORT_MSG = "parameter 'effort'"
 
-BOTH_LINES = "Task T1. Skills: none.\nNever consult the advisor."
-SKILLS_ONLY = "Task T1.\nSkills: none."
+OUTPUT_MSG = "has no Output line"
+NON_TIER_MSG = "is not a routing tier"
+SKILL_PATH_MSG = "not a readable absolute SKILL.md path"
+
+OUT = "Output: /tmp/handoff/report.md"
+BOTH_LINES = f"Task T1. Skills: none.\nNever consult the advisor.\n{OUT}"
+SKILLS_ONLY = f"Task T1.\nSkills: none.\n{OUT}"
+COMPLIANT = f"Skills: none.\nNever consult the advisor.\n{OUT}"
 
 
 def make_event(tool_name="Agent", subagent_type="exec-haiku-low",
@@ -53,9 +60,12 @@ class TestEvaluate(unittest.TestCase):
                            prompt="no lines at all")
         self.assertEqual(evaluate(event), ())
 
-    def test_tc2_non_tier_agent_is_ignored(self):
-        event = make_event(subagent_type="general-purpose", prompt="no skills")
-        self.assertEqual(evaluate(event), ())
+    def test_tc2_non_tier_agent_is_denied(self):
+        reasons = evaluate(make_event(subagent_type="general-purpose",
+                                      prompt=COMPLIANT))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("subagent type 'general-purpose' is not a routing tier",
+                      reasons[0])
 
     def test_tc3_compliant_executor_passes(self):
         self.assertEqual(evaluate(make_event(prompt=BOTH_LINES)), ())
@@ -83,7 +93,7 @@ class TestEvaluate(unittest.TestCase):
 
     def test_tc9_inline_skills_and_advisor_pass(self):
         prompt = ("Fast-lane spec (task ID X). Skills: none. "
-                  "Never consult the advisor.")
+                  "Never consult the advisor. Output: /tmp/handoff/report.md")
         self.assertEqual(evaluate(make_event(prompt=prompt)), ())
 
     def test_tc10_task_tool_name_is_guarded(self):
@@ -114,10 +124,11 @@ class TestEvaluate(unittest.TestCase):
             subagent_type="exec-haiku-low", prompt="Never consult the advisor."))
         self.assertTrue(any(NO_SKILLS_MSG in r for r in reasons), reasons)
 
-    def test_other_plugin_prefix_is_not_a_tier(self):
-        event = make_event(subagent_type="other-plugin:exec-haiku-low",
-                           prompt="no lines")
-        self.assertEqual(evaluate(event), ())
+    def test_other_plugin_prefix_is_denied_as_non_tier(self):
+        reasons = evaluate(make_event(
+            subagent_type="other-plugin:exec-haiku-low", prompt=COMPLIANT))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(NON_TIER_MSG, reasons[0])
 
     def test_inline_marketplace_scope_is_recognized(self):
         reasons = evaluate(make_event(
@@ -126,12 +137,12 @@ class TestEvaluate(unittest.TestCase):
 
     def test_non_planner_skills_none_without_advisor_is_reported(self):
         reasons = evaluate(make_event(
-            subagent_type="exec-sonnet-high", prompt="Task T1. Skills: none."))
+            subagent_type="exec-sonnet-high", prompt=f"Task T1. Skills: none. {OUT}"))
         self.assertTrue(any(ADVISOR_MSG in r for r in reasons), reasons)
 
     def test_non_planner_with_uppercase_advisor_line_passes(self):
         event = make_event(subagent_type="exec-sonnet-high",
-                           prompt="Task T1. Skills: none. never consult the ADVISOR.")
+                           prompt=f"Task T1. Skills: none. never consult the ADVISOR. {OUT}")
         self.assertEqual(evaluate(event), ())
 
     def test_tier_with_model_sonnet_is_reported(self):
@@ -150,18 +161,21 @@ class TestEvaluate(unittest.TestCase):
             subagent_type="exec-sonnet-high", prompt=BOTH_LINES, effort="high"))
         self.assertTrue(any(EFFORT_MSG in r for r in reasons), reasons)
 
-    def test_non_tier_general_purpose_with_model_passes(self):
-        event = make_event(subagent_type="general-purpose", prompt="no lines",
-                           model="opus")
-        self.assertEqual(evaluate(event), ())
+    def test_non_tier_general_purpose_with_model_gets_two_reasons(self):
+        reasons = evaluate(make_event(subagent_type="general-purpose",
+                                      prompt=COMPLIANT, model="opus"))
+        self.assertEqual(len(reasons), 2, reasons)
+        self.assertIn(NON_TIER_MSG, reasons[0])
+        self.assertIn(MODEL_MSG, reasons[1])
 
-    def test_all_three_violations_are_reported_in_order(self):
+    def test_all_four_violations_are_reported_in_order(self):
         reasons = evaluate(make_event(
             subagent_type="exec-haiku-low", prompt="Task T1.", model="opus"))
-        self.assertEqual(len(reasons), 3, reasons)
+        self.assertEqual(len(reasons), 4, reasons)
         self.assertIn(NO_SKILLS_MSG, reasons[0])
         self.assertIn(ADVISOR_MSG, reasons[1])
-        self.assertIn(MODEL_MSG, reasons[2])
+        self.assertIn(OUTPUT_MSG, reasons[2])
+        self.assertIn(MODEL_MSG, reasons[3])
 
     def test_skills_with_only_spaces_is_reported(self):
         reasons = evaluate(make_event(
@@ -235,16 +249,17 @@ class TestScriptExitCodes(unittest.TestCase):
         result = run_script(json.dumps(event))
         self.assertEqual(result.returncode, 0)
 
-    def test_three_violations_write_three_lines_in_order(self):
+    def test_four_violations_write_four_lines_in_order(self):
         event = make_event(subagent_type="exec-haiku-low",
                            prompt="Task T1.", model="opus")
         result = run_script(json.dumps(event))
         self.assertEqual(result.returncode, 2)
         lines = result.stderr.splitlines()
-        self.assertEqual(len(lines), 3, lines)
+        self.assertEqual(len(lines), 4, lines)
         self.assertIn(NO_SKILLS_MSG, lines[0])
         self.assertIn(ADVISOR_MSG, lines[1])
-        self.assertIn(MODEL_MSG, lines[2])
+        self.assertIn(OUTPUT_MSG, lines[2])
+        self.assertIn(MODEL_MSG, lines[3])
 
     def test_scoped_planner_exits_zero(self):
         event = make_event(subagent_type=f"{PLUGIN}:planner-opus-high",
@@ -258,6 +273,166 @@ class TestScriptExitCodes(unittest.TestCase):
             missing = Path(tmp) / "absent.json"
             result = run_script(json.dumps(make_event(prompt="no lines")),
                                 "--config", str(missing))
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("config unavailable", result.stderr)
+
+
+class TestHandoffRules(unittest.TestCase):
+    def reasons(self, agent, prompt=COMPLIANT, **extra):
+        return evaluate(make_event(subagent_type=agent, prompt=prompt, **extra))
+
+    def test_tc2_missing_subagent_type_defaults_to_general_purpose(self):
+        event = {"tool_name": "Agent", "tool_input": {"prompt": COMPLIANT}}
+        reasons = evaluate(event)
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("'general-purpose'", reasons[0])
+
+    def test_tc3_fork_is_denied(self):
+        reasons = self.reasons("fork")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("'fork'", reasons[0])
+        self.assertIn(NON_TIER_MSG, reasons[0])
+
+    def test_tc4_explore_is_denied(self):
+        reasons = self.reasons("Explore")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(NON_TIER_MSG, reasons[0])
+
+    def test_tc6_allowlisted_agent_passes(self):
+        self.assertEqual(self.reasons("statusline-setup", prompt="do it"), ())
+
+    def test_tc7_allowlisted_agent_with_model_gets_parameter_reason(self):
+        reasons = self.reasons("claude-code-guide", model="haiku")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(MODEL_MSG, reasons[0])
+
+    def test_tc9_compliant_tier_passes(self):
+        self.assertEqual(self.reasons("exec-haiku-low"), ())
+
+    def test_tc10_missing_output_line_is_reported(self):
+        reasons = self.reasons(
+            "exec-haiku-low", "Skills: none.\nNever consult the advisor.")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(OUTPUT_MSG, reasons[0])
+
+    def test_tc11_relative_output_path_is_reported(self):
+        reasons = self.reasons(
+            "exec-haiku-low",
+            "Skills: none.\nNever consult the advisor.\nOutput: report.md")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(OUTPUT_MSG, reasons[0])
+
+    def test_tc12_skill_name_instead_of_path_is_reported(self):
+        reasons = self.reasons(
+            "exec-haiku-low",
+            "Skills: tdd-workflow\nNever consult the advisor.\nOutput: /tmp/r.md")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("names 'tdd-workflow'", reasons[0])
+        self.assertIn(SKILL_PATH_MSG, reasons[0])
+
+    def skills_prompt(self, value):
+        return f"Skills: {value}\nNever consult the advisor.\nOutput: /tmp/r.md"
+
+    def test_tc13_existing_and_missing_skill_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp) / "a" / "SKILL.md"
+            b = Path(tmp) / "b" / "SKILL.md"
+            for f in (a, b):
+                f.parent.mkdir()
+                f.write_text("x")
+            self.assertEqual(
+                self.reasons("exec-haiku-low", self.skills_prompt(f"{a}, {b}")), ())
+            missing = "/nonexistent/x/SKILL.md"
+            reasons = self.reasons(
+                "exec-haiku-low", self.skills_prompt(f"{a}, {missing}"))
+            self.assertEqual(len(reasons), 1, reasons)
+            self.assertIn(missing, reasons[0])
+
+    def test_tc14_non_skill_file_name_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "a" / "README.md"
+            f.parent.mkdir()
+            f.write_text("x")
+            reasons = self.reasons("exec-haiku-low", self.skills_prompt(str(f)))
+            self.assertEqual(len(reasons), 1, reasons)
+            self.assertIn(SKILL_PATH_MSG, reasons[0])
+
+    def test_tc15_home_relative_skill_path_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "skills" / "x" / "SKILL.md"
+            f.parent.mkdir(parents=True)
+            f.write_text("x")
+            with mock.patch.dict(os.environ, {"HOME": tmp}):
+                reasons = self.reasons(
+                    "exec-haiku-low", self.skills_prompt("~/skills/x/SKILL.md"))
+            self.assertEqual(reasons, ())
+
+    def test_tc16_inline_prompt_passes(self):
+        prompt = "Skills: none. Never consult the advisor. Output: /tmp/r.md"
+        self.assertEqual(self.reasons("exec-haiku-low", prompt), ())
+
+    def test_tc17_uppercase_none_passes(self):
+        prompt = "Skills: NONE\nNever consult the advisor.\nOutput: /tmp/r.md"
+        self.assertEqual(self.reasons("exec-haiku-low", prompt), ())
+
+    def test_tc18_planner_needs_output_but_no_advisor_line(self):
+        prompt = "Skills: none\nOutput: /tmp/docs/plans/x.md"
+        self.assertEqual(self.reasons("planner-opus-high", prompt), ())
+        reasons = self.reasons("planner-opus-high", "Skills: none")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(OUTPUT_MSG, reasons[0])
+
+    def test_tc19_four_reasons_in_order(self):
+        reasons = self.reasons("exec-haiku-low", "Task T1.", model="opus")
+        self.assertEqual(len(reasons), 4, reasons)
+        for reason, marker in zip(
+                reasons, (NO_SKILLS_MSG, ADVISOR_MSG, OUTPUT_MSG, MODEL_MSG)):
+            self.assertIn(marker, reason)
+
+    def test_tc24_scoped_tier_with_effort_gets_parameter_reason(self):
+        reasons = self.reasons(f"{PLUGIN}:exec-haiku-low", effort="high")
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(EFFORT_MSG, reasons[0])
+
+    def test_tc25_backtick_none_with_reason_passes(self):
+        prompt = ("`Skills: none` (no applicable skill in the inventory)\n"
+                  "Never consult the advisor.\nOutput: /tmp/r.md")
+        self.assertEqual(self.reasons("exec-haiku-low", prompt), ())
+
+    def test_tc26_none_followed_by_text_passes(self):
+        prompt = ("Skills: none, see the plan\nNever consult the advisor.\n"
+                  "Output: /tmp/r.md")
+        self.assertEqual(self.reasons("exec-haiku-low", prompt), ())
+
+    def test_tc27_backtick_wrapped_path_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "a" / "SKILL.md"
+            f.parent.mkdir()
+            f.write_text("x")
+            reasons = self.reasons("exec-haiku-low", self.skills_prompt(f"`{f}`"))
+            self.assertEqual(reasons, ())
+
+
+class TestHandoffScript(unittest.TestCase):
+    def test_tc20_general_purpose_exits_two(self):
+        event = make_event(subagent_type="general-purpose", prompt=COMPLIANT)
+        result = run_script(json.dumps(event))
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(result.stderr.startswith(f"{PLUGIN} dispatch guard:"),
+                        result.stderr)
+        self.assertIn(NON_TIER_MSG, result.stderr)
+
+    def test_tc21_allowlisted_agent_exits_zero_silently(self):
+        event = make_event(subagent_type="statusline-setup", prompt="do it")
+        result = run_script(json.dumps(event))
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+
+    def test_tc22_missing_config_with_off_policy_agent_fails_open(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "absent.json"
+            event = make_event(subagent_type="general-purpose", prompt="x")
+            result = run_script(json.dumps(event), "--config", str(missing))
         self.assertEqual(result.returncode, 0)
         self.assertIn("config unavailable", result.stderr)
 

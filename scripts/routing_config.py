@@ -83,6 +83,7 @@ class RoutingConfig:
     agent_frontmatter: tuple = ()
     agent_frontmatter_by_model: Mapping = field(default_factory=dict)
     dispatch_allow_agents: tuple = ()
+    dispatch_blocked_output_names: str = ""
 
 
 def model_family(model: Optional[str]) -> Optional[str]:
@@ -311,7 +312,12 @@ def _validate_dispatch(raw: Any, tier_names: set) -> list:
              and all(isinstance(a, str) and a and not re.search(r"\s", a) for a in allow))
     if not valid:
         return ["dispatch.allow_agents: must be a list of unique agent type names"]
-    return [f"dispatch.allow_agents: {a} is a tier" for a in allow if a in tier_names]
+    errors = [f"dispatch.allow_agents: {a} is a tier" for a in allow if a in tier_names]
+    try:
+        re.compile(raw.get("blocked_output_names"))
+    except (re.error, TypeError):
+        errors.append("dispatch.blocked_output_names: must be a valid regular expression")
+    return errors
 
 
 def _validate_policy(policy: Any) -> list:
@@ -425,6 +431,7 @@ def _build(raw: Mapping) -> RoutingConfig:
             k: tuple(v.items()) for k, v in raw["agent_frontmatter"]["by_model"].items()
         }),
         dispatch_allow_agents=tuple(raw["dispatch"]["allow_agents"]),
+        dispatch_blocked_output_names=raw["dispatch"]["blocked_output_names"],
     )
 
 

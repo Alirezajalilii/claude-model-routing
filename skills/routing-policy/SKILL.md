@@ -94,7 +94,7 @@ Everything else goes through the full lane. A planner is only for work that need
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
-   - Green: the task's verification commands and the full test suite pass.
+   - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass.
    - Report: the status line's commits are the task's commits on its branch and the report file exists; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
@@ -121,6 +121,7 @@ Everything else goes through the full lane. A planner is only for work that need
 - Every tier agent writes its full output to a file and replies with one status line that names the file. The main session never reads these files; it passes their paths to the next agent.
 - Handoff directory: one per run, `docs/handoffs/<YYYY-MM-DD>-<topic-slug>/` in the project (or the run directory the project's rules name), kept out of version control. An agent working in a worktree writes inside that worktree's copy of the directory.
 - Every tier delegation carries an `Output:` line with the absolute path of a new file in the handoff directory (for planners, the plan file), and a `Project rules:` line when the agent should read something other than the root `CLAUDE.md`/`AGENTS.md` and their in-repository imports (`Project rules: none` for nothing).
+- Name handoff files so that no file name starts with `report`, `summary`, `findings` or `analysis` (any case) and ends in `.md`: Claude Code refuses a subagent's Write to such a file, and the dispatch guard denies the delegation. Use role and task names such as `scout-1.md`, `exec-T3.md`, `gate-T3.md` and `verdict-T3.md`.
 - Status lines: scouts `DONE <path>` or `BLOCKED <path> reason=<one line>`; executors `DONE <path> commits=<sha>,<sha>` or `BLOCKED <path> reason=<one line>`; verifiers `PASS <path>`, `FIX <path>`, `REPLAN <path> fix=small|design` or `BLOCKED <path> reason=<one line>`; planners `READY <plan path>`, `NEED_EVIDENCE <requests path> scouts=<k>`, `OUT_OF_TOPIC <reason>`, `NO_PLAN_NEEDED <reason>` or `BLOCKED <plan path> reason=<one line>`. Decide BLOCKED and REPLAN handling from the inline `reason=` and `fix=` alone. A trailing `findings=<n>` means the file lists n out-of-scope findings: read only that section and route each finding (fast lane, or a fresh planner).
 - Relay by path only: scout output files and the skills inventory file to the planner; for NEED_EVIDENCE, one scout per `## Scout <k>` section of the requests file, at the tier its heading proposes unless you have a reason to change it; the plan path and task ID to executors; the executor's report path to the verifier; the verdict path to the executor (FIX) or to the planner (REPLAN). For a Green-only gate failure, redirect the failing command's output into a file in the handoff directory and pass its path.
 - Delegation and resume messages carry paths and short instructions, never copied evidence, reports or defect lists.
@@ -228,7 +229,7 @@ All other tasks are Verify: no and rely on the gate.
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
 - A task that genuinely needs broad context or many skills is a Sonnet task.
-- Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact before the 100K line (`autoCompactWindow`), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
+- Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
 - A task expected to need more than about 25 tool calls is not a Haiku task.
 
 ## Escalation caps
@@ -251,7 +252,7 @@ Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: H
 - Project rules: if your delegation has a `Project rules:` line, read exactly the files it lists before anything else (`Project rules: none` means none). Without that line, read the repository root's `CLAUDE.md` and `AGENTS.md` if they exist (once, if one only imports the other). Read files those rules import or point to only when they lie inside the repository. Read instruction files outside it (user-level or workspace-level rules, personal notes) only when your `Project rules:` line lists them.
 - When instructions conflict: this agent definition first, then the project rules files, then the plan or the delegation, then skills.
 - Secrets: never print, echo or log a secret value, and never write one into a file, a commit, a commit message or your output. Read secrets from environment variables, as the project rules describe.
-- Never push, merge, deploy, publish, or run destructive operations (force-push, history rewrite, branch deletion, deleting data or files outside your task, dropping or migrating databases) unless your delegation or plan task gives that exact command.
+- Never push, merge, deploy, publish, or run destructive operations (force-push, rewriting pushed or shared history, branch deletion, deleting data or files outside your task, dropping or migrating databases) unless your delegation or plan task gives that exact command.
 - Write everything you store (code, comments, commit messages, files, your output) in English, unless the project rules or the task require another language for specific content.
 - If you notice a bug or defect outside your task, do not fix it: describe it (file, line, symptom) under "Out-of-scope findings" in your output file and count it in your status line.
 

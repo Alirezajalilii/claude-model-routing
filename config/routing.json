@@ -27,7 +27,7 @@
   "extra_rules_by_model": {
     "haiku": ["Stay inside the paths, line ranges and question you were given. Do not read beyond them or explore the wider repository; if the answer is not there, say so and stop."]
   },
-  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {"haiku": {"autoCompactWindow": 100000}}},
+  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {"haiku": {"autoCompactWindow": 123000}}},
   "effort_labels": {"low": "low", "medium": "med", "high": "high", "xhigh": "xhigh"},
   "tiers": [
       {"name": "scout-haiku-low", "role": "scout", "model": "haiku", "effort": "low", "description": "Read-only scout, cheapest tier: locate files, symbols, call sites and configs; map directory structure. Give it a narrow question, exact starting paths and a Skills line. Writes its evidence only to the Output file it is given."},
@@ -47,7 +47,7 @@
       {"name": "verify-opus-high", "role": "verifier", "model": "opus", "effort": "high", "description": "Verifier for tasks done by exec-sonnet-xhigh and any task touching authentication, payments, data integrity, migrations or security. Runs only when a verification trigger applies (Verify: yes, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."}
   ],
   "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
-  "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"]},
+  "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"], "blocked_output_names": "^(report|summary|findings|analysis).*\\.md$"},
   "policy": {
     "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output"],
     "dispatcher_parts": [

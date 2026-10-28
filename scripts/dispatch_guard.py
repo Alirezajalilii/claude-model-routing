@@ -5,8 +5,10 @@ The agent is `subagent_type`, or `general-purpose` when it is missing or empty.
   - A tier agent (bare or plugin-scoped) is blocked when its prompt has no
     `Skills:` line; when that line names anything but `none` or readable
     absolute SKILL.md paths; when it is a non-planner without the line
-    "Never consult the advisor."; or when it has no `Output:` line with an
-    absolute path.
+    "Never consult the advisor."; when it has no `Output:` line with an
+    absolute path; or when that path's file name matches
+    `dispatch.blocked_output_names`, the names Claude Code's Write tool
+    refuses to subagents.
   - An agent type that is neither a tier nor in `dispatch.allow_agents` of the
     routing config is blocked.
   - Any agent is blocked when it passes a non-empty `model` or `effort`.
@@ -70,21 +72,27 @@ def _skills_reasons(agent: str, prompt: str, prefix: str) -> list:
     ]
 
 
-def _output_reasons(agent: str, prompt: str, prefix: str) -> list:
+def _output_reasons(agent: str, prompt: str, prefix: str, blocked: str) -> list:
     match = OUTPUT_LINE.search(prompt)
-    if match and Path(match.group(1).rstrip(".")).expanduser().is_absolute():
-        return []
-    return [f"{prefix} delegation to {agent} has no Output line with an "
-            "absolute file path. Add 'Output: /absolute/path.md' and resend."]
+    path = Path(match.group(1).rstrip(".")).expanduser() if match else None
+    if path is None or not path.is_absolute():
+        return [f"{prefix} delegation to {agent} has no Output line with an "
+                "absolute file path. Add 'Output: /absolute/path.md' and resend."]
+    if blocked and re.search(blocked, path.name, re.IGNORECASE):
+        return [f"{prefix} Output file name '{path.name}' of the delegation to {agent} "
+                "is one Claude Code refuses to let a subagent write. Rename it "
+                "(for example exec-<task>.md or verdict-<task>.md) and resend."]
+    return []
 
 
-def _tier_reasons(agent: str, uses_advisor: bool, prompt: str, prefix: str) -> list:
+def _tier_reasons(agent: str, uses_advisor: bool, prompt: str, prefix: str,
+                  blocked: str) -> list:
     reasons = _skills_reasons(agent, prompt, prefix)
     if not uses_advisor and not ADVISOR_LINE.search(prompt):
         reasons.append(
             f"{prefix} delegation to {agent} lacks the line "
             "'Never consult the advisor.'. Add it and resend.")
-    return reasons + _output_reasons(agent, prompt, prefix)
+    return reasons + _output_reasons(agent, prompt, prefix, blocked)
 
 
 def _parameter_reasons(tool_input: Mapping, agent: str, prefix: str) -> list:
@@ -101,7 +109,8 @@ def _agent_reasons(tool_input: Mapping, agent: str, config: rc.RoutingConfig,
     tier = rc.resolve_tier(agent, config)
     if tier is not None:
         uses_advisor = rc.role_of(tier, config).uses_advisor
-        return _tier_reasons(agent, uses_advisor, _prompt_of(tool_input), prefix)
+        return _tier_reasons(agent, uses_advisor, _prompt_of(tool_input), prefix,
+                             config.dispatch_blocked_output_names)
     if agent in config.dispatch_allow_agents:
         return []
     return [f"{prefix} subagent type '{agent}' is not a routing tier or an "

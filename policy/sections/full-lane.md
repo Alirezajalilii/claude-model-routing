@@ -15,7 +15,7 @@
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
-   - Green: the task's verification commands and the full test suite pass.
+   - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass.
    - Report: the status line's commits are the task's commits on its branch and the report file exists; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);

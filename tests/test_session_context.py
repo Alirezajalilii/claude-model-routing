@@ -63,7 +63,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertEqual(hook["hookEventName"], "SessionStart")
         self.assertTrue(
             hook["additionalContext"].startswith(
-                "# model-routing policy, part 1 of 2:"
+                "# mr policy, part 1 of 2:"
             )
         )
         self.assertIn(f"Session id: `{SESSION_ID}`", hook["additionalContext"])
@@ -75,7 +75,7 @@ class MainOutputTest(FixtureTestCase):
         code, out, _ = self.run_main(2, stdin, env=env)
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        self.assertTrue(text.startswith("# model-routing policy, part 2 of 2: Beta"))
+        self.assertTrue(text.startswith("# mr policy, part 2 of 2: Beta"))
         self.assertNotIn("## Session", text)
         self.assertNotIn("## Configuration warnings", text)
 
@@ -95,7 +95,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertTrue(err.startswith("session_context:"))
 
     def test_tier_agent_type_prints_nothing_scoped(self):
-        stdin = event_json(agent_type="model-routing:exec-haiku-low")
+        stdin = event_json(agent_type="mr:exec-haiku-low")
         code, out, _ = self.run_main(1, stdin)
         self.assertEqual(code, 0)
         self.assertEqual(out, "")
@@ -116,7 +116,7 @@ class MainOutputTest(FixtureTestCase):
         code, out, _ = self.run_main(1, "not json {")
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        self.assertTrue(text.startswith("# model-routing policy, part 1 of 2:"))
+        self.assertTrue(text.startswith("# mr policy, part 1 of 2:"))
         self.assertNotIn("## Session", text)
 
     def test_oversized_part_is_replaced_by_skill_pointer(self):
@@ -125,7 +125,7 @@ class MainOutputTest(FixtureTestCase):
         self.assertEqual(code, 0)
         text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
         self.assertLess(len(text), 10000)
-        self.assertIn("model-routing:routing-policy", text)
+        self.assertIn("mr:routing-policy", text)
         self.assertIn("sec-a", text)
         self.assertNotIn("x" * 100, text)
 
@@ -228,15 +228,15 @@ class BuildContextTest(FixtureTestCase):
         text = sc.build_context(self.config, 1, {}, SPAWN_OK, sections_dir=self.sections)
         self.assertNotIn("## Session", text)
         self.assertNotIn("## Configuration warnings", text)
-        self.assertIn("Alpha body for model-routing.", text)
+        self.assertIn("Alpha body for mr.", text)
 
     def test_session_line_names_routing_tools(self):
         text = sc.build_context(
             self.config, 1, {"session_id": SESSION_ID}, SPAWN_OK, sections_dir=self.sections
         )
         self.assertIn(f"- Session id: `{SESSION_ID}`", text)
-        self.assertIn("model-routing-usage", text)
-        self.assertIn("model-routing-audit", text)
+        self.assertIn("mr-usage", text)
+        self.assertIn("mr-audit", text)
 
     def test_warnings_are_bulleted(self):
         text = sc.build_context(
@@ -259,7 +259,7 @@ class BuildContextTest(FixtureTestCase):
             SPAWN_OK,
             sections_dir=self.sections,
         )
-        self.assertIn("model-routing:routing-policy", text)
+        self.assertIn("mr:routing-policy", text)
         self.assertIn("## Session", text)
         self.assertIn("## Configuration warnings", text)
         self.assertIn("this session runs on claude-opus-5-5", text)
@@ -275,7 +275,7 @@ class BuildContextTest(FixtureTestCase):
             SPAWN_OK,
             sections_dir=self.sections,
         )
-        self.assertIn("model-routing:routing-policy", text)
+        self.assertIn("mr:routing-policy", text)
         self.assertNotIn("## Session", text)
         self.assertNotIn("## Configuration warnings", text)
 
@@ -287,7 +287,7 @@ class BuildContextTest(FixtureTestCase):
             SPAWN_OK,
             sections_dir=self.sections,
         )
-        self.assertIn("Alpha body for model-routing.", text)
+        self.assertIn("Alpha body for mr.", text)
         self.assertLess(text.index("Alpha body"), text.index("## Session"))
         self.assertLess(text.index("## Session"), text.index("## Configuration warnings"))
         self.assertIn("this session runs on claude-opus-5-5", text)

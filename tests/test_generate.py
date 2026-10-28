@@ -76,7 +76,7 @@ class GenerateTest(unittest.TestCase):
         self.assertEqual(json.loads(values["description"]), tier.description)
 
     def test_planner_disallowed_and_no_skills_key(self):
-        pairs, _ = split_agent(self.agent("planner-opus-high"))
+        pairs, _ = split_agent(self.agent("plan-opus-high"))
         self.assertEqual(
             dict(pairs)["disallowedTools"],
             ", ".join(self.config.roles["planner"].disallowed_tools),
@@ -86,11 +86,11 @@ class GenerateTest(unittest.TestCase):
             self.assertNotIn("skills", keys)
 
     def test_sonnet_and_planner_frontmatter(self):
-        for name in ("exec-sonnet-high", "planner-opus-high"):
+        for name in ("exec-sonnet-high", "plan-opus-high"):
             pairs, _ = split_agent(self.agent(name))
             self.assertEqual(pairs[-1][0], "omitClaudeMd", name)
             self.assertNotIn("autoCompactWindow", [k for k, _ in pairs])
-        pairs, _ = split_agent(self.agent("planner-opus-high"))
+        pairs, _ = split_agent(self.agent("plan-opus-high"))
         self.assertEqual(dict(pairs)["tools"], "Read, Grep, Glob, Write, Edit")
 
     def test_fixture_config_by_model_only(self):

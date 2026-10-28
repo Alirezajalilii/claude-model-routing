@@ -93,7 +93,7 @@ class InitProjectTest(unittest.TestCase):
         self.assertEqual(self.read("CLAUDE.md"), "# P\n\n" + expected_pointer() + "\n")
 
     def test_claude_md_already_mentioning_policy_is_unchanged(self) -> None:
-        original = "# P\n\n" + init_project.pointer_line("model-routing") + "\n"
+        original = "# P\n\n" + init_project.pointer_line("mr") + "\n"
         (self.project / "CLAUDE.md").write_text(original, encoding="utf-8")
 
         code, out, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
@@ -115,10 +115,10 @@ class InitProjectTest(unittest.TestCase):
     def test_new_claude_md_pointer_names_the_plugin(self) -> None:
         code, _, _ = self.run_main("--project-dir", str(self.project), "--claude-md")
 
-        pointer = init_project.pointer_line("model-routing")
+        pointer = init_project.pointer_line("mr")
         self.assertEqual(code, 0)
         self.assertEqual(self.read("CLAUDE.md"), pointer + "\n")
-        self.assertIn("the model-routing plugin", pointer)
+        self.assertIn("the mr plugin", pointer)
 
     def test_missing_project_dir_exits_2(self) -> None:
         missing = self.project / "nope"

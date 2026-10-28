@@ -83,12 +83,12 @@ class TestEvaluate(unittest.TestCase):
 
     def test_tc6_planner_needs_no_advisor_line(self):
         self.assertEqual(
-            evaluate(make_event(subagent_type="planner-opus-high", prompt=SKILLS_ONLY)),
+            evaluate(make_event(subagent_type="plan-opus-high", prompt=SKILLS_ONLY)),
             ())
 
     def test_tc7_model_key_is_reported(self):
         reasons = evaluate(make_event(
-            subagent_type="verifier-sonnet-high", prompt=BOTH_LINES, model="opus"))
+            subagent_type="verify-sonnet-high", prompt=BOTH_LINES, model="opus"))
         self.assertTrue(any(MODEL_MSG in r for r in reasons), reasons)
 
     def test_tc9_inline_skills_and_advisor_pass(self):
@@ -110,7 +110,7 @@ class TestEvaluate(unittest.TestCase):
             evaluate({"tool_name": "Agent", "tool_input": "x"}), ())
 
     def test_scoped_planner_without_advisor_line_passes(self):
-        event = make_event(subagent_type=f"{PLUGIN}:planner-opus-high",
+        event = make_event(subagent_type=f"{PLUGIN}:plan-opus-high",
                            prompt=SKILLS_ONLY)
         self.assertEqual(evaluate(event), ())
 
@@ -221,7 +221,7 @@ class TestScriptExitCodes(unittest.TestCase):
         self.assertIn(ADVISOR_MSG, result.stderr)
 
     def test_tc7_model_key_exits_two(self):
-        event = make_event(subagent_type="verifier-sonnet-high",
+        event = make_event(subagent_type="verify-sonnet-high",
                            prompt=BOTH_LINES, model="opus")
         result = run_script(json.dumps(event))
         self.assertEqual(result.returncode, 2)
@@ -262,7 +262,7 @@ class TestScriptExitCodes(unittest.TestCase):
         self.assertIn(MODEL_MSG, lines[3])
 
     def test_scoped_planner_exits_zero(self):
-        event = make_event(subagent_type=f"{PLUGIN}:planner-opus-high",
+        event = make_event(subagent_type=f"{PLUGIN}:plan-opus-high",
                            prompt=SKILLS_ONLY)
         result = run_script(json.dumps(event))
         self.assertEqual(result.returncode, 0)
@@ -377,8 +377,8 @@ class TestHandoffRules(unittest.TestCase):
 
     def test_tc18_planner_needs_output_but_no_advisor_line(self):
         prompt = "Skills: none\nOutput: /tmp/docs/plans/x.md"
-        self.assertEqual(self.reasons("planner-opus-high", prompt), ())
-        reasons = self.reasons("planner-opus-high", "Skills: none")
+        self.assertEqual(self.reasons("plan-opus-high", prompt), ())
+        reasons = self.reasons("plan-opus-high", "Skills: none")
         self.assertEqual(len(reasons), 1, reasons)
         self.assertIn(OUTPUT_MSG, reasons[0])
 

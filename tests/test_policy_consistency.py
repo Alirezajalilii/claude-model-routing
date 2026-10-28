@@ -243,7 +243,7 @@ class DispatcherHandoffTest(unittest.TestCase):
             "omitClaudeMd",
             "general-purpose",
             "SKILL.md path",
-            "model-routing-skills --out",
+            "mr-skills --out",
             "executor's report path",
             "the verdict file path",
         ):
@@ -300,7 +300,7 @@ class DispatcherHandoffTest(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         ctx = json.loads(out.getvalue())["hookSpecificOutput"]["additionalContext"]
-        self.assertTrue(ctx.startswith("# model-routing policy, part 5 of 5:"), ctx[:80])
+        self.assertTrue(ctx.startswith("# mr policy, part 5 of 5:"), ctx[:80])
 
 
 if __name__ == "__main__":

@@ -72,7 +72,7 @@ class ValuesTest(unittest.TestCase):
         self.assertTrue(
             lines[0].startswith(
                 "- Scouts: `scout-haiku-low` (haiku, low), "
-                "`scout-haiku-medium` (haiku, medium)"
+                "`scout-haiku-med` (haiku, medium)"
             )
         )
         self.assertTrue(lines[3].startswith("- Verifiers:"))
@@ -97,10 +97,10 @@ class PartTest(unittest.TestCase):
             self.assertEqual(pt.part_count(config), 2)
             out = pt.render_part(config, 1, Path(tmp))
         self.assertTrue(
-            out.startswith("# model-routing policy, part 1 of 2: First\n\n")
+            out.startswith("# mr policy, part 1 of 2: First\n\n")
         )
         body = out.split("\n\n", 1)[1]
-        self.assertEqual(body, "Alpha\n\nBeta model-routing")
+        self.assertEqual(body, "Alpha\n\nBeta mr")
 
     def test_out_of_range(self):
         with tempfile.TemporaryDirectory() as tmp:

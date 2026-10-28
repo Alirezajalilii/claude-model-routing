@@ -138,17 +138,17 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc1_scoped_and_bare_names_share_one_row(self):
         base = write_session(self.root, sid(10), [
-            agent("pppppppppppppp1", "model-routing:exec-haiku-low",
+            agent("pppppppppppppp1", "mr:exec-haiku-low",
                   HAIKU_PROMPT),
             agent("qqqqqqqqqqqqqq2", "exec-haiku-low", HAIKU_PROMPT),
         ])
         _, out = self.run_report(base)
         self.assertIn("- exec-haiku-low: 2", out)
-        self.assertNotIn("model-routing:exec-haiku-low: ", out)
+        self.assertNotIn("mr:exec-haiku-low: ", out)
 
     def test_tc2_planner_budget_six_is_flagged(self):
         base = write_session(self.root, sid(2), [
-            agent("ccccccccccccccc3", "planner-opus-high",
+            agent("ccccccccccccccc3", "plan-opus-high",
                   "Skills: none\nPlan the change.", reads(6)),
         ])
         _, out = self.run_report(base)
@@ -156,7 +156,7 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc2_planner_budget_five_is_not_flagged(self):
         base = write_session(self.root, sid(3), [
-            agent("ddddddddddddddd4", "planner-opus-high",
+            agent("ddddddddddddddd4", "plan-opus-high",
                   "Skills: none\nPlan the change.", reads(5)),
         ])
         _, out = self.run_report(base)
@@ -164,7 +164,7 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc3_scout_missing_skills_and_advisor_line(self):
         base = write_session(self.root, sid(4), [
-            agent("eeeeeeeeeeeeeee5", "scout-haiku-medium", "Find the files."),
+            agent("eeeeeeeeeeeeeee5", "scout-haiku-med", "Find the files."),
         ])
         _, out = self.run_report(base)
         scout = lines_for(out, "eeeeeeeeee")
@@ -174,7 +174,7 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc3_scoped_every_use_tier_is_flagged(self):
         base = write_session(self.root, sid(11), [
-            agent("rrrrrrrrrrrrrrr3", "model-routing:scout-sonnet-high",
+            agent("rrrrrrrrrrrrrrr3", "mr:scout-sonnet-high",
                   "Skills: none\nNever consult the advisor.\nFind it."),
         ])
         _, out = self.run_report(base)
@@ -219,7 +219,7 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_verbose_lists_tool_calls(self):
         base = write_session(self.root, sid(22), [
-            agent("jjjjjjjjjjjjjjj0", "planner-opus-high",
+            agent("jjjjjjjjjjjjjjj0", "plan-opus-high",
                   "Skills: none\nPlan.", reads(2)),
         ])
         out = io.StringIO()
@@ -303,7 +303,7 @@ class RoutingAuditTest(unittest.TestCase):
     def flags_of(self, out):
         return out.split("## Flags", 1)[1]
 
-    def haiku_session(self, n, requests, atype="exec-haiku-medium", final="DONE x"):
+    def haiku_session(self, n, requests, atype="exec-haiku-med", final="DONE x"):
         return write_session(self.root, sid(n), [
             agent("hh%014d" % n, atype, HAIKU_PROMPT, requests=requests, final=final),
         ])
@@ -432,7 +432,7 @@ class RoutingAuditTest(unittest.TestCase):
         )]
         others = [("Grep", {"pattern": f"needle{i}"}) for i in range(5)]
         base = write_session(self.root, sid(47), [
-            agent("pe00000000000001", "planner-opus-high", prompt, exempt + others),
+            agent("pe00000000000001", "plan-opus-high", prompt, exempt + others),
         ])
         _, out = self.run_report(base)
         self.assertNotIn("evidence budget", out)
@@ -440,7 +440,7 @@ class RoutingAuditTest(unittest.TestCase):
     def test_f8_other_planner_calls_still_count(self):
         prompt = "Skills: none\nNever consult the advisor.\nPlan it."
         base = write_session(self.root, sid(48), [
-            agent("pe00000000000002", "planner-opus-high", prompt,
+            agent("pe00000000000002", "plan-opus-high", prompt,
                   [("Grep", {"pattern": f"needle{i}"}) for i in range(6)]),
         ])
         _, out = self.run_report(base)
@@ -453,7 +453,7 @@ class RoutingAuditTest(unittest.TestCase):
         calls = [("Read", {"file_path": long_skill})] * 6 + \
             [("Grep", {"pattern": f"needle{i}"}) for i in range(5)]
         base = write_session(self.root, sid(49), [
-            agent("pe00000000000003", "planner-opus-high", prompt, calls),
+            agent("pe00000000000003", "plan-opus-high", prompt, calls),
         ])
         _, out = self.run_report(base)
         self.assertNotIn("evidence budget", out)

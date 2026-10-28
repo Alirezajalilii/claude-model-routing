@@ -10,7 +10,7 @@ This project follows the workspace standard in ~/Work/AGENTS.md. Read that first
 ## Stack
 - Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.1.0 per CHANGELOG.md).
 - Python 3.9+ standard library only; no third-party packages (CONTRIBUTING.md). Tests use `unittest`.
-- Plugin parts: hooks (`hooks/hooks.json`: SessionStart, PreToolUse on `Agent|Task`, SessionEnd), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
+- Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task` runs the dispatch guard, SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
 - Single source of truth for tiers, roles and tunables: `config/routing.json`. Policy text: `policy/`.
 - No database, no queue, no containers, no CI (CONTRIBUTING.md: "There is no CI").
 
@@ -47,7 +47,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `.claude/` (local, gitignored): Claude Code local settings; never committed.
 
 ## Current state
-- Version 0.1.0 (2026-10-24) per CHANGELOG.md. The `[Unreleased]` section records planner changes (one planner per topic, one advisor consult per plan, planners get the Edit tool).
+- Version 0.1.0 (2026-10-24) per CHANGELOG.md. The `[Unreleased]` section records the planner changes (one planner per topic, one advisor consult per plan, planners get the Edit tool) and the file-handoff, strict dispatch guard, skills-by-path, Haiku limit and audit changes.
 - Branch `chore/adopt-workspace-standard` holds the workspace-standard adoption.
 - The repository has 14 local branches (feature and task branches such as `agent/T09`). Do not switch branches to inspect them; read with `git show <branch>:<path>`.
 
@@ -56,3 +56,4 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - Run Python with `python3 -B` (or `PYTHONDONTWRITEBYTECODE=1`); the scripts never write bytecode.
 - Settings the dispatch guard and session policy check (warnings, not errors): `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` should be `1`; `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be unset. See `.env.example`.
 - `data/` and `.agent/` are gitignored. Audit output goes to `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository.
+- The dispatch guard denies every agent type outside the tiers and dispatch.allow_agents in config/routing.json, including general-purpose and fork, so built-in commands that spawn them (/code-review, /simplify) stop unless allowlisted.

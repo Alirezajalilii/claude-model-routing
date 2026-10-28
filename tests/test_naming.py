@@ -18,6 +18,18 @@ import routing_config  # noqa: E402
 OLD = "claude-" + "model-routing"
 OLD_SCOPED = re.compile(r"(?<!@)" + re.escape(OLD) + r"(?::|@| policy| dispatch guard)")
 
+LEGACY = "model-" + "routing"
+LEGACY_NAME = re.compile(
+    r"(?<![\w/.-])" + re.escape(LEGACY)
+    + r"(?::|@| policy| dispatch guard|-usage|-audit|-skills|-init"
+    + r"| Claude Code plugin| plugin| session context)"
+    + "|" + r"plugin " + re.escape(LEGACY) + r"(?![\w-])"
+)
+LEGACY_TIER = re.compile(
+    r"(?<![\w-])(?:(?:planner|verifier)-(?:haiku|sonnet|opus)-(?:low|medium|high|xhigh)"
+    r"|(?:scout|exec)-(?:haiku|sonnet|opus)-medium)(?![\w-])"
+)
+
 
 def tracked_and_untracked_files() -> list[Path]:
     result = subprocess.run(
@@ -61,6 +73,18 @@ class NamingTest(unittest.TestCase):
                 if OLD_SCOPED.search(line):
                     hits.append(f"{path.relative_to(ROOT)}:{number}")
         self.assertEqual(hits, [], "old-form scoped names found:\n" + "\n".join(hits))
+
+    def test_no_legacy_plugin_or_tier_names_in_repository(self):
+        hits = []
+        skip = {ROOT / "CHANGELOG.md", ROOT / "docs" / "wiki" / "log.md"}
+        for path in tracked_and_untracked_files():
+            if path in skip or "raw" in path.relative_to(ROOT).parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for number, line in enumerate(text.splitlines(), start=1):
+                if LEGACY_NAME.search(line) or LEGACY_TIER.search(line):
+                    hits.append(f"{path.relative_to(ROOT)}:{number}")
+        self.assertEqual(hits, [], "legacy names found:\n" + "\n".join(hits))
 
     def test_session_context_uses_new_plugin_id(self):
         result = run_script("session_context.py", "{}", part="1")

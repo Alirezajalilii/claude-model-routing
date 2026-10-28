@@ -418,6 +418,45 @@ class RoutingAuditTest(unittest.TestCase):
         self.assertLess(main_at, agent_at)
         self.assertLess(agent_at, tier_at)
 
+    def test_f8_exempt_planner_reads_do_not_count(self):
+        prompt = ("Skills: none\nNever consult the advisor.\n"
+                  "Plan from /repo/evidence/scout-1.md")
+        exempt = [("Read", {"file_path": p}) for p in (
+            "/repo/evidence/scout-1.md",
+            "/Users/me/.claude/skills/routing-policy/SKILL.md",
+            "/repo/AGENTS.md",
+            "/repo/CLAUDE.md",
+            "/repo/evidence/scout-1.md",
+            "/repo/AGENTS.md",
+        )]
+        others = [("Grep", {"pattern": f"needle{i}"}) for i in range(5)]
+        base = write_session(self.root, sid(47), [
+            agent("pe00000000000001", "planner-opus-high", prompt, exempt + others),
+        ])
+        _, out = self.run_report(base)
+        self.assertNotIn("evidence budget", out)
+
+    def test_f8_other_planner_calls_still_count(self):
+        prompt = "Skills: none\nNever consult the advisor.\nPlan it."
+        base = write_session(self.root, sid(48), [
+            agent("pe00000000000002", "planner-opus-high", prompt,
+                  [("Grep", {"pattern": f"needle{i}"}) for i in range(6)]),
+        ])
+        _, out = self.run_report(base)
+        self.assertIn("over the planner evidence budget (6 calls)", out)
+
+    def test_f8_long_exempt_skill_path_is_exempt(self):
+        long_skill = "/Users/me/" + "nested/" * 15 + "SKILL.md"
+        self.assertGreater(len(long_skill), 90)
+        prompt = "Skills: none\nNever consult the advisor.\nPlan it."
+        calls = [("Read", {"file_path": long_skill})] * 6 + \
+            [("Grep", {"pattern": f"needle{i}"}) for i in range(5)]
+        base = write_session(self.root, sid(49), [
+            agent("pe00000000000003", "planner-opus-high", prompt, calls),
+        ])
+        _, out = self.run_report(base)
+        self.assertNotIn("evidence budget", out)
+
     def test_tc7_unknown_session_exits_two_with_stderr(self):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):

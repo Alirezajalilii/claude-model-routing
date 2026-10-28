@@ -133,6 +133,21 @@ class GitIntegrationTests(unittest.TestCase):
         self.assertEqual(out, "")
         self.assertTrue(err.strip())
 
+    def test_runtime_in_use_markers_ignored(self):
+        d = self.make_dir(extra=(".in_use/123", ".in_use/456"))
+        code, out, _ = self.run_cli(d)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("unexpected", out)
+        self.assertNotIn("missing", out)
+        self.assertEqual(out.splitlines()[-1], "OK: 2 files match HEAD")
+
+    def test_nested_in_use_still_unexpected(self):
+        d = self.make_dir(extra=("docs/.in_use/x",))
+        code, out, _ = self.run_cli(d)
+        self.assertEqual(code, 1)
+        self.assertIn("unexpected: docs/.in_use/x", out)
+        self.assertEqual(out.splitlines()[-1], "FAIL: 1 unexpected, 0 missing")
+
     def test_default_dir_through_git(self):
         home = self.tmp / "home"
         d = home / ".claude" / "plugins" / "cache" / MARKET / "model-routing" / "9.9.9"

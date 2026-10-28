@@ -11,7 +11,7 @@ per-agent detail, --out writes the report to a file.
 
 --hook never raises, prints nothing and always exits 0. It writes a report to
 $CLAUDE_PLUGIN_DATA/audits/ only when CLAUDE_PLUGIN_DATA is set and the session
-dispatched at least one tier agent.
+dispatched a tier agent or an agent type outside the tiers and the allowlist.
 """
 from __future__ import annotations
 
@@ -30,6 +30,8 @@ import routing_config as rc
 import transcripts as tr
 
 PLANNER_CALL_NAMES = frozenset({"Read", "Grep", "Glob"})
+STATUS_RE = re.compile(
+    r"^(DONE|BLOCKED|PASS|FIX|REPLAN|READY|NEED_EVIDENCE|OUT_OF_TOPIC|NO_PLAN_NEEDED)\b")
 SKILLS_RE = re.compile(r"\bSkills:[ \t]*\S")
 ADVISOR_RE = re.compile(r"never consult the advisor", re.IGNORECASE)
 PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA"
@@ -43,6 +45,8 @@ class AgentRow:
     prompt: str
     calls: tuple
     short_id: str
+    final_text: str = ""
+    requests: tuple = ()
 
 
 def _text_of(content) -> str:
@@ -67,8 +71,15 @@ def _tool_call(block, ts) -> Optional[tuple]:
     return (ts, block.get("name"), str(arg)[:90])
 
 
-def _scan_events(events: Iterable[dict]) -> tuple:
+def _last_text(content) -> str:
+    texts = [str(b.get("text") or "") for b in content
+             if isinstance(b, dict) and b.get("type") == "text"]
+    return next((t for t in reversed(texts) if t.strip()), "")
+
+
+def _scan_events(events: Sequence[dict]) -> tuple:
     prompt = ""
+    final = ""
     calls: list = []
     stamps: list = []
     for event in events:
@@ -81,7 +92,8 @@ def _scan_events(events: Iterable[dict]) -> tuple:
             prompt = _text_of(content)
         if event.get("type") == "assistant" and isinstance(content, list):
             calls.extend(c for c in (_tool_call(b, ts) for b in content) if c)
-    return prompt, tuple(calls), stamps
+            final = _last_text(content) or final
+    return prompt, tuple(calls), stamps, final
 
 
 def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
@@ -91,7 +103,8 @@ def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
         agent_type = tr.read_agent_type(tr.meta_path_for(jsonl))
         if want and not re.search(want, agent_type or ""):
             continue
-        prompt, calls, stamps = _scan_events(tr.read_jsonl(jsonl))
+        events = list(tr.read_jsonl(jsonl))
+        prompt, calls, stamps, final = _scan_events(events)
         rows.append(AgentRow(
             first=stamps[0] if stamps else "",
             last=stamps[-1] if stamps else "",
@@ -99,6 +112,8 @@ def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
             prompt=prompt,
             calls=calls,
             short_id=jsonl.name[6:16],
+            final_text=final,
+            requests=tr.request_usage(events),
         ))
     return tuple(sorted(rows, key=lambda r: (r.first, r.last, r.agent_type or "", r.short_id)))
 
@@ -123,11 +138,28 @@ def _budget_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
     return []
 
 
+def _haiku_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
+    limit = config.tunables["haiku_prompt_flag_tokens"]
+    over = [r.prompt_tokens for r in row.requests
+            if rc.model_family(r.model) == "haiku" and r.prompt_tokens > limit]
+    if not over:
+        return []
+    return [f"{len(over)} Haiku requests over {limit} prompt tokens (peak {max(over)})"]
+
+
+def _status_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
+    text = row.final_text.strip()
+    limit = config.tunables["status_line_max_chars"]
+    if "\n" in text or len(text) > limit or not STATUS_RE.match(text):
+        return [f"reply is not a status line ({len(text)} chars)"]
+    return []
+
+
 def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
-    """Return the policy flags of one tier agent; non-tier agents get none."""
+    """Return the policy flags of one agent; only tier agents get the tier checks."""
     tier = rc.resolve_tier(row.agent_type, config)
     if tier is None:
-        return []
+        return _haiku_labels(row, config)
     labels = []
     if not SKILLS_RE.search(row.prompt):
         labels.append("missing Skills line")
@@ -139,22 +171,63 @@ def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
         labels.extend(_budget_labels(row, config))
     if tier.name in config.audit_flag_every_use:
         labels.append(f"{tier.name}: every-use tier, check the escalation reason")
-    return labels
+    return labels + _haiku_labels(row, config) + _status_labels(row, config)
+
+
+def _off_policy_types(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> set:
+    return {r.agent_type for r in rows
+            if r.agent_type and rc.resolve_tier(r.agent_type, config) is None
+            and r.agent_type not in config.dispatch_allow_agents}
 
 
 def non_tier_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
-    """Flag each distinct non-tier agent type, but only in a session with a tier."""
-    if not dispatched_tier(rows, config):
-        return []
-    others = {r.agent_type for r in rows
-              if r.agent_type and rc.resolve_tier(r.agent_type, config) is None}
-    return [f"- non-tier agent `{name}` dispatched" for name in sorted(others)]
+    """Flag each distinct agent type that is neither a tier nor on the allowlist."""
+    return [f"- non-tier agent `{name}` dispatched"
+            for name in sorted(_off_policy_types(rows, config))]
 
 
 def flag_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
     lines = [f"- {_bare_type(r.agent_type, config)} `{r.short_id}` ({_hhmm(r.first)} UTC): {label}"
              for r in rows for label in row_flags(r, config)]
     return lines + non_tier_lines(rows, config)
+
+
+def _main_agent_calls(events: Iterable[dict]) -> list:
+    seen: set = set()
+    calls = []
+    for event in events:
+        msg = event.get("message")
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if event.get("type") != "assistant" or not isinstance(content, list):
+            continue
+        for b in content:
+            if (isinstance(b, dict) and b.get("type") == "tool_use"
+                    and b.get("name") in ("Agent", "Task")
+                    and isinstance(b.get("input"), dict) and b.get("id") not in seen):
+                seen.add(b.get("id"))
+                calls.append(b["input"])
+    return calls
+
+
+def main_flags(main_path: Optional[Path], config: rc.RoutingConfig) -> list:
+    """Flag Agent calls that passed model or effort, and a main model off the policy family."""
+    if main_path is None:
+        return []
+    events = list(tr.read_jsonl(main_path))
+    lines = []
+    for inp in _main_agent_calls(events):
+        agent = inp.get("subagent_type") or "general-purpose"
+        for param in ("model", "effort"):
+            if inp.get(param):
+                lines.append(f"- main session: Agent call to `{agent}` passed `{param}`")
+    family = config.dispatcher_model_family
+    models = {m.get("model") for e in events if e.get("type") == "assistant"
+              for m in [e.get("message")] if isinstance(m, dict)}
+    for model in sorted(m for m in models if isinstance(m, str)):
+        if rc.model_family(model) not in (None, family):
+            lines.append(f"- main session ran on `{model}`; "
+                         f"the policy expects the `{family}` family")
+    return lines
 
 
 def dispatched_tier(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> bool:
@@ -218,11 +291,12 @@ def detail_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
     return out
 
 
-def render(label: str, rows: Sequence[AgentRow], verbose: bool, config: rc.RoutingConfig) -> str:
+def render(label: str, rows: Sequence[AgentRow], verbose: bool, config: rc.RoutingConfig,
+           main_lines: Sequence[str] = ()) -> str:
     lines = [f"# Routing audit: {label}", "", f"Span: {span(rows)}", "",
              f"Agents: {len(rows)}", "", "## Agents per type", *count_lines(rows, config), "",
              "## Executor mix", *executor_mix(rows, config), "",
-             "## Flags", *(flag_lines(rows, config) or ["None"]), ""]
+             "## Flags", *([*main_lines, *flag_lines(rows, config)] or ["None"]), ""]
     if verbose:
         lines += ["## Agent detail", "```", *detail_lines(rows, config), "```", ""]
     return "\n".join(lines)
@@ -242,13 +316,13 @@ def run_hook(raw: str, claude_dir: Path) -> Optional[Path]:
     files = tr.resolve_session(str(ref), claude_dir)
     config = rc.load_config()
     rows = summarize(files.subagents)
-    if not dispatched_tier(rows, config):
+    if not dispatched_tier(rows, config) and not _off_policy_types(rows, config):
         return None
     sid = str(event.get("session_id") or files.session_id)
     out_dir = Path(data_dir) / "audits"
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{datetime.date.today().isoformat()}-{sid[:8]}.md"
-    path.write_text(render(files.session_id, rows, False, config), encoding="utf-8")
+    path.write_text(render(files.session_id, rows, False, config, main_flags(files.main, config)), encoding="utf-8")
     return path
 
 
@@ -287,7 +361,8 @@ def main(argv: Optional[list] = None) -> int:
         print(f"routing_audit: {exc}", file=sys.stderr)
         return 2
     rows = summarize(files.subagents, args.agent_type)
-    report = render(files.session_id, rows, args.verbose, config)
+    report = render(files.session_id, rows, args.verbose, config,
+                    main_flags(files.main, config))
     if args.out:
         Path(args.out).write_text(report, encoding="utf-8")
     else:

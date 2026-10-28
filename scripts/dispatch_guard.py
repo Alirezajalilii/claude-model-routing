@@ -1,13 +1,17 @@
-"""PreToolUse guard: block tier-agent delegations that break the routing policy.
+"""PreToolUse guard: block Agent/Task delegations that break the routing policy.
 
-A call is checked only when its tool is Agent or Task and its subagent_type names
-a configured tier, bare or plugin-scoped. The call is blocked (exit 2, one reason
-per line on stderr) when it:
-  - passes a non-empty `model` or `effort` (the agent frontmatter sets them);
-  - has no `Skills:` line in the prompt;
-  - is a non-planner delegation without the line "Never consult the advisor.".
+Every Agent or Task call is checked (exit 2, one reason per line on stderr).
+The agent is `subagent_type`, or `general-purpose` when it is missing or empty.
+  - A tier agent (bare or plugin-scoped) is blocked when its prompt has no
+    `Skills:` line; when that line names anything but `none` or readable
+    absolute SKILL.md paths; when it is a non-planner without the line
+    "Never consult the advisor."; or when it has no `Output:` line with an
+    absolute path.
+  - An agent type that is neither a tier nor in `dispatch.allow_agents` of the
+    routing config is blocked.
+  - Any agent is blocked when it passes a non-empty `model` or `effort`.
 
-Anything else, including malformed input, exits 0 (fail open).
+Malformed input, config errors and internal errors exit 0 (fail open).
 """
 from __future__ import annotations
 
@@ -23,6 +27,10 @@ import routing_config as rc
 GUARDED_TOOLS = frozenset({"Agent", "Task"})
 PARAMETERS = ("model", "effort")
 SKILLS_LINE = re.compile(r"\bSkills:[ \t]*\S")
+SKILLS_VALUE = re.compile(r"\bSkills:[ \t]*([^\n]*)")
+OUTPUT_LINE = re.compile(r"\bOutput:[ \t]*(\S+)")
+NONE_VALUE = re.compile(r"^\W*none\b", re.IGNORECASE)
+DEFAULT_AGENT = "general-purpose"
 ADVISOR_LINE = re.compile(r"never consult the advisor", re.IGNORECASE)
 
 
@@ -35,26 +43,70 @@ def _prompt_of(tool_input: Mapping) -> str:
     return prompt if isinstance(prompt, str) else ""
 
 
-def _prompt_reasons(agent: str, uses_advisor: bool, prompt: str, prefix: str) -> list:
-    reasons = []
+def _skill_items(prompt: str) -> list:
+    match = SKILLS_VALUE.search(prompt)
+    if not match or NONE_VALUE.match(match.group(1)):
+        return []
+    value = match.group(1).split(". ", 1)[0]
+    items = (part.strip().strip("`'\".").strip() for part in value.split(","))
+    return [item for item in items if item]
+
+
+def _is_skill_file(item: str) -> bool:
+    path = Path(item).expanduser()
+    return path.is_absolute() and path.name == "SKILL.md" and path.is_file()
+
+
+def _skills_reasons(agent: str, prompt: str, prefix: str) -> list:
     if not SKILLS_LINE.search(prompt):
-        reasons.append(
-            f"{prefix} delegation to {agent} has no Skills line. "
-            "Add a line such as 'Skills: none' and resend.")
+        return [f"{prefix} delegation to {agent} has no Skills line. "
+                "Add a line such as 'Skills: none' and resend."]
+    return [
+        f"{prefix} Skills line of the delegation to {agent} names '{item}', "
+        "which is not a readable absolute SKILL.md path. "
+        "Use 'Skills: none' or SKILL.md paths from the skills inventory."
+        for item in _skill_items(prompt)
+        if not _is_skill_file(item)
+    ]
+
+
+def _output_reasons(agent: str, prompt: str, prefix: str) -> list:
+    match = OUTPUT_LINE.search(prompt)
+    if match and Path(match.group(1).rstrip(".")).expanduser().is_absolute():
+        return []
+    return [f"{prefix} delegation to {agent} has no Output line with an "
+            "absolute file path. Add 'Output: /absolute/path.md' and resend."]
+
+
+def _tier_reasons(agent: str, uses_advisor: bool, prompt: str, prefix: str) -> list:
+    reasons = _skills_reasons(agent, prompt, prefix)
     if not uses_advisor and not ADVISOR_LINE.search(prompt):
         reasons.append(
             f"{prefix} delegation to {agent} lacks the line "
             "'Never consult the advisor.'. Add it and resend.")
-    return reasons
+    return reasons + _output_reasons(agent, prompt, prefix)
 
 
 def _parameter_reasons(tool_input: Mapping, agent: str, prefix: str) -> list:
     return [
-        f"{prefix} parameter '{name}' must not be passed for tier agent {agent}; "
-        "its frontmatter sets it. Remove it and resend."
+        f"{prefix} parameter '{name}' must not be passed for agent {agent}. "
+        "Remove it and resend."
         for name in PARAMETERS
         if _is_set(tool_input.get(name))
     ]
+
+
+def _agent_reasons(tool_input: Mapping, agent: str, config: rc.RoutingConfig,
+                   prefix: str) -> list:
+    tier = rc.resolve_tier(agent, config)
+    if tier is not None:
+        uses_advisor = rc.role_of(tier, config).uses_advisor
+        return _tier_reasons(agent, uses_advisor, _prompt_of(tool_input), prefix)
+    if agent in config.dispatch_allow_agents:
+        return []
+    return [f"{prefix} subagent type '{agent}' is not a routing tier or an "
+            "allowed agent. Dispatch a tier agent, or add the type to "
+            "dispatch.allow_agents in the routing config."]
 
 
 def evaluate(event: Mapping, config: rc.RoutingConfig) -> tuple:
@@ -64,13 +116,10 @@ def evaluate(event: Mapping, config: rc.RoutingConfig) -> tuple:
     tool_input = event.get("tool_input")
     if not isinstance(tool_input, dict):
         return ()
-    agent = tool_input.get("subagent_type")
-    tier = rc.resolve_tier(agent, config)
-    if tier is None:
-        return ()
-    uses_advisor = rc.role_of(tier, config).uses_advisor
+    subagent = tool_input.get("subagent_type")
+    agent = subagent if isinstance(subagent, str) and subagent else DEFAULT_AGENT
     prefix = f"{config.plugin_name} dispatch guard:"
-    reasons = _prompt_reasons(agent, uses_advisor, _prompt_of(tool_input), prefix)
+    reasons = _agent_reasons(tool_input, agent, config, prefix)
     return tuple(reasons + _parameter_reasons(tool_input, agent, prefix))
 
 

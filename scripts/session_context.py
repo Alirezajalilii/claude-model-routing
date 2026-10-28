@@ -46,10 +46,13 @@ def _model_warning(event: Mapping, config: RoutingConfig) -> Optional[str]:
         return None
     if family == config.dispatcher_model_family:
         return None
+    family = config.dispatcher_model_family
     return (
-        f"This session runs on `{model}`, but the policy expects the dispatcher "
-        f"on the `{config.dispatcher_model_family}` model family. "
-        "Set `model` in your settings."
+        f"This session runs on `{model}`, but the policy expects the main session "
+        f"on the `{family}` model family. In your first reply, before anything else, "
+        "tell the user: switch with `/model` in the CLI, or pick a "
+        f"`{family}` model in the desktop app's model picker for new sessions "
+        "(it remembers the choice)."
     )
 
 
@@ -115,13 +118,13 @@ def build_context(
     sections_dir: Path = SECTIONS_DIR,
 ) -> str:
     """Return the additional context for one dispatcher part."""
-    text = render_part(config, part, sections_dir)
+    policy = render_part(config, part, sections_dir)
+    extra = ""
     if part == 1:
-        text += _session_block(event)
-        text += _warning_block(collect_warnings(env, event, config))
-    if len(text) > MAX_CONTEXT_CHARS:
-        return _fallback(config, part)
-    return text
+        extra = _session_block(event) + _warning_block(collect_warnings(env, event, config))
+    if len(policy) + len(extra) > MAX_CONTEXT_CHARS:
+        policy = _fallback(config, part)
+    return policy + extra
 
 
 def _parser() -> argparse.ArgumentParser:

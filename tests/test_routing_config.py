@@ -232,9 +232,25 @@ class LeanSchemaTest(unittest.TestCase):
             messages = with_frontmatter(lambda r: r["dispatch"].update(allow_agents=bad))
             self.assert_message(messages, "dispatch.allow_agents")
 
+    def test_blocked_output_names_validation(self):
+        for bad in ("(", 7, None):
+            messages = with_frontmatter(
+                lambda r: r["dispatch"].update(blocked_output_names=bad))
+            self.assert_message(
+                messages, "dispatch.blocked_output_names: must be a valid regular expression")
+        messages = with_frontmatter(lambda r: r["dispatch"].pop("blocked_output_names"))
+        self.assert_message(messages, "dispatch.blocked_output_names")
+
+    def test_haiku_compacts_at_90k(self):
+        # Claude Code compacts at the window minus the output reserve (20000) and a 13000 buffer.
+        window = dict(rc.load_config().agent_frontmatter_by_model["haiku"])["autoCompactWindow"]
+        self.assertEqual(window - 20000 - 13000, 90000)
+
     def test_shipped_values(self):
         config = rc.load_config()
         self.assertEqual(config.dispatch_allow_agents, ("claude-code-guide", "statusline-setup"))
+        self.assertEqual(config.dispatch_blocked_output_names,
+                         r"^(report|summary|findings|analysis).*\.md$")
         self.assertEqual(config.tunables["haiku_max_tool_calls"], 25)
         self.assertEqual(config.tunables["haiku_prompt_flag_tokens"], 100000)
         self.assertEqual(config.tunables["status_line_max_chars"], 400)

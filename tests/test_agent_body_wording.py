@@ -51,6 +51,18 @@ class AgentBodyWordingTest(unittest.TestCase):
             self.assertNotIn("stop with status BLOCKED", text, t.name)
             self.assertIn("reply with the BLOCKED status line of your role's Output file section", text, t.name)
 
+    def test_d7_executor_runs_checks_before_every_commit(self):
+        for t, text in self.of("executor"):
+            self.assertIn("Never commit, and never reply DONE, while a check fails", text, t.name)
+            self.assertIn("the project's lint, format and type checks", text, t.name)
+            self.assertIn("git commit --amend --no-edit", text, t.name)
+            self.assertNotIn("Never rewrite or amend earlier commits", text, t.name)
+
+    def test_d8_core_rule_leaves_own_unpushed_commits_to_role_rules(self):
+        for t, text in self.agents:
+            self.assertNotIn("(force-push, history rewrite,", text, t.name)
+            self.assertIn("rewriting pushed or shared history", text, t.name)
+
     def test_d6_planner_evidence_budget(self):
         for t, text in self.of("planner"):
             self.assertIn("Treat the evidence files named in your delegation as verified", text, t.name)

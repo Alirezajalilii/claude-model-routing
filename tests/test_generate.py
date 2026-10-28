@@ -66,7 +66,7 @@ class GenerateTest(unittest.TestCase):
                 self.assertEqual([k for k, _ in tier_pairs], expected_keys(tier), tier.name)
         values = dict(pairs)
         self.assertEqual(values["omitClaudeMd"], "true")
-        self.assertEqual(values["autoCompactWindow"], "100000")
+        self.assertEqual(values["autoCompactWindow"], "123000")
         role = self.config.roles["executor"]
         self.assertEqual(values["model"], "haiku")
         self.assertEqual(values["effort"], "low")

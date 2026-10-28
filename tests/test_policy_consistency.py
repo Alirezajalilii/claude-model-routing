@@ -111,7 +111,7 @@ class LeanAgentFilesTest(unittest.TestCase):
             tools = next(ln for ln in lines if ln.startswith("tools: "))
             self.assertNotIn("Skill", tools, tier.name)
             self.assertEqual(
-                "autoCompactWindow: 100000" in lines, tier.family == "haiku", tier.name
+                "autoCompactWindow: 123000" in lines, tier.family == "haiku", tier.name
             )
 
     def test_new_tunables_render(self):
@@ -246,6 +246,9 @@ class DispatcherHandoffTest(unittest.TestCase):
             "mr-skills --out",
             "executor's report path",
             "the verdict file path",
+            "Claude Code refuses a subagent's Write",
+            "the project's lint and type checks",
+            "compact once their context passes about 90K tokens",
         ):
             self.assertIn(phrase, self.text)
 

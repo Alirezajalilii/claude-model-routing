@@ -21,7 +21,7 @@ from test_routing_audit import agent, write_session  # noqa: E402
 # Legacy names are built by concatenation so that no test file holds them as one literal.
 LEGACY = "model-" + "routing"
 MARKET = "claude-" + "model-routing"
-COMPLIANT = "Skills: none.\nNever consult the advisor.\nOutput: /tmp/handoff/report.md"
+COMPLIANT = "Skills: none.\nNever consult the advisor.\nOutput: /tmp/handoff/exec-T1.md"
 
 NEW_NAMES = {
     "scout-haiku-low", "scout-haiku-med", "scout-sonnet-high",

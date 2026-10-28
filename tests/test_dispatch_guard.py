@@ -27,7 +27,9 @@ OUTPUT_MSG = "has no Output line"
 NON_TIER_MSG = "is not a routing tier"
 SKILL_PATH_MSG = "not a readable absolute SKILL.md path"
 
-OUT = "Output: /tmp/handoff/report.md"
+BLOCKED_NAME_MSG = "Claude Code refuses"
+
+OUT = "Output: /tmp/handoff/exec-T1.md"
 BOTH_LINES = f"Task T1. Skills: none.\nNever consult the advisor.\n{OUT}"
 SKILLS_ONLY = f"Task T1.\nSkills: none.\n{OUT}"
 COMPLIANT = f"Skills: none.\nNever consult the advisor.\n{OUT}"
@@ -93,7 +95,7 @@ class TestEvaluate(unittest.TestCase):
 
     def test_tc9_inline_skills_and_advisor_pass(self):
         prompt = ("Fast-lane spec (task ID X). Skills: none. "
-                  "Never consult the advisor. Output: /tmp/handoff/report.md")
+                  "Never consult the advisor. Output: /tmp/handoff/exec-T1.md")
         self.assertEqual(evaluate(make_event(prompt=prompt)), ())
 
     def test_tc10_task_tool_name_is_guarded(self):
@@ -321,6 +323,22 @@ class TestHandoffRules(unittest.TestCase):
             "Skills: none.\nNever consult the advisor.\nOutput: report.md")
         self.assertEqual(len(reasons), 1, reasons)
         self.assertIn(OUTPUT_MSG, reasons[0])
+
+    def test_output_name_claude_code_blocks_is_reported(self):
+        for name in ("report-T3.md", "REPORT.md", "summary.md", "Findings-1.md", "analysis_x.md"):
+            reasons = self.reasons(
+                "exec-haiku-low",
+                f"Skills: none\nNever consult the advisor.\nOutput: /tmp/handoff/{name}")
+            self.assertEqual(len(reasons), 1, (name, reasons))
+            self.assertIn(BLOCKED_NAME_MSG, reasons[0])
+            self.assertIn(name, reasons[0])
+
+    def test_output_names_claude_code_allows_pass(self):
+        for name in ("exec-T3.md", "verdict-T3.md", "t3-report.md", "report.txt", "scout-1.md"):
+            reasons = self.reasons(
+                "exec-haiku-low",
+                f"Skills: none\nNever consult the advisor.\nOutput: /tmp/handoff/{name}")
+            self.assertEqual(reasons, (), name)
 
     def test_tc12_skill_name_instead_of_path_is_reported(self):
         reasons = self.reasons(

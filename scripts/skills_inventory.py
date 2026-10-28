@@ -11,7 +11,7 @@ cannot load them. Skills without frontmatter are skipped. Bundled skills that
 ship inside the Claude Code binary are not on disk and are not listed.
 
 Usage: skills_inventory.py [--claude-dir DIR] [--project-dir DIR] [--out FILE]
-Output: a Markdown table (name, scope, one-line description).
+Output: a Markdown table (name, scope, SKILL.md path, one-line description).
 """
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ class SkillRow(NamedTuple):
     name: str
     scope: str
     description: str
+    path: str
 
 
 def default_claude_dir() -> Path:
@@ -70,7 +71,8 @@ def skill_rows(skills_dir: Path, prefix: str, scope: str) -> list[SkillRow]:
             continue
         name = fields.get("name") or skill_md.parent.name
         desc = " ".join(fields.get("description", "").split())
-        rows.append(SkillRow(f"{prefix}{name}", scope, desc[:DESCRIPTION_LIMIT]))
+        path = str(skill_md.resolve())
+        rows.append(SkillRow(f"{prefix}{name}", scope, desc[:DESCRIPTION_LIMIT], path))
     return rows
 
 
@@ -126,6 +128,7 @@ def plugin_dirs(claude_dir: Path, project_dir: Path) -> list[Path]:
 
 
 def build_rows(claude_dir: Path, project_dir: Path) -> list[SkillRow]:
+    project_dir = project_dir.resolve()
     rows = skill_rows(claude_dir / "skills", "", "user")
     rows += skill_rows(project_dir / ".claude" / "skills", "", "project")
     seen: set[str] = set()
@@ -142,10 +145,10 @@ def render_table(project_dir: Path, rows: list[SkillRow]) -> str:
     lines = [
         f"# Skills inventory ({project_dir})",
         "",
-        "| Skill | Scope | Description |",
-        "| --- | --- | --- |",
+        "| Skill | Scope | Path | Description |",
+        "| --- | --- | --- | --- |",
     ]
-    lines += [f"| {r.name} | {r.scope} | {r.description.replace('|', '/')} |" for r in rows]
+    lines += [f"| {r.name} | {r.scope} | {r.path} | {r.description.replace('|', '/')} |" for r in rows]
     return "\n".join(lines) + "\n"
 
 

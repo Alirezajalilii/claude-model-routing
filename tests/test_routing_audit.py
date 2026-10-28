@@ -360,7 +360,7 @@ class RoutingAuditTest(unittest.TestCase):
         good = self.haiku_session(37, [], final="DONE /tmp/h/report.md commits=abc,def")
         _, out = self.run_report(good)
         self.assertNotIn("not a status line", out)
-        long_report = "DONE\n" + "x" * 1994
+        long_report = "DONE\n" + "x" * 1995
         _, out = self.run_report(self.haiku_session(38, [], final=long_report))
         self.assertIn("reply is not a status line (2000 chars)", out)
         _, out = self.run_report(self.haiku_session(39, [], final="DONE " + "y" * 396))

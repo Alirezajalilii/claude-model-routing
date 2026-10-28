@@ -74,5 +74,53 @@ class ReadJsonlTest(unittest.TestCase):
         self.assertEqual(tr.read_jsonl(path), ({"type": "user", "n": 1},))
 
 
+def assistant_record(msg_id, usage=None, model="claude-haiku-5-5", kind="assistant"):
+    message = {"id": msg_id, "model": model, "content": []}
+    if usage is not None:
+        message["usage"] = usage
+    return {"type": kind, "message": message}
+
+
+def usage_of(inp, cache_read=0):
+    return {"input_tokens": inp, "output_tokens": 1, "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": cache_read}
+
+
+class RequestUsageTest(unittest.TestCase):
+    def test_last_record_per_id_wins_and_prompt_sums_input_and_cache(self):
+        events = [
+            assistant_record("m1", usage_of(10)),
+            assistant_record("m1", usage_of(30, cache_read=5)),
+        ]
+        self.assertEqual(
+            tr.request_usage(events),
+            (tr.RequestUsage("m1", "claude-haiku-5-5", 35),),
+        )
+
+    def test_records_without_id_usage_or_assistant_type_are_ignored(self):
+        events = [
+            {"type": "assistant", "message": {"model": "m", "usage": usage_of(5)}},
+            assistant_record("m2", usage=None),
+            assistant_record("m3", usage_of(7), kind="user"),
+        ]
+        self.assertEqual(tr.request_usage(events), ())
+        self.assertEqual(tr.request_usage([]), ())
+
+    def test_order_follows_first_appearance(self):
+        events = [
+            assistant_record("m1", usage_of(1)),
+            assistant_record("m2", usage_of(2)),
+            assistant_record("m1", usage_of(3)),
+        ]
+        ids = [item.message_id for item in tr.request_usage(events)]
+        self.assertEqual(ids, ["m1", "m2"])
+
+    def test_non_int_usage_value_counts_zero(self):
+        bad = {"input_tokens": 4, "output_tokens": 1, "cache_creation_input_tokens": 0,
+               "cache_read_input_tokens": "x"}
+        events = [assistant_record("m1", bad)]
+        self.assertEqual(tr.request_usage(events)[0].prompt_tokens, 4)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -233,8 +233,8 @@ class AuditNamesTest(unittest.TestCase):
         lines = out.splitlines()
         self.assertTrue(any("every-use tier" in ln and "scout-sonnet-high" in ln for ln in lines), out)
         advisor = "no 'Never consult the advisor' line"
-        planner = [ln for ln in lines if "ppppppppppp" in ln]
-        verifier = [ln for ln in lines if "vvvvvvvvvvv" in ln]
+        planner = [ln for ln in lines if "pppppppppp" in ln]
+        verifier = [ln for ln in lines if "vvvvvvvvvv" in ln]
         self.assertFalse(any(advisor in ln for ln in planner), out)
         self.assertTrue(any(advisor in ln for ln in verifier), out)
 

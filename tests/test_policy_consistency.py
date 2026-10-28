@@ -121,5 +121,88 @@ class LeanAgentFilesTest(unittest.TestCase):
         self.assertEqual(values["status_line_max_chars"], "400")
 
 
+def _agent_text(tier):
+    return (ROOT / "agents" / f"{tier.name}.md").read_text(encoding="utf-8")
+
+
+class AgentBodyHandoffTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.config = rc.load_config()
+
+    def each(self):
+        for tier in self.config.tiers:
+            yield tier, _agent_text(tier)
+
+    def test_shared_sections_once(self):
+        for tier, text in self.each():
+            for heading in ("## Core rules", "## Skills", "## Output and status line", "## Output file"):
+                self.assertEqual(len(re.findall(rf"^{re.escape(heading)}$", text, re.M)), 1, f"{tier.name}: {heading}")
+
+    def test_no_skill_tool_or_skill_loading(self):
+        for tier, text in self.each():
+            self.assertNotIn("Skill tool", text, tier.name)
+            self.assertNotIn("## Skill loading", text, tier.name)
+
+    def test_project_rules_and_output_lines(self):
+        for tier, text in self.each():
+            self.assertIn("Project rules:", text, tier.name)
+            self.assertIn("Output:", text, tier.name)
+
+    def test_status_lines_per_role(self):
+        wanted = {
+            "scout": ["DONE <output path>", "BLOCKED <output path> reason=<one line>"],
+            "executor": ["commits=<sha>,<sha>", "BLOCKED <output path> reason=<one line>", "never `git add -A`"],
+            "verifier": [
+                "PASS <output path>",
+                "FIX <output path>",
+                "REPLAN <output path> fix=small",
+                "REPLAN <output path> fix=design",
+                "BLOCKED <output path> reason=<one line>",
+            ],
+            "planner": [
+                "READY <plan path>",
+                "NEED_EVIDENCE <requests path> scouts=<k>",
+                "## Scout <k>: <scout tier>",
+                "OUT_OF_TOPIC",
+                "NO_PLAN_NEEDED",
+            ],
+        }
+        for tier, text in self.each():
+            for phrase in wanted[tier.role]:
+                self.assertIn(phrase, text, f"{tier.name}: {phrase}")
+
+    def test_write_exceptions(self):
+        for tier, text in self.each():
+            if tier.role == "scout":
+                self.assertIn("The one exception is your Output file", text, tier.name)
+            if tier.role == "verifier":
+                self.assertIn("the only file you write is your Output file", text, tier.name)
+
+    def test_advisor_line_for_non_planners(self):
+        for tier, text in self.each():
+            if tier.role != "planner":
+                self.assertIn("Never consult the advisor.", text, tier.name)
+
+    def test_size_limits(self):
+        for tier, text in self.each():
+            limit = 26000 if tier.role == "planner" else 10000
+            self.assertLessEqual(len(text), limit, f"{tier.name} is {len(text)} characters")
+
+    def test_new_sections_not_in_dispatcher_parts(self):
+        ids = ("agent-core", "agent-skills", "agent-output")
+        for name in ids:
+            self.assertIn(name, self.config.policy_sections)
+        for part in self.config.dispatcher_parts:
+            for name in ids:
+                self.assertNotIn(name, part["sections"] if isinstance(part, dict) else part.sections)
+
+    def test_executor_fact_sheet_rule(self):
+        for tier, text in self.each():
+            if tier.role == "executor":
+                self.assertIn("fact sheet", text, tier.name)
+                self.assertIn("--help", text, tier.name)
+
+
 if __name__ == "__main__":
     unittest.main()

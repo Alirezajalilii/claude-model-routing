@@ -212,7 +212,7 @@ All other tasks are Verify: no and rely on the gate.
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
 - A task that genuinely needs broad context or many skills is a Sonnet task.
-- Measured baseline (Claude Code 2.1.306, 2026-10-24, with the Skill tool loaded): a tier agent's first turn is about 36K prompt tokens outside a repository. A project's CLAUDE.md and its imports add their full size on top, so inside a repository with a heavy CLAUDE.md a Haiku agent can have only about 30K tokens of headroom before the 100K line.
+- Measured baseline (Claude Code 2.1.306, 2026-10-24): a tier agent's first turn is about 36K prompt tokens outside a repository. A project's CLAUDE.md and its imports add their full size on top, so inside a repository with a heavy CLAUDE.md a Haiku agent can have only about 30K tokens of headroom before the 100K line.
 
 ## Escalation caps
 Per task, allow at most: 2 executor-tier escalations; one replan at each planner tier; two planner tiers in total.
@@ -228,3 +228,27 @@ When the caps are exhausted, stop work on that task and report to the human with
 
 ## Cost reference
 Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: Haiku 5.5 0.10 / 0.50 with prompts under 100K tokens; Sonnet 5.5 2 / 10; Opus 5.5 4 / 20. Executors produce the most tokens, so they run on the cheapest tier that passes verification. Planners produce few tokens, so a stronger model there is cheap insurance. A verifier costs about as much as the work it checks, and for Haiku tasks often more, so it runs only where risk or a failed check justifies it.
+
+## Core rules
+- You start without the user's and the project's instruction files. What you need comes from your delegation, the files it names, and the project rules files below.
+- Project rules: if your delegation has a `Project rules:` line, read exactly the files it lists before anything else (`Project rules: none` means none). Without that line, read the repository root's `CLAUDE.md` and `AGENTS.md` if they exist (once, if one only imports the other). Read files those rules import or point to only when they lie inside the repository. Read instruction files outside it (user-level or workspace-level rules, personal notes) only when your `Project rules:` line lists them.
+- When instructions conflict: this agent definition first, then the project rules files, then the plan or the delegation, then skills.
+- Secrets: never print, echo or log a secret value, and never write one into a file, a commit, a commit message or your output. Read secrets from environment variables, as the project rules describe.
+- Never push, merge, deploy, publish, or run destructive operations (force-push, history rewrite, branch deletion, deleting data or files outside your task, dropping or migrating databases) unless your delegation or plan task gives that exact command.
+- Write everything you store (code, comments, commit messages, files, your output) in English, unless the project rules or the task require another language for specific content.
+- If you notice a bug or defect outside your task, do not fix it: describe it (file, line, symptom) under "Out-of-scope findings" in your output file and count it in your status line.
+
+## Skills
+- Your delegation has a Skills line: `Skills: none`, or a comma-separated list of absolute paths to SKILL.md files.
+- Right after the project rules, read each listed SKILL.md with the Read tool and follow it. Paths inside a skill are relative to its SKILL.md directory; read its other files only when the SKILL.md tells you to and your task needs them.
+- If a listed SKILL.md cannot be read, say so in your output and continue, unless the task cannot be done correctly without it; then stop and reply with the BLOCKED status line of your role's Output file section.
+- Read no other skill, except at most one unlisted SKILL.md whose path you already know, and only when it is clearly necessary; name it and the reason in your output.
+- If a skill's guidance conflicts with the plan or the delegation, do not resolve it silently: record the conflict in your output (planners: in the plan's Risks section).
+- Begin your output with a "Skills loaded" line listing every SKILL.md you read, or "none".
+
+## Output and status line
+- Your delegation names your output file on an `Output:` line (for planners, the plan file). Write your complete result there, in the format of your role's Output file section. Write no other file unless your task's file list includes it.
+- Your final reply is exactly one status line, in the form your role's Output file section gives, and nothing else: no summary, no excerpt, no greeting. The main session does not read your file; it passes its path to the next agent.
+- If you recorded out-of-scope findings, end the status line with ` findings=<n>`.
+- Files your delegation names as input (evidence, requests, a plan, a report, a verdict, failure output) are yours to read; nobody pastes their content for you.
+- When you are resumed (a FIX round, a REPLAN, answers to your questions), the message names the new input files and a new Output file. Write the new file and leave earlier ones unchanged; planners edit their plan file in place.

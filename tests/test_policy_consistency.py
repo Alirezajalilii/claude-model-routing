@@ -267,6 +267,23 @@ class DispatcherHandoffTest(unittest.TestCase):
             ):
                 self.assertIn(phrase, text, f"{tier.name}: {phrase}")
 
+    def test_full_lane_output_lines_and_paths(self):
+        for phrase in (
+            "narrow questions, starting paths, an Output line, and a Skills line",
+            "an Output line, the gate results file path",
+            "the paths of the earlier verdict and failure files, and a new Output line",
+        ):
+            self.assertIn(phrase, self.text)
+        self.assertNotIn("the full defect history", self.text)
+
+    def test_planner_intro_names_files(self):
+        for tier in self.config.tiers:
+            if tier.role != "planner":
+                continue
+            text = _agent_text(tier)
+            self.assertIn("the paths of the scout output files and the skills inventory file (name, scope, SKILL.md path, description)", text, tier.name)
+            self.assertNotIn("the scout evidence, a skills inventory (name, description, scope)", text, tier.name)
+
     def test_part_five_session_context(self):
         import io
         import json

@@ -48,7 +48,7 @@
   "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
   "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"]},
   "policy": {
-    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost"],
+    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output"],
     "dispatcher_parts": [
       {"title": "Roles, tiers and lanes", "sections": ["overview", "roles", "lanes", "planner-tiers", "advisor"]},
       {"title": "Full-lane workflow", "sections": ["full-lane", "escalation"]},

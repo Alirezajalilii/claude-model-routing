@@ -181,7 +181,7 @@ RESERVED_PREFIXES = ("claude-", "anthropic-", "anthropics-", "cc-plugin-")
 class RevisionTwoTest(unittest.TestCase):
     def test_plugin_display_name_and_unreserved_id(self) -> None:
         data = load_json(".claude-plugin/plugin.json")
-        self.assertEqual(data["displayName"], "Claude Model Routing")
+        self.assertEqual(data["displayName"], "Model Routing (mr)")
         self.assertFalse(data["name"].startswith(RESERVED_PREFIXES), data["name"])
 
     def test_marketplace_description_and_names(self) -> None:

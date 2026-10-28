@@ -70,7 +70,7 @@ class NoteTest(unittest.TestCase):
             (Path(tmp) / "sec-a.md").write_text("x" * 12000, encoding="utf-8")
             _, text = part_one({"hook_event_name": "SessionStart", "source": "startup",
                                 "model": OPUS}, sections_dir=Path(tmp), config=config)
-        self.assertIn("model-routing:routing-policy", text)
+        self.assertIn("mr:routing-policy", text)
         self.assertNotIn("x" * 100, text)
         lines = note_lines(text)
         self.assertEqual(len(lines), 1)

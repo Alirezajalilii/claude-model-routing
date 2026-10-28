@@ -18,10 +18,10 @@ from routing_config import load_config  # noqa: E402
 
 CMD_PREFIX = 'python3 -B "${CLAUDE_PLUGIN_ROOT}/scripts/'
 LAUNCHERS = (
-    "model-routing-usage",
-    "model-routing-audit",
-    "model-routing-skills",
-    "model-routing-init",
+    "mr-usage",
+    "mr-audit",
+    "mr-skills",
+    "mr-init",
 )
 
 

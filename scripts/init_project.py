@@ -56,7 +56,7 @@ def append_pointer(project: Path, pointer: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="model-routing-init",
+        prog="mr-init",
         description=(
             "Prepare a project for the Model Routing Policy: create docs/plans/README.md and "
             "docs/model-routing-log.md from the plugin templates and add the policy pointer to CLAUDE.md."

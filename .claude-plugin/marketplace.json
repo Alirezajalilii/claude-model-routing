@@ -4,7 +4,7 @@
   "owner": {"name": "Alireza Jalili"},
   "plugins": [
     {
-      "name": "model-routing",
+      "name": "mr",
       "source": ".",
       "description": "Tiered subagents, a session-start dispatcher policy, a dispatch guard and a session audit for cost-aware Claude Code work."
     }

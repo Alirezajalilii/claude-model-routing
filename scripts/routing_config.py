@@ -170,6 +170,25 @@ def _validate_roles(roles: Any) -> list:
     return errors
 
 
+def _validate_effort_labels(labels: Any) -> list:
+    if not isinstance(labels, dict):
+        return ["effort_labels: must be an object"]
+    errors = []
+    if set(labels) != set(EFFORTS):
+        errors.append(f"effort_labels: keys must be exactly {', '.join(EFFORTS)}")
+    for effort, label in labels.items():
+        if not isinstance(label, str) or not SLUG.match(label):
+            errors.append(f"effort_labels.{effort}: must be a string matching ^[a-z0-9-]+$")
+    values = [v for v in labels.values() if isinstance(v, str)]
+    if len(set(values)) != len(values):
+        errors.append("effort_labels: labels must be unique")
+    return errors
+
+
+def _valid_labels(labels: Any) -> Optional[dict]:
+    return labels if not _validate_effort_labels(labels) else None
+
+
 def _validate_model(label: str, model: Any) -> tuple:
     if model in TIER_FAMILIES:
         return model, []
@@ -180,7 +199,7 @@ def _validate_model(label: str, model: Any) -> tuple:
     return None, [f"{label}: model {model!r} is not a haiku/sonnet/opus alias or id"]
 
 
-def _validate_tier(tier: Any, index: int, roles: Any, seen: set) -> list:
+def _validate_tier(tier: Any, index: int, roles: Any, labels: Optional[dict], seen: set) -> list:
     if not isinstance(tier, dict):
         return [f"tiers[{index}]: must be an object"]
     name = tier.get("name")
@@ -197,19 +216,21 @@ def _validate_tier(tier: Any, index: int, roles: Any, seen: set) -> list:
     effort = tier.get("effort")
     if effort not in EFFORTS:
         errors.append(f"{label}: effort {effort!r} is not one of {', '.join(EFFORTS)}")
-    errors.extend(_validate_tier_rules(label, tier, roles, family))
+    errors.extend(_validate_tier_rules(label, tier, roles, labels, family))
     description = tier.get("description")
     if not isinstance(description, str) or not description or "\n" in description:
         errors.append(f"{label}: description must be a non-empty single line")
     return errors
 
 
-def _validate_tier_rules(label: str, tier: dict, roles: Any, family: Optional[str]) -> list:
+def _validate_tier_rules(
+    label: str, tier: dict, roles: Any, labels: Optional[dict], family: Optional[str]
+) -> list:
     errors = []
     role, effort = tier.get("role"), tier.get("effort")
     role_def = roles.get(role) if isinstance(roles, dict) else None
-    if family and effort in EFFORTS and isinstance(role_def, dict):
-        expected = f"{role_def.get('prefix')}-{family}-{effort}"
+    if family and effort in EFFORTS and labels and isinstance(role_def, dict):
+        expected = f"{role_def.get('prefix')}-{family}-{labels[effort]}"
         if tier.get("name") != expected:
             errors.append(f"{label}: name must be {expected}")
     if family == "haiku" and effort == "xhigh":
@@ -348,13 +369,16 @@ def validate(raw: Mapping) -> list:
     errors.extend(_validate_tunables(raw.get("tunables")))
     roles = raw.get("roles")
     errors.extend(_validate_roles(roles))
+    labels = raw.get("effort_labels")
+    errors.extend(_validate_effort_labels(labels))
+    labels = _valid_labels(labels)
     tiers = raw.get("tiers")
     if not isinstance(tiers, list) or not tiers:
         errors.append("tiers: must be a non-empty list")
         tiers = []
     seen: set = set()
     for index, tier in enumerate(tiers):
-        errors.extend(_validate_tier(tier, index, roles, seen))
+        errors.extend(_validate_tier(tier, index, roles, labels, seen))
     errors.extend(_validate_extras_and_audit(raw, seen))
     errors.extend(_validate_agent_frontmatter(raw.get("agent_frontmatter")))
     errors.extend(_validate_dispatch(raw.get("dispatch"), seen))

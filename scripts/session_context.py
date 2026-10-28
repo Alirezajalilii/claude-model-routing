@@ -80,13 +80,13 @@ def collect_warnings(env: Mapping[str, str], event: Mapping, config: RoutingConf
     return [text for text in candidates if text]
 
 
-def _session_block(event: Mapping) -> str:
+def _session_block(event: Mapping, config: RoutingConfig) -> str:
     sid = event.get("session_id")
     if not isinstance(sid, str) or not sid:
         return ""
     return (
-        f"\n\n## Session\n- Session id: `{sid}`. Pass it to `model-routing-usage` "
-        "and `model-routing-audit`."
+        f"\n\n## Session\n- Session id: `{sid}`. Pass it to `{config.plugin_name}-usage` "
+        f"and `{config.plugin_name}-audit`."
     )
 
 
@@ -118,7 +118,7 @@ def build_context(
     policy = render_part(config, part, sections_dir)
     extra = ""
     if part == 1:
-        extra = _session_block(event) + _warning_block(collect_warnings(env, event, config))
+        extra = _session_block(event, config) + _warning_block(collect_warnings(env, event, config))
     if len(policy) + len(extra) > MAX_CONTEXT_CHARS:
         policy = _fallback(config, part)
     return policy + extra

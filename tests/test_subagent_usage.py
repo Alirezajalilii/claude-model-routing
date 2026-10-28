@@ -14,7 +14,7 @@ import subagent_usage as su  # noqa: E402
 
 SID = "00000000-0000-4000-8000-000000000001"
 MISSING = "00000000-0000-4000-8000-000000000099"
-PLUGIN_TYPE = "model-routing:exec-haiku-low"
+PLUGIN_TYPE = "mr:exec-haiku-low"
 BARE_TYPE = "exec-haiku-low"
 
 
@@ -114,7 +114,7 @@ class AgentTypeFilterTest(SessionFixture):
         super().setUp()
         self.add_agent("a", PLUGIN_TYPE, [api_request()])
         self.add_agent("b", BARE_TYPE, [api_request()])
-        self.add_agent("c", "model-routing:exec-haiku-medium", [api_request()])
+        self.add_agent("c", "mr:exec-haiku-med", [api_request()])
 
     def matched_types(self, filter_name):
         _, rows, _ = self.run_json(SID, "--agent-type", filter_name)
@@ -127,7 +127,7 @@ class AgentTypeFilterTest(SessionFixture):
         self.assertEqual(self.matched_types(PLUGIN_TYPE), [PLUGIN_TYPE, BARE_TYPE])
 
     def test_non_matching_agent_is_excluded(self):
-        self.assertNotIn("model-routing:exec-haiku-medium", self.matched_types(BARE_TYPE))
+        self.assertNotIn("mr:exec-haiku-med", self.matched_types(BARE_TYPE))
 
 
 class ToolAndSkillCallsTest(SessionFixture):

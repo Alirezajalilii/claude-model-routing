@@ -47,8 +47,8 @@ def run_script(script: str, stdin: str, part: str | None = None) -> subprocess.C
 
 
 class NamingTest(unittest.TestCase):
-    def test_shipped_plugin_id_is_model_routing(self):
-        self.assertEqual(routing_config.load_config().plugin_name, "model-routing")
+    def test_shipped_plugin_id_is_mr(self):
+        self.assertEqual(routing_config.load_config().plugin_name, "mr")
 
     def test_no_old_form_scoped_names_in_repository(self):
         hits = []
@@ -68,22 +68,22 @@ class NamingTest(unittest.TestCase):
         context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
         total = policy_text.part_count(routing_config.load_config())
         self.assertTrue(
-            context.startswith(f"# model-routing policy, part 1 of {total}: "),
+            context.startswith(f"# mr policy, part 1 of {total}: "),
             context[:120],
         )
 
     def test_dispatch_guard_blocks_new_scoped_name_without_skills_line(self):
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "model-routing:exec-haiku-low", "prompt": "Reply with READY."},
+            "tool_input": {"subagent_type": "mr:exec-haiku-low", "prompt": "Reply with READY."},
         }
         result = run_script("dispatch_guard.py", json.dumps(payload))
         self.assertEqual(result.returncode, 2)
-        self.assertTrue(result.stderr.startswith("model-routing dispatch guard:"), result.stderr[:200])
+        self.assertTrue(result.stderr.startswith("mr dispatch guard:"), result.stderr[:200])
 
     def test_routing_policy_skill_names_new_dispatch_form(self):
         text = (ROOT / "skills" / "routing-policy" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("`model-routing:<name>`", text)
+        self.assertIn("`mr:<name>`", text)
         self.assertNotIn(OLD, text)
 
     def test_plans_readme_template_uses_generic_policy_name(self):

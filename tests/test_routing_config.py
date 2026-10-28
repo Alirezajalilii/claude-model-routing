@@ -12,6 +12,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import routing_config as rc  # noqa: E402
 
 
+# Built by concatenation so that this file never holds the marketplace id as one literal.
+MARKET = "claude-" + "model-routing"
+
+
 def raw_config():
     return json.loads((ROOT / "config" / "routing.json").read_text(encoding="utf-8"))
 
@@ -26,9 +30,10 @@ class ShippedConfigTest(unittest.TestCase):
         self.assertEqual(len(config.tiers), 15)
         self.assertEqual(len(config.roles), 4)
         self.assertEqual(config.dispatcher_model_family, "sonnet")
+        labels = raw_config()["effort_labels"]
         for tier in config.tiers:
             prefix = config.roles[tier.role].prefix
-            self.assertEqual(tier.name, f"{prefix}-{tier.family}-{tier.effort}")
+            self.assertEqual(tier.name, f"{prefix}-{tier.family}-{labels[tier.effort]}")
 
     def test_shipped_config_has_no_validation_errors(self):
         self.assertEqual(rc.validate(raw_config()), [])
@@ -144,13 +149,13 @@ class ValidateTest(unittest.TestCase):
 
     def test_full_model_id_validates_with_family(self):
         raw = copy.deepcopy(raw_config())
-        tier_by_name(raw, "exec-sonnet-medium").update(model="claude-sonnet-5-5")
+        tier_by_name(raw, "exec-sonnet-med").update(model="claude-sonnet-5-5")
         self.assertEqual(rc.validate(raw), [])
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "routing.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             config = rc.load_config(path)
-        tier = next(t for t in config.tiers if t.name == "exec-sonnet-medium")
+        tier = next(t for t in config.tiers if t.name == "exec-sonnet-med")
         self.assertEqual(tier.family, "sonnet")
 
 
@@ -275,9 +280,9 @@ class ResolveTest(unittest.TestCase):
     def test_bare_and_scoped_resolve(self):
         for agent_type in (
             "exec-haiku-low",
-            "model-routing:exec-haiku-low",
-            "model-routing@inline:exec-haiku-low",
-            "model-routing@market:exec-haiku-low",
+            "mr:exec-haiku-low",
+            "mr@inline:exec-haiku-low",
+            "mr@market:exec-haiku-low",
         ):
             tier = rc.resolve_tier(agent_type, self.config)
             self.assertIsNotNone(tier, agent_type)
@@ -289,13 +294,13 @@ class ResolveTest(unittest.TestCase):
 
     def test_bare_name(self):
         c = self.config
-        self.assertEqual(rc.bare_name("model-routing:x", c), "x")
-        self.assertEqual(rc.bare_name("model-routing@m:x", c), "x")
+        self.assertEqual(rc.bare_name("mr:x", c), "x")
+        self.assertEqual(rc.bare_name("mr@m:x", c), "x")
         self.assertEqual(rc.bare_name("other:x", c), "other:x")
         self.assertEqual(rc.bare_name("x", c), "x")
 
     def test_install_id_prefix_resolves(self):
-        tier = rc.resolve_tier("model-routing@claude-model-routing:exec-haiku-low", self.config)
+        tier = rc.resolve_tier("mr@" + MARKET + ":exec-haiku-low", self.config)
         self.assertIsNotNone(tier)
         self.assertEqual(tier.name, "exec-haiku-low")
 
@@ -304,12 +309,12 @@ class ResolveTest(unittest.TestCase):
         self.assertIsNone(rc.resolve_tier(old_id + ":exec-haiku-low", self.config))
 
     def test_bare_name_strips_install_id_prefix(self):
-        self.assertEqual(rc.bare_name("model-routing@claude-model-routing:x", self.config), "x")
+        self.assertEqual(rc.bare_name("mr@" + MARKET + ":x", self.config), "x")
 
     def test_tier_names_and_role_of(self):
         names = rc.tier_names(self.config)
         self.assertEqual(len(names), 15)
-        tier = rc.resolve_tier("planner-opus-high", self.config)
+        tier = rc.resolve_tier("plan-opus-high", self.config)
         self.assertEqual(rc.role_of(tier, self.config).name, "planner")
 
 
@@ -335,7 +340,7 @@ class ReservedPrefixTest(unittest.TestCase):
 
     def test_plugin_name_without_reserved_prefix_is_accepted(self):
         raw = raw_config()
-        raw["plugin_name"] = "model-routing"
+        raw["plugin_name"] = "mr"
         self.assertFalse(any("reserved prefix" in m for m in rc.validate(raw)))
 
 

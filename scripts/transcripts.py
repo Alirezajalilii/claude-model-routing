@@ -6,7 +6,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import NamedTuple, Optional, Tuple
 
 
 class SessionNotFound(Exception):
@@ -18,6 +18,39 @@ class SessionFiles:
     session_id: str
     main: Optional[Path]
     subagents: Tuple[Path, ...]
+
+
+class RequestUsage(NamedTuple):
+    """One model request (deduplicated by message id) and its prompt size."""
+
+    message_id: str
+    model: str
+    prompt_tokens: int
+
+
+PROMPT_USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+
+
+def _count(value) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def request_usage(events) -> Tuple[RequestUsage, ...]:
+    """Return one RequestUsage per assistant message id, in first-appearance order.
+
+    The last record per id wins; the prompt is input plus both cache token counts.
+    """
+    latest: dict = {}
+    for record in events:
+        message = record.get("message")
+        if record.get("type") != "assistant" or not isinstance(message, dict):
+            continue
+        message_id, usage = message.get("id"), message.get("usage")
+        if not isinstance(message_id, str) or not message_id or not isinstance(usage, dict):
+            continue
+        prompt = sum(_count(usage.get(key)) for key in PROMPT_USAGE_KEYS)
+        latest[message_id] = RequestUsage(message_id, message.get("model") or "", prompt)
+    return tuple(latest.values())
 
 
 def default_claude_dir() -> Path:

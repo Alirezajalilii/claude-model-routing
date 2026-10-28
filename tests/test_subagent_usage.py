@@ -187,6 +187,50 @@ class TextOutputTest(SessionFixture):
         self.assertIn(f"{PLUGIN_TYPE}  alias=haiku", out)
         self.assertIn("tokens: input=10 output=5", out)
 
+    def test_text_output_shows_peak_prompt(self):
+        self.add_agent("a", PLUGIN_TYPE, [
+            assistant("msg_1", tokens=usage(5000, 1)),
+        ])
+        _, out, _ = run([SID, "--claude-dir", str(self.claude)])
+        self.assertIn("peak_prompt=5000", out)
+
+
+def read_call(file_path):
+    return {"type": "tool_use", "name": "Read", "input": {"file_path": file_path}}
+
+
+class SkillReadAndPeakTest(SessionFixture):
+    def test_read_of_skill_md_counts_as_skill_call_and_other_reads_do_not(self):
+        content = [read_call("/s/tdd/SKILL.md"), read_call("/repo/a.py")]
+        self.add_agent("a", PLUGIN_TYPE, [assistant("msg_1", content=content, tokens=usage(1, 1))])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["skill_calls"], ["/s/tdd/SKILL.md"])
+        self.assertEqual(rows[0]["tool_calls"], ["Read", "Read"])
+
+    def test_skill_tool_and_skill_md_read_keep_transcript_order(self):
+        content = [
+            {"type": "tool_use", "name": "Skill", "input": {"skill": "x"}},
+            read_call("/s/tdd/SKILL.md"),
+        ]
+        self.add_agent("a", PLUGIN_TYPE, [assistant("msg_1", content=content, tokens=usage(1, 1))])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["skill_calls"], ["x", "/s/tdd/SKILL.md"])
+
+    def test_peak_prompt_is_max_request_prompt_and_last_key(self):
+        self.add_agent("a", PLUGIN_TYPE, [
+            assistant("msg_1", tokens=usage(1000, 1)),
+            assistant("msg_2", tokens=usage(5000, 1)),
+            assistant("msg_3", tokens=usage(3000, 1)),
+        ])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["peak_prompt_tokens"], 5000)
+        self.assertEqual(list(rows[0].keys())[-1], "peak_prompt_tokens")
+
+    def test_peak_prompt_is_zero_without_usage(self):
+        self.add_agent("a", PLUGIN_TYPE, [api_request()])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["peak_prompt_tokens"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

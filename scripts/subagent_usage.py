@@ -63,6 +63,12 @@ def _note_request(acc: _Acc, entry: dict) -> None:
     acc.request_efforts.add((params.get("output_config") or {}).get("effort", "<not sent>"))
 
 
+def _skill_md_read(block: dict) -> Optional[str]:
+    """Return the SKILL.md path when a Read tool_use loads a skill file, else None."""
+    path = (block.get("input") or {}).get("file_path")
+    return path if isinstance(path, str) and path.endswith("/SKILL.md") else None
+
+
 def _note_block(acc: _Acc, block: dict) -> None:
     kind = block.get("type")
     if kind == "tool_use":
@@ -70,6 +76,8 @@ def _note_block(acc: _Acc, block: dict) -> None:
         acc.tool_calls.append(name)
         if name == "Skill":
             acc.skill_calls.append(str((block.get("input") or {}).get("skill", "?")))
+        elif name == "Read" and _skill_md_read(block):
+            acc.skill_calls.append(_skill_md_read(block))
     elif kind == "server_tool_use" and block.get("name") == "advisor":
         acc.advisor_calls += 1
     elif kind == "advisor_tool_result":
@@ -115,7 +123,7 @@ def _read_meta(transcript: Path) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _row(transcript: Path, acc: _Acc, meta: dict) -> dict:
+def _row(transcript: Path, acc: _Acc, meta: dict, requests: tuple) -> dict:
     totals = {key: sum(u.get(key, 0) for u in acc.usage_by_message.values()) for key in USAGE_KEYS}
     first = acc.usage_by_message.get(acc.first_message_id, {})
     head = acc.final_text.splitlines()[0][:REPORT_HEAD_CHARS] if acc.final_text else ""
@@ -138,15 +146,17 @@ def _row(transcript: Path, acc: _Acc, meta: dict) -> dict:
         "first_turn_prompt_tokens": sum(
             first.get(k, 0) for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")),
         **totals,
+        "peak_prompt_tokens": max((r.prompt_tokens for r in requests), default=0),
     }
 
 
 def summarize(transcript: Path) -> dict:
     """Fold one agent-*.jsonl transcript into a report row."""
     acc = _Acc()
-    for entry in tr.read_jsonl(transcript):
+    events = tr.read_jsonl(transcript)
+    for entry in events:
         _note_entry(acc, entry)
-    return _row(transcript, acc, _read_meta(transcript))
+    return _row(transcript, acc, _read_meta(transcript), tr.request_usage(events))
 
 
 def _collect(targets: list, claude_dir: Path) -> list:
@@ -169,7 +179,8 @@ def _print_row(r: dict) -> None:
           f"  request_effort={','.join(r['request_effort'])}  recorded={','.join(r['recorded_effort']) or '-'}")
     print(f"  tokens: input={r['input_tokens']} output={r['output_tokens']}"
           f" cache_write={r['cache_creation_input_tokens']} cache_read={r['cache_read_input_tokens']}"
-          f"  first_turn_prompt={r['first_turn_prompt_tokens']}  messages={r['messages']}")
+          f"  first_turn_prompt={r['first_turn_prompt_tokens']}  peak_prompt={r['peak_prompt_tokens']}"
+          f"  messages={r['messages']}")
     print(f"  tools_offered={','.join(r['request_tools']) or '?'}  tool_calls={','.join(r['tool_calls']) or '-'}")
     print(f"  skill_calls={','.join(r['skill_calls']) or '-'}  advisor_calls={r['advisor_calls']}"
           f" advisor_results={','.join(r['advisor_results']) or '-'}")

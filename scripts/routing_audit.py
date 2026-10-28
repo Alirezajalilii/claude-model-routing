@@ -30,6 +30,7 @@ import routing_config as rc
 import transcripts as tr
 
 PLANNER_CALL_NAMES = frozenset({"Read", "Grep", "Glob"})
+PLANNER_EXEMPT_SUFFIXES = ("/SKILL.md", "/CLAUDE.md", "/AGENTS.md")
 STATUS_RE = re.compile(
     r"^(DONE|BLOCKED|PASS|FIX|REPLAN|READY|NEED_EVIDENCE|OUT_OF_TOPIC|NO_PLAN_NEEDED)\b")
 SKILLS_RE = re.compile(r"\bSkills:[ \t]*\S")
@@ -68,7 +69,7 @@ def _tool_call(block, ts) -> Optional[tuple]:
         inp = {}
     arg = (inp.get("file_path") or inp.get("pattern") or inp.get("command")
            or inp.get("skill") or "")
-    return (ts, block.get("name"), str(arg)[:90])
+    return (ts, block.get("name"), str(arg))
 
 
 def _last_text(content) -> str:
@@ -130,9 +131,22 @@ def _hhmm(ts: Optional[str]) -> str:
     return ts[11:16] if ts else "-"
 
 
+def _exempt_read(path: str, prompt: str) -> bool:
+    """A planner Read of a file named in its prompt or of a rules or skill file is free."""
+    if not path:
+        return False
+    return path in prompt or path.endswith(PLANNER_EXEMPT_SUFFIXES)
+
+
+def _budget_calls(row: AgentRow) -> int:
+    return sum(1 for _, name, arg in row.calls
+               if name in PLANNER_CALL_NAMES
+               and not (name == "Read" and _exempt_read(arg, row.prompt)))
+
+
 def _budget_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
     budget = config.tunables["planner_evidence_budget"]
-    used = sum(1 for _, name, _ in row.calls if name in PLANNER_CALL_NAMES)
+    used = _budget_calls(row)
     if used > budget:
         return [f"over the planner evidence budget ({used} calls)"]
     return []
@@ -287,7 +301,7 @@ def detail_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
         first_write = next((ts for ts, name, _ in row.calls if name == "Write"), None)
         out.append(_detail_header(row, config, plan_re))
         out.append(f"   calls={dict(counts)} firstWrite={_hhmm(first_write)}")
-        out.extend(f"     {(ts or '')[11:19]} {name} {arg}" for ts, name, arg in row.calls)
+        out.extend(f"     {(ts or '')[11:19]} {name} {arg[:90]}" for ts, name, arg in row.calls)
     return out
 
 

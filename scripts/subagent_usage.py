@@ -44,7 +44,8 @@ class _Acc:
     request_tools: set = field(default_factory=set)
     tool_calls: list = field(default_factory=list)
     skill_calls: list = field(default_factory=list)
-    advisor_calls: int = 0
+    advisor_unkeyed_calls: int = 0
+    advisor_answered_ids: set = field(default_factory=set)
     advisor_results: list = field(default_factory=list)
     final_text: str = ""
 
@@ -69,6 +70,27 @@ def _skill_md_read(block: dict) -> Optional[str]:
     return path if isinstance(path, str) and path.endswith("/SKILL.md") else None
 
 
+def _note_advisor_call(acc: _Acc, block: dict) -> None:
+    """Advisor calls are counted by result, so an attempt without a result is not a call.
+
+    A call block with no id cannot be matched to a result; it still counts as one attempt.
+    """
+    if not block.get("id"):
+        acc.advisor_unkeyed_calls += 1
+
+
+def _note_advisor_result(acc: _Acc, block: dict) -> None:
+    """Record each answered advisor call once, keyed by tool_use_id; non-dict content is type "?"."""
+    content = block.get("content")
+    result_type = content.get("type", "?") if isinstance(content, dict) else "?"
+    call_id = block.get("tool_use_id")
+    if call_id is None:
+        acc.advisor_results.append(result_type)
+    elif call_id not in acc.advisor_answered_ids:
+        acc.advisor_answered_ids.add(call_id)
+        acc.advisor_results.append(result_type)
+
+
 def _note_block(acc: _Acc, block: dict) -> None:
     kind = block.get("type")
     if kind == "tool_use":
@@ -79,9 +101,9 @@ def _note_block(acc: _Acc, block: dict) -> None:
         elif name == "Read" and _skill_md_read(block):
             acc.skill_calls.append(_skill_md_read(block))
     elif kind == "server_tool_use" and block.get("name") == "advisor":
-        acc.advisor_calls += 1
+        _note_advisor_call(acc, block)
     elif kind == "advisor_tool_result":
-        acc.advisor_results.append((block.get("content") or {}).get("type", "?"))
+        _note_advisor_result(acc, block)
     elif kind == "text" and block.get("text", "").strip():
         acc.final_text = block["text"].strip()
 
@@ -139,7 +161,7 @@ def _row(transcript: Path, acc: _Acc, meta: dict, requests: tuple) -> dict:
         "request_tools": sorted(acc.request_tools),
         "tool_calls": acc.tool_calls,
         "skill_calls": acc.skill_calls,
-        "advisor_calls": acc.advisor_calls,
+        "advisor_calls": acc.advisor_unkeyed_calls + len(acc.advisor_answered_ids),
         "advisor_results": acc.advisor_results,
         "report_first_line": head,
         "messages": len(acc.usage_by_message),

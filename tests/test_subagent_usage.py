@@ -232,5 +232,38 @@ class SkillReadAndPeakTest(SessionFixture):
         self.assertEqual(rows[0]["peak_prompt_tokens"], 0)
 
 
+def advisor_call(call_id):
+    return {"type": "server_tool_use", "id": call_id, "name": "advisor", "input": {}}
+
+
+def advisor_result(call_id, content):
+    return {"type": "advisor_tool_result", "tool_use_id": call_id, "content": content}
+
+
+class AdvisorCountTest(SessionFixture):
+    def test_only_answered_advisor_calls_are_counted(self):
+        content = [advisor_call("adv_a"), advisor_call("adv_b"), advisor_result("adv_b", {"type": "advice"})]
+        self.add_agent("a", PLUGIN_TYPE, [assistant("msg_1", content=content, tokens=usage(1, 1))])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["advisor_calls"], 1)
+
+    def test_same_advisor_call_id_repeated_later_counts_once(self):
+        first = [advisor_call("adv_1")]
+        second = [advisor_call("adv_1"), advisor_result("adv_1", {"type": "advice"})]
+        self.add_agent("a", PLUGIN_TYPE, [
+            assistant("msg_1", content=first, tokens=usage(1, 1)),
+            assistant("msg_2", content=second, tokens=usage(1, 1)),
+        ])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["advisor_calls"], 1)
+
+    def test_string_advisor_result_content_does_not_raise_and_is_type_question_mark(self):
+        content = [advisor_call("adv_1"), advisor_result("adv_1", "plain string content")]
+        self.add_agent("a", PLUGIN_TYPE, [assistant("msg_1", content=content, tokens=usage(1, 1))])
+        code, rows, err = self.run_json(SID)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(rows[0]["advisor_results"], ["?"])
+
+
 if __name__ == "__main__":
     unittest.main()

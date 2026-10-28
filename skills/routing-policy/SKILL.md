@@ -20,7 +20,7 @@ Before a project's first delegation, run `model-routing-init --claude-md` in the
 Where another rule conflicts with this policy, this policy wins. The full text is available with the skill `model-routing:routing-policy`.
 
 ## Roles
-- The main session runs on the `sonnet` model family at `high` effort, with an advisor model configured (plugin README, Required settings). It is the dispatcher and integrator. Its jobs: intake and lane selection; building the skills inventory; choosing planner tiers; running scouts; relaying messages between agents; dispatching executors and verifiers as the plan assigns; the final gate; commit and merge; logging.
+- The main session runs on the `sonnet` model family at `high` effort, with an advisor model configured (plugin README, Required settings). It is the dispatcher and integrator. Its jobs: intake and lane selection; building the skills inventory; choosing planner tiers; running scouts; relaying file paths between agents; dispatching executors and verifiers as the plan assigns; the final gate; commit and merge; logging.
 - In the full lane, the main session never writes plans or production code itself. A file that lists tasks with tiers is a plan wherever it lives (for example in a private run directory outside the repository), so only a planner writes one; the main session writes only fast-lane specs, one task each.
 - Planners own the solution: from the user's request and the evidence they work out the real problem and the best complete fix, then plan it, test cases included; the main session's framing is input, not the design. Executors implement test-first. The main session gates every task with mechanical checks. Verifiers judge only the tasks where risk or a failed check justifies the cost. Only planners may use the advisor.
 - No agent has a default model, effort, or skill set. Every delegation picks a specific tier agent and states its skills explicitly.
@@ -36,27 +36,28 @@ The tier agents ship with this plugin. Dispatch them as `model-routing:<name>`:
 No other agent type (built-in agents, other plugins' agents, or project agents) is dispatched.
 
 ## Dispatch mechanics (verified on Claude Code 2.1.306, 2026-10-24)
-- Never pass `model` or `effort` on the Agent call for a tier agent; either one overrides the frontmatter.
+- Never pass `model` or `effort` on any Agent call; either one overrides the frontmatter.
 - Never set `CLAUDE_CODE_EFFORT_LEVEL` (it overrides every agent's frontmatter effort, so a shell profile or tool that exports it breaks routing) or `CLAUDE_CODE_SUBAGENT_MODEL` (and never `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`). The session-start context warns when it sees any of them.
 - Nesting is blocked in four layers: each agent's `disallowedTools` (`Agent, TeamCreate, TeamDelete, SendMessage`), its `tools` allowlist, its body, and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` in the settings env.
 - The advisor cannot be removed per agent on this version (no frontmatter field; `disallowedTools: advisor` does not detach it, because it is a server tool). The restriction for non-planners is the body line "Never consult the advisor." plus the same line in every non-planner delegation message.
 - Agent definitions reach a running session late. After the plugin is installed, enabled or updated, run `/reload-plugins` or start a fresh session before dispatching; if a tier type is reported missing, retry shortly or run the delegation in a fresh `claude -p` session. On 2026-10-24, one of three parallel `exec-haiku-low` launches right after a body change still got the old body, so after changing agent definitions, check the first reports for the new behavior.
-- Resume an agent instance (FIX, REPLAN, NEED_EVIDENCE answers, gate failures) with SendMessage to its name or agentId. A planner instance is resumed only for its own plan (Full lane workflow, step 2).
-- The plugin's PreToolUse hook (`scripts/dispatch_guard.py`, matcher `Agent|Task`) blocks a tier-agent delegation that has no Skills line, a non-planner delegation without "Never consult the advisor.", and any `model` or `effort` parameter on a tier agent. It recognizes both `model-routing:<name>` and bare tier names. A blocked call returns the reason; fix the message and resend.
+- Resume an agent instance (FIX, REPLAN, NEED_EVIDENCE answers, gate failures) with SendMessage to its name or agentId, naming the input file paths and a new Output file. A planner instance is resumed only for its own plan (Full lane workflow, step 2).
+- The plugin's PreToolUse hook (`scripts/dispatch_guard.py`, matcher `Agent|Task`) denies any Agent or Task call whose subagent type is neither a tier nor listed in `dispatch.allow_agents` of the routing config (an empty type counts as `general-purpose`; `fork` and `general-purpose` are denied), any `model` or `effort` parameter on any agent, and a tier delegation without a Skills line (`none` or existing absolute SKILL.md paths), without an `Output:` line with an absolute path, or, for non-planners, without "Never consult the advisor." It recognizes both `model-routing:<name>` and bare tier names. A blocked call returns the reason; fix the message and resend.
+- Tier agents run with `omitClaudeMd: true` and without the Skill tool: they load no user or project CLAUDE.md and no skill listing; they read the project rules files and the SKILL.md paths their delegation names. Built-in commands that spawn other agent types (`/code-review`, `/simplify`, `/security-review`) are denied unless their type is allowlisted.
 
 ## Skills inventory
-- At the start of every full-lane run, the main session builds a skills inventory: every skill available in this session (user, project, and plugin, as listed in the session's skills listing), each with its name, one-line description, and scope. Exclude skills that set `disable-model-invocation`, because agents cannot load them.
-- The main session passes this inventory to the planner. It does not pass the full inventory to scouts, executors, or verifiers; they receive only their Skills line.
-- `model-routing-skills` prints the user, project and plugin skills it can find, without those that set `disable-model-invocation`, as a Markdown table; add any skill from the session's listing that it missed.
+- At the start of every full-lane run, the main session builds a skills inventory: every skill available in this session (user, project, and plugin, as listed in the session's skills listing), each with its name, scope, SKILL.md path and one-line description. Exclude skills that set `disable-model-invocation`, because agents cannot load them.
+- The main session passes the inventory file's path to the planner. It does not pass the full inventory to scouts, executors, or verifiers; they receive only their Skills line.
+- Run `model-routing-skills --out <handoff dir>/skills-inventory.md`; it writes the user, project and plugin skills it can find, with their SKILL.md paths and without those that set `disable-model-invocation`, as a Markdown table; add any skill from the session's listing that it missed.
 
 ## Skill Assignment
-- Every delegation message to every agent includes a Skills line. "Skills: none" is valid and is the right answer for many tasks.
+- Every delegation message to every agent includes a Skills line. "Skills: none" is valid and is the right answer for many tasks. Name each skill by the absolute path of its SKILL.md (the inventory's Path column), comma-separated.
 - Who assigns: the main session assigns skills for scouts, planners, and fast-lane executors; the planner assigns skills for executors and verifiers, per task, in the plan file.
 - What to assign: only skills that change how this specific task must be done. Examples: the project's framework or style conventions for the files being touched; the skill for a required output format (document, spreadsheet, slide deck); a testing or review skill for verifiers. Do not assign a skill merely because it is related to the topic.
 - The verifier of a task always receives the same skills as that task's executor, plus any review or testing skill that applies. A verifier must judge against the same conventions the executor was told to follow.
 - Limits: at most 2 skills for any Haiku agent, because loaded skills consume context and Haiku bills about five times more once a prompt exceeds 100K tokens; at most 4 skills for any other agent.
 - Precedence when instructions conflict: this policy, then the project's claude.md, then the plan, then skills.
-- An agent may load at most one unlisted skill, only when clearly necessary, and must report it. Repeated unlisted loads for the same task type mean the planner's assignment rules need updating.
+- An agent may read at most one unlisted SKILL.md, only when clearly necessary, and must report it. Repeated unlisted loads for the same task type mean the planner's assignment rules need updating.
 
 ## Lane selection
 Use the fast lane only when all of these are true:
@@ -66,7 +67,7 @@ Use the fast lane only when all of these are true:
 - it does not touch authentication, payments, data integrity, migrations, or security.
 
 Fast lane process:
-- The main session writes a short spec: goal, file, exact change, verification command, and a Skills line (usually "none").
+- The main session writes a short spec: goal, file, exact change, verification command, a Skills line (usually "none"), and an Output line.
 - It dispatches to `exec-haiku-low`, or `exec-haiku-medium` if any logic is involved.
 - It runs the verification command itself.
 - It merges the executor's commit.
@@ -80,34 +81,34 @@ Everything else goes through the full lane. A planner is only for work that need
 1. **Evidence.** The main session runs scouts with narrow questions, starting paths, and a Skills line (usually none; a project-conventions skill when scouts must recognize framework-specific patterns). Run scouts in parallel when the questions are independent. Use `scout-haiku-low` for locating, `scout-haiku-medium` for reading and summarizing (including read-only `gh`/API queries, CI logs and live endpoint checks), and `scout-sonnet-high` only when the root cause is unclear or spans modules.
    - Ask for plan-ready evidence: for every file the change will likely touch, the path, the line ranges and the exact excerpt of the relevant functions, types or config entries; the callers and tests involved; and the verification commands that exist. The planner builds on this without re-reading the files, so a scout question that only asks for counts or a summary is too thin.
    - Wait for every scout before dispatching the planner.
-2. **Plan.** The main session chooses a planner tier and passes it the problem, not a solution: the user's request in their own words, what was observed, all scout evidence, the user's explicit decisions and constraints, the skills inventory, and a Skills line for the planner itself (for example, an architecture or domain skill that shapes the plan).
+2. **Plan.** The main session chooses a planner tier and passes it the problem, not a solution: the user's request in their own words, what was observed, the paths of all scout output files, the user's explicit decisions and constraints, the skills inventory file path, an Output line with the plan path, and a Skills line for the planner itself (for example, an architecture or domain skill that shapes the plan).
    - Never prescribe the approach, the task split or the tiers. The main session is not at the planner's reasoning level; an idea of its own goes in labeled as an unverified hypothesis, and the planner decides the plan.
    - One planner instance per topic: the plan it wrote and the tasks directly related to it. Resume an instance only for its own plan (NEED_EVIDENCE answers, REPLANs of its tasks). A new topic that needs design (a new feature, an unrelated bug, a large finding outside that plan) gets a fresh planner and its own new plan file; small, clear work goes to the fast lane. Never grow one plan file with unrelated topics.
    - If the planner returns OUT_OF_TOPIC or NO_PLAN_NEEDED, follow it: start a fresh planner for the new topic, or write a fast-lane spec.
-   - If the planner returns NEED_EVIDENCE, run the requested scouts, then resume the same planner instance with the results through SendMessage.
-   - The planner treats the scout evidence as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own.
+   - If the planner returns NEED_EVIDENCE, dispatch one scout per `## Scout <k>` section of its requests file, passing the file path and the section; then resume the same planner instance with the scouts' output paths through SendMessage.
+   - The planner treats the evidence files it is given as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own. Reading the files its delegation names, the project rules files and the listed SKILL.md files does not count against the budget.
    - Allow at most 2 evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
-3. **Execute.** Dispatch each task to the executor tier the plan assigns. Pass the plan file path, the task ID, and the task's executor Skills line exactly as written in the plan. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
+3. **Execute.** Dispatch each task to the executor tier the plan assigns. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
 4. **Gate.** For every finished task, the main session runs these checks itself:
    - Red: if the task has Test Cases, check out commit one and run the new tests. They must fail. Tests that pass before the implementation exists are not testing the change.
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
    - Green: the task's verification commands and the full test suite pass.
-   - Report: the executor's claims match the diff and the command output.
+   - Report: the status line's commits are the task's commits on its branch and the report file exists; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
    - a gate check other than Green failed (red, integrity, coverage, scope, or report mismatch); these failures need judgment, not a blind retry;
    - the task already went through a FIX round or an escalation;
    - calibration sampling selected the task.
-   Pass the plan path, task ID, branch or worktree, the executor's report, the gate results, and the task's verifier Skills line exactly as written in the plan.
+   Pass the plan path, task ID, branch or worktree, the executor's report path, the gate results, and the task's verifier Skills line exactly as written in the plan.
 6. **Act on the result.**
    - Gate passed and no verifier was triggered, or the verifier returned PASS: the task is done.
-   - Only the Green check failed (tests fail, everything else clean): resume the same executor instance through SendMessage with the failure output. This counts as a FIX round. No verifier is needed for it.
-   - Verifier FIX: resume the same executor instance with the defect list. Then resume the same verifier instance to re-verify; it must re-run every command.
+   - Only the Green check failed (tests fail, everything else clean): resume the same executor instance through SendMessage with the path of a file holding the failure output. This counts as a FIX round. No verifier is needed for it.
+   - Verifier FIX: resume the same executor instance with the verdict file path. Then resume the same verifier instance to re-verify; it must re-run every command.
    - Allow at most 2 FIX rounds at one tier, counting both kinds. After that, escalate the executor one tier: launch a fresh executor with the plan path, the task ID, the Skills line, and the full defect history.
-   - REPLAN, when the plan's design is wrong: resume the same planner instance with the verifier's evidence, so it can revise that task in the plan file (editing only that task), including its skills if the problem was a skill conflict or a missing skill. The planner may consult the advisor once for this revision (Advisor rules). After the revision, re-execute the task. If a second REPLAN occurs for the same task, move up one planner tier. A REPLAN whose fix is small and clear (a wrong value in a Test Case, a file missing from the task's list) goes to the fast lane instead; log it as a deviation.
-   - BLOCKED: fix the environment issue if it is clearly mechanical. Otherwise, treat it as a failure under the escalation caps.
+   - REPLAN, when the plan's design is wrong: resume the same planner instance with the verdict file path, so it can revise that task in the plan file (editing only that task), including its skills if the problem was a skill conflict or a missing skill. The planner may consult the advisor once for this revision (Advisor rules). After the revision, re-execute the task. If a second REPLAN occurs for the same task, move up one planner tier. A REPLAN with `fix=small` goes to the fast lane instead: its executor gets the verdict path as the spec input; log it as a deviation.
+   - BLOCKED: the status line's `reason=` says why; fix the environment issue if that reason shows it is clearly mechanical. Otherwise, treat it as a failure under the escalation caps.
 7. **Final gate and integrate.**
    - Merge only when every task has passed its gate (and its verifier, if one ran) and the full test suite passes on the integrated branch. Then commit with a clear message and merge. Where a project forbids red-only commits on its main branch, fold the red commit into its green commit after the gate and before the merge.
    - Never force-push or rewrite shared history.
@@ -115,6 +116,14 @@ Everything else goes through the full lane. A planner is only for work that need
    - Destructive database migrations, data deletion, and production deploys are outside auto-merge scope: prepare them fully, then report.
    - Wrap-up (every task has passed: final gate, merge, docs, log, report) never spawns or resumes a planner. The main session writes the log; docs edits go to the fast lane. A problem found now is either small and clear (fast lane) or a new topic for a fresh planner.
 8. **Log** every delegation, as described under Logging.
+
+## Handoffs between agents
+- Every tier agent writes its full output to a file and replies with one status line that names the file. The main session never reads these files; it passes their paths to the next agent.
+- Handoff directory: one per run, `docs/handoffs/<YYYY-MM-DD>-<topic-slug>/` in the project (or the run directory the project's rules name), kept out of version control. An agent working in a worktree writes inside that worktree's copy of the directory.
+- Every tier delegation carries an `Output:` line with the absolute path of a new file in the handoff directory (for planners, the plan file), and a `Project rules:` line when the agent should read something other than the root `CLAUDE.md`/`AGENTS.md` and their in-repository imports (`Project rules: none` for nothing).
+- Status lines: scouts `DONE <path>` or `BLOCKED <path> reason=<one line>`; executors `DONE <path> commits=<sha>,<sha>` or `BLOCKED <path> reason=<one line>`; verifiers `PASS <path>`, `FIX <path>`, `REPLAN <path> fix=small|design` or `BLOCKED <path> reason=<one line>`; planners `READY <plan path>`, `NEED_EVIDENCE <requests path> scouts=<k>`, `OUT_OF_TOPIC <reason>`, `NO_PLAN_NEEDED <reason>` or `BLOCKED <plan path> reason=<one line>`. Decide BLOCKED and REPLAN handling from the inline `reason=` and `fix=` alone. A trailing `findings=<n>` means the file lists n out-of-scope findings: read only that section and route each finding (fast lane, or a fresh planner).
+- Relay by path only: scout output files and the skills inventory file to the planner; for NEED_EVIDENCE, one scout per `## Scout <k>` section of the requests file, at the tier its heading proposes unless you have a reason to change it; the plan path and task ID to executors; the executor's report path to the verifier; the verdict path to the executor (FIX) or to the planner (REPLAN). For a Green-only gate failure, redirect the failing command's output into a file in the handoff directory and pass its path.
+- Delegation and resume messages carry paths and short instructions, never copied evidence, reports or defect lists.
 
 ## Plan Contract
 Every plan file (`docs/plans/YYYY-MM-DD-short-slug.md`) contains: the goal; the evidence summary, with file references; assumptions (including any departure from the main session's framing, with the reason); the tasks; risks; Skill Gaps (skills that do not exist but would have helped); and Advisor Notes (suggestions applied and suggestions rejected, with reasons).
@@ -128,10 +137,12 @@ Each task contains:
 - explicitly out-of-scope items;
 - acceptance criteria;
 - exact verification commands;
+- for a docs task that states commands, procedures or behavior: a fact sheet listing every command, path and claim the doc will contain, each with its source file and line;
 - Test Cases: each behavior to test, with inputs and the expected outcome; or "Tests: existing suite only" for tasks with no behavior change. The planner writes these, so tests come from the spec, not from the executor's reading of it;
 - dependencies on other tasks;
 - the assigned executor tier, with a one-line reason;
-- the executor Skills line, with a one-line reason per skill;
+- the executor Skills line (absolute SKILL.md paths from the inventory, or none), alone on its own line so it can be copied verbatim, with a one-line reason per skill on separate lines;
+- the Project rules line: the project rules files the executor and verifier read (paths, or none when the task's constraints already carry every convention);
 - Verify: yes or no, naming the trigger if yes;
 - the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling.
 
@@ -156,12 +167,14 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than 2 skills cannot go to a Haiku tier.
+When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than 2 skills cannot go to a Haiku tier. A task expected to need more than about 25 tool calls in total is never a Haiku task.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 
+Docs that state commands, procedures or behavior (runbooks, ADRs, READMEs, agent guides such as AGENTS.md) go to `exec-haiku-medium` at least (`exec-sonnet-medium` when they span modules), with a fact sheet in the task; wording-only docs stay on `exec-haiku-low`.
+
 What each executor tier is for:
-- **exec-haiku-low:** renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and docs changes, and tests from cases given in the plan.
+- **exec-haiku-low:** renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and wording-only docs changes, and tests from cases given in the plan.
 - **exec-haiku-medium:** single-module logic with clear tests, such as serializers, simple endpoints, utilities, and small components; and operational runbooks with exact commands (push, rebase, CI polling, scripted deploys, build and test runs).
 - **exec-haiku-high:** tricky but well-specified single-module logic, such as parsing, validation, and edge-case-heavy functions.
 - **exec-sonnet-medium:** standard multi-file feature work across roughly two to five files.
@@ -195,7 +208,10 @@ All other tasks are Verify: no and rely on the gate.
 - Effort `max` on any agent. It burns several times the tokens without scoring better, and on Sonnet it fans out into out-of-scope work.
 - Effort `xhigh` on Haiku.
 - Opus as an executor.
-- Any agent outside the defined tiers.
+- Any agent outside the defined tiers and `dispatch.allow_agents`, including `general-purpose` and `fork`.
+- A `model` or `effort` parameter on any Agent call.
+- Copying an agent's output into a delegation or resume message instead of passing its path.
+- Giving tier agents the Skill tool.
 - Passing a paraphrase of a plan task instead of the plan path and task ID.
 - A delegation message without a Skills line.
 - A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.
@@ -212,7 +228,8 @@ All other tasks are Verify: no and rely on the gate.
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
 - A task that genuinely needs broad context or many skills is a Sonnet task.
-- Measured baseline (Claude Code 2.1.306, 2026-10-24): a tier agent's first turn is about 36K prompt tokens outside a repository. A project's CLAUDE.md and its imports add their full size on top, so inside a repository with a heavy CLAUDE.md a Haiku agent can have only about 30K tokens of headroom before the 100K line.
+- Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact before the 100K line (`autoCompactWindow`), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
+- A task expected to need more than about 25 tool calls is not a Haiku task.
 
 ## Escalation caps
 Per task, allow at most: 2 executor-tier escalations; one replan at each planner tier; two planner tiers in total.
@@ -220,9 +237,9 @@ When the caps are exhausted, stop work on that task and report to the human with
 
 ## Logging (mandatory)
 - Append one entry per task to `docs/model-routing-log.md` with: date; task type; lane; planner tier; executor tier; verifier tier; skills assigned and skills actually loaded per agent (including any unlisted load and its reason); gate results per check; whether a verifier ran and why (plan trigger, gate failure, post-FIX, or sample) and its verdict; number of FIX rounds; number of REPLANs; number of escalations; final outcome; and input, output, and cache tokens per agent, taken from `message.usage` in each subagent's transcript.
-- Take the tokens, the observed model and effort, skill calls and advisor calls with `model-routing-usage <session-id>` (or one `agent-*.jsonl` path; `--agent-type NAME` filters and accepts scoped or bare names; usage is deduplicated by message id). The session-start context gives this session's id.
+- Take the tokens, the observed model and effort, skill loads (Read calls on SKILL.md files) and advisor calls with `model-routing-usage <session-id>` (or one `agent-*.jsonl` path; `--agent-type NAME` filters and accepts scoped or bare names; usage is deduplicated by message id). The session-start context gives this session's id.
 - Log tokens, not dollars. On a subscription, tokens are what count against usage limits.
-- Before its final report, the main session runs `model-routing-audit <session-id>` and logs its flags (missing Skills or advisor lines, executors without a planner plan, planners over the evidence budget, non-tier agents, `scout-sonnet-high` use) and the executor tier mix. The plugin's SessionEnd hook also writes that audit to `audits/<date>-<session>.md` in the plugin data directory for every session that dispatched tier agents. The skill `model-routing:routing-report` runs both commands.
+- Before its final report, the main session runs `model-routing-audit <session-id>` and logs its flags (missing Skills or advisor lines, executors without a planner plan, planners over the evidence budget, non-tier agents (any type outside the tiers and `dispatch.allow_agents`, including `fork`), `model` or `effort` on any Agent call, Haiku requests over 100000 prompt tokens, a main session off the policy model family, agent replies that are not a status line, `scout-sonnet-high` use) and the executor tier mix. The plugin's SessionEnd hook also writes that audit to `audits/<date>-<session>.md` in the plugin data directory for every session that dispatched tier agents. The skill `model-routing:routing-report` runs both commands.
 - At the end of every session, update the aggregate table in the project's claude.md. Per tier and task type, track: first-pass gate pass rate, average FIX rounds, average tokens, and the sampled-verifier defect rate. Where claude.md is generated, the table lives at the bottom of `docs/model-routing-log.md` and claude.md carries only the pointer.
 - If the data shows a task type consistently passing one tier lower, consistently escalating, a planner tier consistently producing REPLANs, a skill consistently loaded unlisted, or a Skill Gap recurring, propose a rule change or a new skill in claude.md (or, where it is generated, in the log's proposals section and the session report). Never silently change this policy.
 

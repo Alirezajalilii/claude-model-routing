@@ -10,12 +10,14 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than {{skill_cap_haiku}} skills cannot go to a Haiku tier.
+When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than {{skill_cap_haiku}} skills cannot go to a Haiku tier. A task expected to need more than about {{haiku_max_tool_calls}} tool calls in total is never a Haiku task.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 
+Docs that state commands, procedures or behavior (runbooks, ADRs, READMEs, agent guides such as AGENTS.md) go to `exec-haiku-medium` at least (`exec-sonnet-medium` when they span modules), with a fact sheet in the task; wording-only docs stay on `exec-haiku-low`.
+
 What each executor tier is for:
-- **exec-haiku-low:** renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and docs changes, and tests from cases given in the plan.
+- **exec-haiku-low:** renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and wording-only docs changes, and tests from cases given in the plan.
 - **exec-haiku-medium:** single-module logic with clear tests, such as serializers, simple endpoints, utilities, and small components; and operational runbooks with exact commands (push, rebase, CI polling, scripted deploys, build and test runs).
 - **exec-haiku-high:** tricky but well-specified single-module logic, such as parsing, validation, and edge-case-heavy functions.
 - **exec-sonnet-medium:** standard multi-file feature work across roughly two to five files.

@@ -13,6 +13,7 @@ from typing import List, Optional, Set, Tuple
 
 CACHE_PARTS = (".claude", "plugins", "cache", "claude-" + "model-routing", "model-routing")
 MANIFEST = ".claude-plugin/plugin.json"
+RUNTIME_DIR = ".in_use"  # written by Claude Code at the plugin root, one file per running session
 
 
 class CheckError(Exception):
@@ -44,7 +45,7 @@ def list_installed(plugin_dir: Path) -> Set[str]:
     for current, dirs, files in os.walk(root, followlinks=False):
         rel_dir = os.path.relpath(current, root)
         if rel_dir == ".":
-            dirs[:] = [d for d in dirs if d != ".git"]
+            dirs[:] = [d for d in dirs if d not in (".git", RUNTIME_DIR)]
             files = [f for f in files if f != ".git"]
         names = list(files) + [d for d in dirs if os.path.islink(os.path.join(current, d))]
         for name in names:

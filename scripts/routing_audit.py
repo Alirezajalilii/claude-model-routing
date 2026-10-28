@@ -224,7 +224,7 @@ def _main_agent_calls(events: Iterable[dict]) -> list:
 
 
 def main_flags(main_path: Optional[Path], config: rc.RoutingConfig) -> list:
-    """Flag Agent calls that passed model or effort, and a main model off the policy family."""
+    """Flag Agent calls that passed model or effort."""
     if main_path is None:
         return []
     events = list(tr.read_jsonl(main_path))
@@ -234,14 +234,22 @@ def main_flags(main_path: Optional[Path], config: rc.RoutingConfig) -> list:
         for param in ("model", "effort"):
             if inp.get(param):
                 lines.append(f"- main session: Agent call to `{agent}` passed `{param}`")
-    family = config.dispatcher_model_family
-    models = {m.get("model") for e in events if e.get("type") == "assistant"
-              for m in [e.get("message")] if isinstance(m, dict)}
-    for model in sorted(m for m in models if isinstance(m, str)):
-        if rc.model_family(model) not in (None, family):
-            lines.append(f"- main session ran on `{model}`; "
-                         f"the policy expects the `{family}` family")
     return lines
+
+
+def main_info(main_path: Optional[Path], config: rc.RoutingConfig) -> list:
+    """Report the main session's model as information, never as a flag."""
+    if main_path is None:
+        return []
+    models = collections.Counter(
+        m.get("model") for e in tr.read_jsonl(main_path) if e.get("type") == "assistant"
+        for m in [e.get("message")]
+        if isinstance(m, dict) and isinstance(m.get("model"), str)
+        and rc.model_family(m["model"]) is not None)
+    if not models:
+        return []
+    model = models.most_common(1)[0][0]
+    return [f"info: main session model {model} (policy default {config.dispatcher_model_family})"]
 
 
 def dispatched_tier(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> bool:
@@ -306,8 +314,9 @@ def detail_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
 
 
 def render(label: str, rows: Sequence[AgentRow], verbose: bool, config: rc.RoutingConfig,
-           main_lines: Sequence[str] = ()) -> str:
+           main_lines: Sequence[str] = (), info_lines: Sequence[str] = ()) -> str:
     lines = [f"# Routing audit: {label}", "", f"Span: {span(rows)}", "",
+             *([*info_lines, ""] if info_lines else []),
              f"Agents: {len(rows)}", "", "## Agents per type", *count_lines(rows, config), "",
              "## Executor mix", *executor_mix(rows, config), "",
              "## Flags", *([*main_lines, *flag_lines(rows, config)] or ["None"]), ""]
@@ -336,7 +345,8 @@ def run_hook(raw: str, claude_dir: Path) -> Optional[Path]:
     out_dir = Path(data_dir) / "audits"
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{datetime.date.today().isoformat()}-{sid[:8]}.md"
-    path.write_text(render(files.session_id, rows, False, config, main_flags(files.main, config)), encoding="utf-8")
+    path.write_text(render(files.session_id, rows, False, config, main_flags(files.main, config),
+                         main_info(files.main, config)), encoding="utf-8")
     return path
 
 
@@ -376,7 +386,7 @@ def main(argv: Optional[list] = None) -> int:
         return 2
     rows = summarize(files.subagents, args.agent_type)
     report = render(files.session_id, rows, args.verbose, config,
-                    main_flags(files.main, config))
+                    main_flags(files.main, config), main_info(files.main, config))
     if args.out:
         Path(args.out).write_text(report, encoding="utf-8")
     else:

@@ -46,13 +46,10 @@ def _model_warning(event: Mapping, config: RoutingConfig) -> Optional[str]:
         return None
     if family == config.dispatcher_model_family:
         return None
-    family = config.dispatcher_model_family
     return (
-        f"This session runs on `{model}`, but the policy expects the main session "
-        f"on the `{family}` model family. In your first reply, before anything else, "
-        "tell the user: switch with `/model` in the CLI, or pick a "
-        f"`{family}` model in the desktop app's model picker for new sessions "
-        "(it remembers the choice)."
+        f"Note: this session runs on {model}; the routing policy's default "
+        f"main-session model is {config.dispatcher_model_family}. This is the "
+        "user's choice and is fine. Do not ask the user to switch models."
     )
 
 

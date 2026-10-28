@@ -5,11 +5,12 @@ All notable changes to this project are documented here. The format follows Keep
 ## [Unreleased]
 
 ### Added
+- Main-session model note and audit line are informational; the policy names no advisor model.
 - Scouts and verifiers get the Write tool, and every tier agent writes its full output to a handoff file and replies with one status line (status words per role are listed in the handoff policy section). Agent bodies gain the sections Core rules, Skills, Output and status line, and Output file.
 - Agent frontmatter settings from config: `omitClaudeMd` is true for every agent, and Haiku agents get `autoCompactWindow` 100000.
 - Tunables `haiku_max_tool_calls` (25), `haiku_prompt_flag_tokens` (100000) and `status_line_max_chars` (400), plus `dispatch.allow_agents` (`claude-code-guide`, `statusline-setup`).
 - Dispatch guard denies agent types outside the tiers and `dispatch.allow_agents` (an empty type counts as `general-purpose`), and `model` or `effort` on any agent. For tier delegations it denies a missing Skills line, Skills items that are not existing absolute SKILL.md paths, a missing absolute `Output:` path, and (non-planners) a missing "Never consult the advisor." line. It still fails open on malformed input and config errors.
-- Session context warns on a model-family mismatch: part 1 tells the main session to tell the user in its first reply to use `/model` or the desktop model picker, and the warning survives the oversize fallback.
+- Session context adds an informational note when the session runs on a model outside the policy default family; the note survives the oversize fallback.
 - Audit flags: non-allowlisted non-tier agents (including `fork`) in every session, `model` or `effort` on Agent calls in the main transcript, Haiku requests over 100000 prompt tokens, tier replies that are not a status line, and a main session off the policy model family.
 
 ### Changed

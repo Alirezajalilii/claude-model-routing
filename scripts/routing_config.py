@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping, Optional
@@ -24,6 +24,9 @@ INT_TUNABLES = {
     "max_evidence_rounds": 1,
     "skill_cap_haiku": 0,
     "skill_cap_other": 0,
+    "haiku_max_tool_calls": 1,
+    "haiku_prompt_flag_tokens": 1,
+    "status_line_max_chars": 1,
 }
 RATE_TUNABLES = (
     "calibration_sample_rate",
@@ -77,6 +80,9 @@ class RoutingConfig:
     plan_path_pattern: str
     policy_sections: tuple
     dispatcher_parts: tuple
+    agent_frontmatter: tuple = ()
+    agent_frontmatter_by_model: Mapping = field(default_factory=dict)
+    dispatch_allow_agents: tuple = ()
 
 
 def model_family(model: Optional[str]) -> Optional[str]:
@@ -138,6 +144,10 @@ def _validate_role(name: str, role: Any) -> list:
         for tool in NESTING_TOOLS:
             if tool not in disallowed:
                 errors.append(f"roles.{name}.disallowed_tools: must contain {tool}")
+    if isinstance(tools, list) and "Skill" in tools:
+        errors.append(
+            f"roles.{name}.tools: Skill is not allowed; agents read SKILL.md files with Read"
+        )
     advisor = role.get("uses_advisor")
     if not isinstance(advisor, bool):
         errors.append(f"roles.{name}.uses_advisor: must be a bool")
@@ -232,6 +242,57 @@ def _validate_extras_and_audit(raw: Mapping, tier_names: set) -> list:
     return errors
 
 
+FRONTMATTER_FIELDS = {
+    "omitClaudeMd": (lambda v: isinstance(v, bool), "must be a bool"),
+    "autoCompactWindow": (
+        lambda v: _is_int(v) and 100000 <= v <= 1000000,
+        "must be an integer from 100000 to 1000000",
+    ),
+}
+
+
+def _validate_frontmatter_fields(path: str, fields: Any) -> list:
+    if not isinstance(fields, dict):
+        return [f"agent_frontmatter.{path}: must be an object"]
+    errors = []
+    for key, value in fields.items():
+        if key not in FRONTMATTER_FIELDS:
+            errors.append(f"agent_frontmatter.{path}.{key}: unknown field")
+        elif not FRONTMATTER_FIELDS[key][0](value):
+            errors.append(f"agent_frontmatter.{path}.{key}: {FRONTMATTER_FIELDS[key][1]}")
+    return errors
+
+
+def _validate_agent_frontmatter(raw: Any) -> list:
+    if not (isinstance(raw, dict) and set(raw) == {"all", "by_model"}
+            and isinstance(raw["all"], dict) and isinstance(raw["by_model"], dict)):
+        return ["agent_frontmatter: must be an object with keys all and by_model"]
+    errors = _validate_frontmatter_fields("all", raw["all"])
+    for family, fields in raw["by_model"].items():
+        path = f"by_model.{family}"
+        if family not in MODEL_FAMILIES:
+            errors.append(f"agent_frontmatter.{path}: unknown model family")
+            continue
+        errors.extend(_validate_frontmatter_fields(path, fields))
+        if isinstance(fields, dict):
+            errors.extend(
+                f"agent_frontmatter.{path}.{key}: already set in all"
+                for key in fields if key in raw["all"]
+            )
+    return errors
+
+
+def _validate_dispatch(raw: Any, tier_names: set) -> list:
+    allow = raw.get("allow_agents") if isinstance(raw, dict) else None
+    if not isinstance(raw, dict):
+        return ["dispatch: must be an object with allow_agents"]
+    valid = (isinstance(allow, list) and len(set(map(str, allow))) == len(allow)
+             and all(isinstance(a, str) and a and not re.search(r"\s", a) for a in allow))
+    if not valid:
+        return ["dispatch.allow_agents: must be a list of unique agent type names"]
+    return [f"dispatch.allow_agents: {a} is a tier" for a in allow if a in tier_names]
+
+
 def _validate_policy(policy: Any) -> list:
     if not isinstance(policy, dict):
         return ["policy: must be an object"]
@@ -295,6 +356,8 @@ def validate(raw: Mapping) -> list:
     for index, tier in enumerate(tiers):
         errors.extend(_validate_tier(tier, index, roles, seen))
     errors.extend(_validate_extras_and_audit(raw, seen))
+    errors.extend(_validate_agent_frontmatter(raw.get("agent_frontmatter")))
+    errors.extend(_validate_dispatch(raw.get("dispatch"), seen))
     errors.extend(_validate_policy(raw.get("policy")))
     return errors
 
@@ -333,6 +396,11 @@ def _build(raw: Mapping) -> RoutingConfig:
         plan_path_pattern=raw["audit"]["plan_path_pattern"],
         policy_sections=tuple(raw["policy"]["sections"]),
         dispatcher_parts=parts,
+        agent_frontmatter=tuple(raw["agent_frontmatter"]["all"].items()),
+        agent_frontmatter_by_model=MappingProxyType({
+            k: tuple(v.items()) for k, v in raw["agent_frontmatter"]["by_model"].items()
+        }),
+        dispatch_allow_agents=tuple(raw["dispatch"]["allow_agents"]),
     )
 
 

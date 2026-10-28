@@ -47,8 +47,16 @@ def _frontmatter(pairs: list) -> str:
     return "\n".join(["---"] + [f"{key}: {value}" for key, value in pairs] + ["---"]) + "\n"
 
 
+def _format_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 def render_frontmatter(config: RoutingConfig, tier: Tier) -> str:
     role = config.roles[tier.role]
+    extra = list(config.agent_frontmatter)
+    extra += list(config.agent_frontmatter_by_model.get(tier.family, ()))
     return _frontmatter([
         ("name", tier.name),
         ("description", json.dumps(tier.description, ensure_ascii=False)),
@@ -56,7 +64,7 @@ def render_frontmatter(config: RoutingConfig, tier: Tier) -> str:
         ("effort", tier.effort),
         ("tools", ", ".join(role.tools)),
         ("disallowedTools", ", ".join(role.disallowed_tools)),
-    ])
+    ] + [(key, _format_value(value)) for key, value in extra])
 
 
 def render_agent(

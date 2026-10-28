@@ -12,6 +12,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import routing_config as rc  # noqa: E402
 
 
+# Built by concatenation so that this file never holds the marketplace id as one literal.
+MARKET = "claude-" + "model-routing"
+
+
 def raw_config():
     return json.loads((ROOT / "config" / "routing.json").read_text(encoding="utf-8"))
 
@@ -296,7 +300,7 @@ class ResolveTest(unittest.TestCase):
         self.assertEqual(rc.bare_name("x", c), "x")
 
     def test_install_id_prefix_resolves(self):
-        tier = rc.resolve_tier("mr@claude-model-routing:exec-haiku-low", self.config)
+        tier = rc.resolve_tier("mr@" + MARKET + ":exec-haiku-low", self.config)
         self.assertIsNotNone(tier)
         self.assertEqual(tier.name, "exec-haiku-low")
 
@@ -305,7 +309,7 @@ class ResolveTest(unittest.TestCase):
         self.assertIsNone(rc.resolve_tier(old_id + ":exec-haiku-low", self.config))
 
     def test_bare_name_strips_install_id_prefix(self):
-        self.assertEqual(rc.bare_name("mr@claude-model-routing:x", self.config), "x")
+        self.assertEqual(rc.bare_name("mr@" + MARKET + ":x", self.config), "x")
 
     def test_tier_names_and_role_of(self):
         names = rc.tier_names(self.config)

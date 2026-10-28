@@ -47,7 +47,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `.claude/` (local, gitignored): Claude Code local settings; never committed.
 
 ## Current state
-- Version 0.1.0 (2026-10-24) per CHANGELOG.md. The `[Unreleased]` section records planner changes (one planner per topic, one advisor consult per plan, planners get the Edit tool).
+- Version 0.1.0 (2026-10-24) per CHANGELOG.md. The `[Unreleased]` section records the planner changes (one planner per topic, one advisor consult per plan, planners get the Edit tool) and the file-handoff, strict dispatch guard, skills-by-path, Haiku limit and audit changes.
 - Branch `chore/adopt-workspace-standard` holds the workspace-standard adoption.
 - The repository has 14 local branches (feature and task branches such as `agent/T09`). Do not switch branches to inspect them; read with `git show <branch>:<path>`.
 

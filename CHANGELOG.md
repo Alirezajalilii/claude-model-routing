@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-29
+
+### Fixed
+- Haiku agents compacted at about 67K tokens: Claude Code compacts 33K below `autoCompactWindow` (its 20K output reserve plus a 13K buffer), so 100000 meant 67K. Haiku agents now get `autoCompactWindow` 123000 and compact once their context passes about 90K tokens.
+- Executors committed test files that failed lint, then refused every fix: their rules forbade both changing a commit-one file later and amending. Executors now run the project's lint, format and type checks before every commit, never commit or reply DONE while a check fails, and fix a lint, format or type finding in a commit-one file inside commit one (amend, or reset to commit one and commit again), keeping every test case and assertion. The core rule now forbids rewriting pushed or shared history only.
+- Claude Code refuses a subagent's Write to `.md` files whose name starts with `report`, `summary`, `findings` or `analysis`, so handoff files named `report-T3.md` failed and agents pasted their reports into the reply. The handoff policy names such files out, and the dispatch guard denies a tier delegation whose Output file name matches `dispatch.blocked_output_names` in the routing config.
+
+### Changed
+- The gate's Green check includes the project's lint and type checks.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added

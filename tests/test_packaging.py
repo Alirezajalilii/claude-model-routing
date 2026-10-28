@@ -73,7 +73,7 @@ class PluginManifestTest(unittest.TestCase):
         match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
         self.assertIsNotNone(match)
         self.assertEqual(data["version"], match.group(1))
-        self.assertEqual(data["version"], "0.2.0")
+        self.assertEqual(data["version"], "0.2.1")
 
     def test_marketplace_json_fields(self) -> None:
         data = load_json(".claude-plugin/marketplace.json")

@@ -30,6 +30,9 @@ INT_KEYS = (
     "skill_cap_haiku",
     "skill_cap_other",
     "calibration_first_tasks",
+    "haiku_max_tool_calls",
+    "haiku_prompt_flag_tokens",
+    "status_line_max_chars",
 )
 
 

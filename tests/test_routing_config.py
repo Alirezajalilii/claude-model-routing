@@ -154,6 +154,91 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(tier.family, "sonnet")
 
 
+def with_frontmatter(mutate):
+    raw = copy.deepcopy(raw_config())
+    mutate(raw)
+    return rc.validate(raw)
+
+
+class LeanSchemaTest(unittest.TestCase):
+    def assert_message(self, messages, needle):
+        self.assertTrue(any(needle in m for m in messages), messages)
+
+    def test_shipped_tools_per_role(self):
+        roles = rc.load_config().roles
+        self.assertEqual(roles["scout"].tools, ("Read", "Grep", "Glob", "Bash", "Write"))
+        self.assertEqual(roles["planner"].tools, ("Read", "Grep", "Glob", "Write", "Edit"))
+        self.assertEqual(
+            roles["executor"].tools, ("Read", "Edit", "Write", "Grep", "Glob", "Bash"))
+        self.assertEqual(roles["verifier"].tools, ("Read", "Grep", "Glob", "Bash", "Write"))
+
+    def test_skill_tool_rejected(self):
+        messages = with_frontmatter(lambda r: r["roles"]["scout"]["tools"].append("Skill"))
+        self.assert_message(messages, "roles.scout.tools: Skill is not allowed")
+
+    def test_missing_agent_frontmatter(self):
+        messages = with_frontmatter(lambda r: r.pop("agent_frontmatter"))
+        self.assertTrue(any(m.startswith("agent_frontmatter: must be an object")
+                            for m in messages), messages)
+
+    def test_omit_claude_md_must_be_bool(self):
+        messages = with_frontmatter(
+            lambda r: r["agent_frontmatter"]["all"].update(omitClaudeMd="yes"))
+        self.assert_message(messages, "agent_frontmatter.all.omitClaudeMd: must be a bool")
+
+    def test_auto_compact_window_bounds(self):
+        def set_window(value):
+            return with_frontmatter(lambda r: r["agent_frontmatter"]["by_model"]["haiku"]
+                                    .update(autoCompactWindow=value))
+
+        for bad in (99999, 1000001, True):
+            self.assert_message(set_window(bad), "autoCompactWindow: must be an integer")
+        for good in (100000, 1000000):
+            self.assertEqual(set_window(good), [])
+
+    def test_unknown_field(self):
+        messages = with_frontmatter(
+            lambda r: r["agent_frontmatter"]["all"].update(model="opus"))
+        self.assert_message(messages, "agent_frontmatter.all.model: unknown field")
+
+    def test_unknown_model_family(self):
+        messages = with_frontmatter(
+            lambda r: r["agent_frontmatter"]["by_model"].update(gpt={}))
+        self.assert_message(messages, "agent_frontmatter.by_model.gpt: unknown model family")
+
+    def test_field_set_in_all_and_by_model(self):
+        def mutate(r):
+            r["agent_frontmatter"] = {
+                "all": {"omitClaudeMd": True},
+                "by_model": {"haiku": {"omitClaudeMd": False}},
+            }
+
+        self.assert_message(
+            with_frontmatter(mutate),
+            "agent_frontmatter.by_model.haiku.omitClaudeMd: already set in all")
+
+    def test_dispatch_validation(self):
+        messages = with_frontmatter(lambda r: r.pop("dispatch"))
+        self.assertTrue(any(m.startswith("dispatch:") for m in messages), messages)
+        messages = with_frontmatter(
+            lambda r: r["dispatch"].update(allow_agents=["exec-haiku-low"]))
+        self.assert_message(messages, "dispatch.allow_agents: exec-haiku-low is a tier")
+        for bad in (["a", "a"], [""]):
+            messages = with_frontmatter(lambda r: r["dispatch"].update(allow_agents=bad))
+            self.assert_message(messages, "dispatch.allow_agents")
+
+    def test_shipped_values(self):
+        config = rc.load_config()
+        self.assertEqual(config.dispatch_allow_agents, ("claude-code-guide", "statusline-setup"))
+        self.assertEqual(config.tunables["haiku_max_tool_calls"], 25)
+        self.assertEqual(config.tunables["haiku_prompt_flag_tokens"], 100000)
+        self.assertEqual(config.tunables["status_line_max_chars"], 400)
+
+    def test_new_tunable_minimum(self):
+        messages = with_frontmatter(lambda r: r["tunables"].update(haiku_max_tool_calls=0))
+        self.assert_message(messages, "haiku_max_tool_calls")
+
+
 class LoadConfigTest(unittest.TestCase):
     def test_syntax_error_raises(self):
         with tempfile.TemporaryDirectory() as tmp:

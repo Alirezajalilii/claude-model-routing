@@ -1,5 +1,7 @@
 import contextlib
+import hashlib
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -14,8 +16,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import check_install  # noqa: E402
 
 MARKET = "claude-" + "model-routing"
-PLUGIN_JSON = '{"name":"model-routing","version":"9.9.9"}'
+PLUGIN_JSON = '{"name":"mr","version":"9.9.9"}'
 COMMITTED = {".claude-plugin/plugin.json": PLUGIN_JSON, "scripts/x.py": "print(1)\n"}
+HELLO_OID = "ce013625030ba8dba906f756967f9e9ca394464a"
+EMPTY_OID = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 
 
 def git(repo, *args):
@@ -23,6 +27,13 @@ def git(repo, *args):
         ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-C", str(repo), *args],
         check=True, capture_output=True,
     )
+
+
+def git_stdout(repo, *args):
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
+    )
+    return result.stdout.strip()
 
 
 def write(base, rel, text="x"):
@@ -65,9 +76,31 @@ class PureFunctionTests(unittest.TestCase):
 
     def test_default_plugin_dir(self):
         self.assertEqual(
-            check_install.default_plugin_dir(Path("/h"), "1.2.3"),
-            Path("/h") / ".claude" / "plugins" / "cache" / MARKET / "model-routing" / "1.2.3",
+            check_install.default_plugin_dir(Path("/h"), "mr", "1.2.3"),
+            Path("/h") / ".claude" / "plugins" / "cache" / MARKET / "mr" / "1.2.3",
         )
+
+    def test_blob_id_hello(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "h.txt", "hello\n")
+            path = Path(tmp) / "h.txt"
+            self.assertEqual(check_install.blob_id(path), HELLO_OID)
+            digest = hashlib.sha256(b"blob 6\0hello\n").hexdigest()
+            self.assertEqual(check_install.blob_id(path, 64), digest)
+
+    def test_blob_id_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "e.txt", "")
+            self.assertEqual(check_install.blob_id(Path(tmp) / "e.txt"), EMPTY_OID)
+
+    def test_changed_reports_only_differing_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "a.txt", "hello\n")
+            write(tmp, "b.txt", "other\n")
+            blobs = {"a.txt": HELLO_OID, "b.txt": "0" * 40}
+            self.assertEqual(
+                check_install.changed(Path(tmp), blobs, ["a.txt", "b.txt"]), ["b.txt"]
+            )
 
 
 @unittest.skipUnless(shutil.which("git"), "git not available")
@@ -103,10 +136,26 @@ class GitIntegrationTests(unittest.TestCase):
         self.assertEqual(tracked, set(COMMITTED))
         self.assertNotIn(".agent/n.md", tracked)
 
+    def test_blob_ids_match_git_hash_object(self):
+        blobs = check_install.tracked_blobs(str(self.repo), "HEAD")
+        self.assertEqual(set(blobs), set(check_install.list_tracked(str(self.repo), "HEAD")))
+        for rel in COMMITTED:
+            self.assertEqual(check_install.blob_id(self.repo / rel), git_stdout(self.repo, "hash-object", rel))
+            self.assertEqual(blobs[rel], git_stdout(self.repo, "hash-object", rel))
+
     def test_match(self):
         code, out, _ = self.run_cli(self.make_dir())
         self.assertEqual(code, 0)
         self.assertEqual(out.splitlines()[-1], "OK: 2 files match HEAD")
+
+    def test_changed_content(self):
+        d = self.make_dir()
+        write(d, "scripts/x.py", "print(2)\n")
+        code, out, _ = self.run_cli(d)
+        self.assertEqual(code, 1)
+        self.assertIn("changed: scripts/x.py", out.splitlines())
+        self.assertEqual(out.splitlines()[-1], "FAIL: 0 unexpected, 0 missing, 1 changed")
+        self.assertNotIn(str(self.tmp), out)
 
     def test_unexpected(self):
         d = self.make_dir(extra=(".agent/n.md", ".DS_Store"))
@@ -114,7 +163,7 @@ class GitIntegrationTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("unexpected: .agent/n.md", out)
         self.assertIn("unexpected: .DS_Store", out)
-        self.assertEqual(out.splitlines()[-1], "FAIL: 2 unexpected, 0 missing")
+        self.assertEqual(out.splitlines()[-1], "FAIL: 2 unexpected, 0 missing, 0 changed")
         self.assertNotIn(str(self.tmp), out)
         for line in out.splitlines()[:-1]:
             self.assertFalse(line.split(": ", 1)[1].startswith("/"))
@@ -124,7 +173,7 @@ class GitIntegrationTests(unittest.TestCase):
         code, out, _ = self.run_cli(d)
         self.assertEqual(code, 1)
         self.assertIn("missing: scripts/x.py", out)
-        self.assertEqual(out.splitlines()[-1], "FAIL: 0 unexpected, 1 missing")
+        self.assertEqual(out.splitlines()[-1], "FAIL: 0 unexpected, 1 missing, 0 changed")
         self.assertNotIn(str(self.tmp), out)
 
     def test_nonexistent_plugin_dir(self):
@@ -139,6 +188,7 @@ class GitIntegrationTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertNotIn("unexpected", out)
         self.assertNotIn("missing", out)
+        self.assertNotIn(str(self.tmp), out)
         self.assertEqual(out.splitlines()[-1], "OK: 2 files match HEAD")
 
     def test_nested_in_use_still_unexpected(self):
@@ -146,11 +196,29 @@ class GitIntegrationTests(unittest.TestCase):
         code, out, _ = self.run_cli(d)
         self.assertEqual(code, 1)
         self.assertIn("unexpected: docs/.in_use/x", out)
-        self.assertEqual(out.splitlines()[-1], "FAIL: 1 unexpected, 0 missing")
+        self.assertEqual(out.splitlines()[-1], "FAIL: 1 unexpected, 0 missing, 0 changed")
+
+    def test_symlink_compared_as_link(self):
+        try:
+            os.symlink("scripts/x.py", self.repo / "link")
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks not supported")
+        git(self.repo, "add", "link")
+        git(self.repo, "commit", "-q", "-m", "link")
+        d = self.make_dir()
+        os.symlink("scripts/x.py", d / "link")
+        code, out, _ = self.run_cli(d)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("changed: link", out.splitlines())
+        copy = self.make_dir("copy")
+        write(copy, "link", COMMITTED["scripts/x.py"])
+        code, out, _ = self.run_cli(copy)
+        self.assertEqual(code, 1)
+        self.assertIn("changed: link", out.splitlines())
 
     def test_default_dir_through_git(self):
         home = self.tmp / "home"
-        d = home / ".claude" / "plugins" / "cache" / MARKET / "model-routing" / "9.9.9"
+        d = home / ".claude" / "plugins" / "cache" / MARKET / "mr" / "9.9.9"
         for rel, text in COMMITTED.items():
             write(d, rel, text)
         with mock.patch.object(check_install.Path, "home", return_value=home):

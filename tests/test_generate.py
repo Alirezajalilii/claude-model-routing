@@ -13,7 +13,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import generate as gen  # noqa: E402
 import routing_config as rc  # noqa: E402
 
-FRONTMATTER_KEYS = ["name", "description", "model", "effort", "tools", "disallowedTools"]
+BASE_KEYS = ["name", "description", "model", "effort", "tools", "disallowedTools", "omitClaudeMd"]
+
+
+def expected_keys(tier):
+    return BASE_KEYS + (["autoCompactWindow"] if tier.family == "haiku" else [])
 
 
 def split_agent(text):
@@ -56,8 +60,13 @@ class GenerateTest(unittest.TestCase):
 
     def test_executor_frontmatter(self):
         pairs, _ = split_agent(self.agent("exec-haiku-low"))
-        self.assertEqual([k for k, _ in pairs], FRONTMATTER_KEYS)
+        for tier in self.config.tiers:
+            if tier.role == "executor":
+                tier_pairs, _ = split_agent(self.agent(tier.name))
+                self.assertEqual([k for k, _ in tier_pairs], expected_keys(tier), tier.name)
         values = dict(pairs)
+        self.assertEqual(values["omitClaudeMd"], "true")
+        self.assertEqual(values["autoCompactWindow"], "100000")
         role = self.config.roles["executor"]
         self.assertEqual(values["model"], "haiku")
         self.assertEqual(values["effort"], "low")
@@ -75,6 +84,28 @@ class GenerateTest(unittest.TestCase):
         for tier in self.config.tiers:
             keys = [k for k, _ in split_agent(self.agent(tier.name))[0]]
             self.assertNotIn("skills", keys)
+
+    def test_sonnet_and_planner_frontmatter(self):
+        for name in ("exec-sonnet-high", "planner-opus-high"):
+            pairs, _ = split_agent(self.agent(name))
+            self.assertEqual(pairs[-1][0], "omitClaudeMd", name)
+            self.assertNotIn("autoCompactWindow", [k for k, _ in pairs])
+        pairs, _ = split_agent(self.agent("planner-opus-high"))
+        self.assertEqual(dict(pairs)["tools"], "Read, Grep, Glob, Write, Edit")
+
+    def test_fixture_config_by_model_only(self):
+        raw = json.loads((ROOT / "config" / "routing.json").read_text(encoding="utf-8"))
+        raw["agent_frontmatter"] = {
+            "all": {}, "by_model": {"haiku": {"omitClaudeMd": False}},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "routing.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            config = rc.load_config(path)
+        haiku = next(t for t in config.tiers if t.name == "exec-haiku-low")
+        sonnet = next(t for t in config.tiers if t.name == "exec-sonnet-high")
+        self.assertIn("omitClaudeMd: false\n", gen.render_frontmatter(config, haiku))
+        self.assertNotIn("omitClaudeMd", gen.render_frontmatter(config, sonnet))
 
     def test_haiku_extra_rule_only_in_haiku(self):
         marker = "- Stay inside the paths, line ranges and question you were given."

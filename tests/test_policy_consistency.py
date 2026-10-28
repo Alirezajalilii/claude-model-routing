@@ -78,7 +78,7 @@ class PolicyConsistencyTest(unittest.TestCase):
                 self.assertIn("NO_PLAN_NEEDED", text)
                 self.assertIn("Do not consult it again to check the revision.", text)
                 self.assertIn("One instance per topic", text)
-                self.assertIn("tools: Read, Grep, Glob, Skill, Write, Edit", text)
+                self.assertIn("tools: Read, Grep, Glob, Write, Edit", text)
             else:
                 self.assertIn("Never consult the advisor.", text, tier.name)
 
@@ -96,6 +96,29 @@ class PolicyConsistencyTest(unittest.TestCase):
     def test_committed_outputs_are_fresh(self):
         outputs = gen.expected_outputs(self.config, ROOT)
         self.assertEqual(gen.check_outputs(outputs, ROOT), [])
+
+class LeanAgentFilesTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.config = rc.load_config()
+
+    def test_committed_agents_are_lean(self):
+        for tier in self.config.tiers:
+            text = (ROOT / "agents" / f"{tier.name}.md").read_text(encoding="utf-8")
+            head = text.split("\n---\n", 1)[0]
+            lines = head.split("\n")
+            self.assertIn("omitClaudeMd: true", lines, tier.name)
+            tools = next(ln for ln in lines if ln.startswith("tools: "))
+            self.assertNotIn("Skill", tools, tier.name)
+            self.assertEqual(
+                "autoCompactWindow: 100000" in lines, tier.family == "haiku", tier.name
+            )
+
+    def test_new_tunables_render(self):
+        values = pt.base_values(self.config)
+        self.assertEqual(values["haiku_max_tool_calls"], "25")
+        self.assertEqual(values["haiku_prompt_flag_tokens"], "100000")
+        self.assertEqual(values["status_line_max_chars"], "400")
 
 
 if __name__ == "__main__":

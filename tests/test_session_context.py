@@ -190,8 +190,11 @@ class CollectWarningsTest(unittest.TestCase):
     def test_model_mismatch_warns(self):
         found = self.warnings(SPAWN_OK, {"model": "claude-opus-5-5"})
         self.assertEqual(len(found), 1)
-        self.assertIn("claude-opus-5-5", found[0])
+        self.assertIn("`claude-opus-5-5`", found[0])
         self.assertIn("`sonnet`", found[0])
+        self.assertIn("In your first reply", found[0])
+        self.assertIn("`/model`", found[0])
+        self.assertIn("model picker", found[0])
 
     def test_matching_model_with_context_suffix_is_silent(self):
         self.assertEqual(self.warnings(SPAWN_OK, {"model": "claude-sonnet-5-5[1m]"}), [])
@@ -248,6 +251,48 @@ class BuildContextTest(FixtureTestCase):
         self.assertIn("Beta body.", text)
         self.assertIn("Gamma body.", text)
         self.assertNotIn("Alpha body", text)
+
+    def test_oversized_part_one_keeps_session_and_warning_blocks(self):
+        (self.sections / "sec-a.md").write_text("x" * 12000, encoding="utf-8")
+        text = sc.build_context(
+            self.config,
+            1,
+            {"session_id": SESSION_ID, "model": "claude-opus-5-5"},
+            SPAWN_OK,
+            sections_dir=self.sections,
+        )
+        self.assertIn("model-routing:routing-policy", text)
+        self.assertIn("## Session", text)
+        self.assertIn("## Configuration warnings", text)
+        self.assertIn("In your first reply", text)
+        self.assertNotIn("x" * 100, text)
+        self.assertLess(len(text), 9900)
+
+    def test_oversized_part_two_is_pointer_only(self):
+        (self.sections / "sec-b.md").write_text("y" * 12000, encoding="utf-8")
+        text = sc.build_context(
+            self.config,
+            2,
+            {"session_id": SESSION_ID, "model": "claude-opus-5-5"},
+            SPAWN_OK,
+            sections_dir=self.sections,
+        )
+        self.assertIn("model-routing:routing-policy", text)
+        self.assertNotIn("## Session", text)
+        self.assertNotIn("## Configuration warnings", text)
+
+    def test_mismatch_keeps_policy_then_session_then_warnings(self):
+        text = sc.build_context(
+            self.config,
+            1,
+            {"session_id": SESSION_ID, "model": "claude-opus-5-5"},
+            SPAWN_OK,
+            sections_dir=self.sections,
+        )
+        self.assertIn("Alpha body for model-routing.", text)
+        self.assertLess(text.index("Alpha body"), text.index("## Session"))
+        self.assertLess(text.index("## Session"), text.index("## Configuration warnings"))
+        self.assertIn("In your first reply", text)
 
 
 if __name__ == "__main__":

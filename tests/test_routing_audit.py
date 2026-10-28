@@ -398,9 +398,10 @@ class RoutingAuditTest(unittest.TestCase):
             assistant(TS, [], "a2", "claude-sonnet-5-5", 1),
             assistant(TS, [], "a3", "<synthetic>", 1)])
         _, out = self.run_report(base)
-        lines = [ln for ln in out.splitlines() if ln.startswith("- main session ran on")]
-        self.assertEqual(lines, ["- main session ran on `claude-opus-5-5`; "
-                                 "the policy expects the `sonnet` family"])
+        self.assertNotIn("the policy expects", out)
+        lines = [ln for ln in out.splitlines() if ln.startswith("info: main session model")]
+        self.assertEqual(lines, ["info: main session model claude-opus-5-5 "
+                                 "(policy default sonnet)"])
         _, out = self.run_report(write_session(self.root, sid(45), []))
         self.assertNotIn("main session", out)
 

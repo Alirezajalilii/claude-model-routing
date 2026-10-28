@@ -1,6 +1,6 @@
 {
   "name": "claude-model-routing",
-  "description": "Marketplace for the model-routing Claude Code plugin: tiered subagents, a session-start dispatcher policy, a dispatch guard and a session audit.",
+  "description": "Marketplace for the mr Claude Code plugin: tiered subagents, a session-start dispatcher policy, a dispatch guard and a session audit.",
   "owner": {"name": "Alireza Jalili"},
   "plugins": [
     {

@@ -1,7 +1,7 @@
 # Architecture — model-routing
 
 ## Context
-model-routing is a Claude Code plugin for cost-aware model routing. It gives a dispatcher session tiered subagents (scouts, planners, executors, verifiers) on Haiku, Sonnet and Opus at chosen effort levels, injects the routing policy at session start, blocks delegations that break the policy, and writes a session audit. Users are developers who run Claude Code and install the plugin. Boundary: the plugin runs inside Claude Code and the user's own machine; it has no server, no database and no network component of its own.
+mr is a Claude Code plugin for cost-aware model routing. It gives a dispatcher session tiered subagents (scouts, planners, executors, verifiers) on Haiku, Sonnet and Opus at chosen effort levels, injects the routing policy at session start, blocks delegations that break the policy, and writes a session audit. Users are developers who run Claude Code and install the plugin. Boundary: the plugin runs inside Claude Code and the user's own machine; it has no server, no database and no network component of its own.
 
 ## Components
 There are no apps and no packages. The plugin is made of these parts:
@@ -10,7 +10,7 @@ There are no apps and no packages. The plugin is made of these parts:
 - **Config and policy** (`config/routing.json`, `policy/`): the single source of truth for tiers, roles, tunables and policy sections. `scripts/routing_config.py` loads and validates it; `scripts/policy_text.py` renders the policy text.
 - **Generated agents and skill** (`agents/*.md`, `skills/routing-policy/SKILL.md`): produced by `scripts/generate.py`; never edited by hand. Owns no data.
 - **Skills** (`skills/init-project`, `skills/routing-policy`, `skills/routing-report`): instructions Claude loads on demand. `init-project` copies `templates/` into a user project.
-- **Commands** (`bin/model-routing-*`): launchers for `scripts/routing_audit.py`, `subagent_usage.py`, `skills_inventory.py` and `init_project.py`.
+- **Commands** (`bin/mr-*`): launchers for `scripts/routing_audit.py`, `subagent_usage.py`, `skills_inventory.py` and `init_project.py`.
 - **Transcript reader** (`scripts/transcripts.py`, `subagent_usage.py`): reads Claude Code session JSONL transcripts; reads only.
 - **Data owned**: the session audit written under `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository. `init-project` writes its two files into the user's own project, not into this repository.
 

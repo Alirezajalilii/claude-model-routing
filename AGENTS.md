@@ -8,7 +8,7 @@ This project follows the workspace standard in ~/Work/AGENTS.md. Read that first
 - Status: active
 
 ## Stack
-- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.1.0 per CHANGELOG.md).
+- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.2.0 per CHANGELOG.md).
 - Python 3.9+ standard library only; no third-party packages (CONTRIBUTING.md). Tests use `unittest`.
 - Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task` runs the dispatch guard, SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
 - Single source of truth for tiers, roles and tunables: `config/routing.json`. Policy text: `policy/`.
@@ -39,7 +39,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 ## Deviations from the workspace standard
 - `CLAUDE.md` is not committed. The project's own `.gitignore` ignores `/CLAUDE.md` (kept as the project chose). The file on disk holds only `@AGENTS.md`; the pre-standard content was merged into this file. Decide whether to track it: remove the `/CLAUDE.md` line from `.gitignore` and commit the one-line file.
 - `.claude-plugin/`, `agents/`, `hooks/`, `skills/` at the repo root: the Claude Code plugin format and the marketplace entry (`source: "."` in `.claude-plugin/marketplace.json`) require them at the plugin root. Not movable to `apps/` without breaking the plugin.
-- `bin/`: launchers for the plugin commands `model-routing-usage`, `model-routing-audit`, `model-routing-skills`, `model-routing-init`.
+- `bin/`: launchers for the plugin commands `mr-usage`, `mr-audit`, `mr-skills`, `mr-init`.
 - `config/`: `routing.json`, the single source of truth for tiers, roles and tunables.
 - `policy/`: policy text fragments and agent body templates rendered by `scripts/generate.py`.
 - `templates/`: `model-routing-log.md` and `plans-README.md`, copied into user projects by the init-project skill.
@@ -48,7 +48,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `.claude/` (local, gitignored): Claude Code local settings; never committed.
 
 ## Current state
-- Version 0.1.0 (2026-10-24) per CHANGELOG.md. The `[Unreleased]` section records the planner changes (one planner per topic, one advisor consult per plan, planners get the Edit tool) and the file-handoff, strict dispatch guard, skills-by-path, Haiku limit and audit changes.
+- Version 0.2.0 (2026-10-28) per CHANGELOG.md: the plugin is named `mr`, tiers use the short names (`scout`, `plan`, `exec`, `verify`; efforts `low`, `med`, `high`, `xhigh`), and `make check-install` compares file content.
 - Branch `chore/adopt-workspace-standard` holds the workspace-standard adoption.
 - The repository has 14 local branches (feature and task branches such as `agent/T09`). Do not switch branches to inspect them; read with `git show <branch>:<path>`.
 
@@ -56,6 +56,8 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `scripts/scan_sensitive.py` is referenced by CONTRIBUTING.md and by `make lint`, but it is not on this branch. It exists on `agent/T09` (commit 279a273 and related). TODO(agent): decide whether to merge it into this branch or remove the reference from CONTRIBUTING.md. Until then `make lint` skips the sensitive-data scan with a message.
 - Install and update the plugin from the pushed repository through a git marketplace, never from the working tree: a directory marketplace copies git-ignored private files (`.agent/`, `.claude/`) into the plugin cache. See README.md.
 - Run Python with `python3 -B` (or `PYTHONDONTWRITEBYTECODE=1`); the scripts never write bytecode.
+- Tier names are generated as `<role prefix>-<model>-<effort label>` from `roles.*.prefix` and `effort_labels` in `config/routing.json`; the agent `effort` value stays the real effort (`medium`, not `med`).
+- `claude plugin marketplace remove` deletes the plugin data directory (audits). Back it up before removing the marketplace or uninstalling, uninstall only with `--keep-data`, and restore it with `cp -Rpn`.
 - Settings the dispatch guard and session policy check (warnings, not errors): `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` should be `1`; `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be unset. See `.env.example`.
 - `data/` and `.agent/` are gitignored. Audit output goes to `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository.
 - The dispatch guard denies every agent type outside the tiers and dispatch.allow_agents in config/routing.json, including general-purpose and fork, so built-in commands that spawn them (/code-review, /simplify) stop unless allowlisted.

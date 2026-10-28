@@ -1,5 +1,5 @@
 # Standard command interface (see ~/Work/AGENTS.md section 7).
-# model-routing is a Claude Code plugin with no runtime dependencies: Python 3.9+ standard library only.
+# mr is a Claude Code plugin with no runtime dependencies: Python 3.9+ standard library only.
 # A target that does not apply prints why and exits 0.
 
 PY ?= python3

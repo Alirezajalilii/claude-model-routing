@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
 ### Added
 - `scripts/check_install.py` and `make check-install` verify the installed plugin holds only committed files; the README documents the git-marketplace install and update.
 - Main-session model note and audit line are informational; the policy names no advisor model.
@@ -15,10 +17,14 @@ All notable changes to this project are documented here. The format follows Keep
 - Audit flags: non-allowlisted non-tier agents (including `fork`) in every session, `model` or `effort` on Agent calls in the main transcript, Haiku requests over 100000 prompt tokens, tier replies that are not a status line, and a main session off the policy model family.
 
 ### Changed
+- Plugin renamed from `model-routing` to `mr`; tier agents are dispatched as `mr:<tier>`.
+- Tier names shortened: role tokens `plan` (was `planner`) and `verify` (was `verifier`), effort token `med` (was `medium`); `config/routing.json` maps efforts to name tokens in `effort_labels`. Agent `effort` values are unchanged.
+- Launchers renamed to `mr-usage`, `mr-audit`, `mr-skills` and `mr-init`.
+- Upgrading from 0.1.0: back up the old plugin's data directory, install `mr`, uninstall the old plugin with `--keep-data`, and copy the old `audits/` into the new plugin's data directory with `cp -Rpn`.
 - `scripts/check_install.py` compares installed files by content (git blob ids) instead of names only, and finds the install folder from the `name` and `version` in `.claude-plugin/plugin.json`.
 - `hooks/hooks.json` runs SessionStart as `session_context.py --part 1` to `--part 5`, matching the dispatcher parts in config.
-- The skills inventory table has the columns Skill, Scope, Path and Description, and `model-routing-skills` accepts `--out FILE`.
-- `model-routing-usage` counts Read calls on `*/SKILL.md` in `skill_calls` and reports `peak_prompt_tokens` in its JSON.
+- The skills inventory table has the columns Skill, Scope, Path and Description, and `mr-skills` accepts `--out FILE`.
+- `mr-usage` counts Read calls on `*/SKILL.md` in `skill_calls` and reports `peak_prompt_tokens` in its JSON.
 - Planners own the solution: they plan from the user's request and the evidence, not from the dispatcher's framing, and record any departure under assumptions.
 - One planner instance per topic. Small, clear work and wrap-up never go to a planner; planners can reply OUT_OF_TOPIC or NO_PLAN_NEEDED.
 - One advisor consult per plan, after the complete draft is written; no second consult to check the revision.

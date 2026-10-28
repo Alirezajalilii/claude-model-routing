@@ -26,7 +26,7 @@ python3 -B scripts/scan_sensitive.py --history
 
 ## Installing and updating
 
-See the README sections "Install the plugin" and "Update the plugin". Install only from the pushed repository through a git marketplace. Never add a working tree as a directory marketplace: Claude Code copies git-ignored files such as .agent/ and .claude/ into the plugin cache. Run make check-install after every install or update; it fails when the installed copy holds a file that is not committed at HEAD.
+See the README sections "Install the plugin" and "Update the plugin". Install only from the pushed repository through a git marketplace. Never add a working tree as a directory marketplace: Claude Code copies git-ignored files such as .agent/ and .claude/ into the plugin cache. Run make check-install after every install or update; it fails when the installed copy holds a file that is not committed at HEAD. Back up the plugin data directory before any uninstall or marketplace removal; see the README.
 
 ## Rules
 

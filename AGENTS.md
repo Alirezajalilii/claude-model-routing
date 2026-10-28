@@ -23,6 +23,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - `make dev`: not applicable; prints why and exits 0. Load the plugin in Claude Code from this checkout.
 - `make test`: `python3 -m unittest discover -s tests -v` with `PYTHONDONTWRITEBYTECODE=1`.
 - `make lint`: `scripts/generate.py --check` (fails if generated files are stale), then `claude plugin validate --strict` on a temporary copy of what git would ship (tracked plus untracked, not ignored, so the git-ignored `CLAUDE.md` pointer and `.agent/` are left out) if the `claude` CLI is on PATH, then `scripts/scan_sensitive.py --history` if that file exists.
+- `make check-install`: fails if the installed plugin cache holds any file not committed at HEAD (run after install or update).
 - `make fmt`, `make typecheck`: not applicable; print why and exit 0.
 - `make build`: runs `scripts/generate.py` and rewrites the generated files `agents/*.md` and `skills/routing-policy/SKILL.md`.
 - `make clean`: removes `__pycache__` directories outside `.git`.
@@ -53,6 +54,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 
 ## Gotchas
 - `scripts/scan_sensitive.py` is referenced by CONTRIBUTING.md and by `make lint`, but it is not on this branch. It exists on `agent/T09` (commit 279a273 and related). TODO(agent): decide whether to merge it into this branch or remove the reference from CONTRIBUTING.md. Until then `make lint` skips the sensitive-data scan with a message.
+- Install and update the plugin from the pushed repository through a git marketplace, never from the working tree: a directory marketplace copies git-ignored private files (`.agent/`, `.claude/`) into the plugin cache. See README.md.
 - Run Python with `python3 -B` (or `PYTHONDONTWRITEBYTECODE=1`); the scripts never write bytecode.
 - Settings the dispatch guard and session policy check (warnings, not errors): `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` should be `1`; `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be unset. See `.env.example`.
 - `data/` and `.agent/` are gitignored. Audit output goes to `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository.

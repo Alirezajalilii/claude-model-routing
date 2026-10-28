@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows Keep
 ## [Unreleased]
 
 ### Added
+- `scripts/check_install.py` and `make check-install` verify the installed plugin holds only committed files; the README documents the git-marketplace install and update.
 - Main-session model note and audit line are informational; the policy names no advisor model.
 - Scouts and verifiers get the Write tool, and every tier agent writes its full output to a handoff file and replies with one status line (status words per role are listed in the handoff policy section). Agent bodies gain the sections Core rules, Skills, Output and status line, and Output file.
 - Agent frontmatter settings from config: `omitClaudeMd` is true for every agent, and Haiku agents get `autoCompactWindow` 100000.

@@ -5,10 +5,10 @@
 PY ?= python3
 PYFLAGS := -B
 
-.PHONY: help setup dev test lint fmt typecheck build clean
+.PHONY: help setup dev test lint fmt typecheck build clean check-install
 
 help:
-	@echo "Targets: setup dev test lint fmt typecheck build clean"
+	@echo "Targets: setup dev test lint fmt typecheck build clean check-install"
 	@echo "  setup      check the Python interpreter (nothing to install)"
 	@echo "  dev        not applicable (plugin is loaded by Claude Code)"
 	@echo "  test       unittest suite in tests/"
@@ -17,6 +17,7 @@ help:
 	@echo "  typecheck  not applicable (no type checker configured)"
 	@echo "  build      regenerate agents/ and skills/routing-policy/SKILL.md from config/ and policy/"
 	@echo "  clean      remove Python bytecode caches"
+	@echo "  check-install  check the installed plugin holds only files committed at HEAD"
 
 setup:
 	@$(PY) --version
@@ -57,3 +58,6 @@ build:
 clean:
 	find . -name __pycache__ -type d -not -path './.git/*' -prune -exec rm -rf {} +
 	@echo "make clean: removed Python bytecode caches"
+
+check-install:
+	$(PY) $(PYFLAGS) scripts/check_install.py

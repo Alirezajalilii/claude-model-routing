@@ -30,6 +30,10 @@ def write_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(data), encoding="utf-8")
 
 
+def skill_path(base: Path, folder: str) -> str:
+    return str((base / "skills" / folder / "SKILL.md").resolve())
+
+
 class SkillsInventoryTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -47,11 +51,12 @@ class SkillsInventoryTest(unittest.TestCase):
 
     def test_user_skill_row(self) -> None:
         write_skill(self.claude / "skills", "foo", skill_md("foo", "Foo things."))
+        path = skill_path(self.claude, "foo")
 
         rows = self.rows()
 
-        self.assertIn(si.SkillRow("foo", "user", "Foo things."), rows)
-        self.assertIn("| foo | user | Foo things. |", si.render_table(self.project, rows))
+        self.assertIn(si.SkillRow("foo", "user", "Foo things.", path), rows)
+        self.assertIn(f"| foo | user | {path} | Foo things. |", si.render_table(self.project, rows))
 
     def test_disable_model_invocation_skill_is_excluded(self) -> None:
         write_skill(self.claude / "skills", "hidden", skill_md("hidden", "Hidden.", "disable-model-invocation: true\n"))
@@ -62,14 +67,15 @@ class SkillsInventoryTest(unittest.TestCase):
         self.assertNotIn("hidden", names)
         self.assertIn("visible", names)
 
-    def test_project_skill_has_project_scope(self) -> None:
+    def test_project_skill_has_project_scope_and_path(self) -> None:
         write_skill(self.project / ".claude" / "skills", "bar", skill_md("bar", "Bar things."))
+        path = skill_path(self.project / ".claude", "bar")
 
         rows = self.rows()
 
-        self.assertIn(si.SkillRow("bar", "project", "Bar things."), rows)
+        self.assertIn(si.SkillRow("bar", "project", "Bar things.", path), rows)
 
-    def test_plugin_dir_from_env_gives_prefixed_skill(self) -> None:
+    def test_plugin_dir_from_env_gives_prefixed_skill_with_path(self) -> None:
         plugin = Path(self._tmp.name) / "plugin-p"
         write_json(plugin / ".claude-plugin" / "plugin.json", {"name": "p"})
         write_skill(plugin / "skills", "baz", skill_md("baz", "Baz things."))
@@ -80,7 +86,7 @@ class SkillsInventoryTest(unittest.TestCase):
 
         rows = self.rows()
 
-        self.assertIn(si.SkillRow("p:baz", "plugin p", "Baz things."), rows)
+        self.assertIn(si.SkillRow("p:baz", "plugin p", "Baz things.", skill_path(plugin, "baz")), rows)
 
     def test_enabled_user_plugin_is_listed(self) -> None:
         install = Path(self._tmp.name) / "cache" / "q"
@@ -94,7 +100,7 @@ class SkillsInventoryTest(unittest.TestCase):
 
         rows = self.rows()
 
-        self.assertIn(si.SkillRow("q:qux", "plugin q", "Qux things."), rows)
+        self.assertIn(si.SkillRow("q:qux", "plugin q", "Qux things.", skill_path(install, "qux")), rows)
 
     def test_local_scope_plugin_only_for_its_project(self) -> None:
         here = Path(self._tmp.name) / "here-plugin"
@@ -139,7 +145,7 @@ class SkillsInventoryTest(unittest.TestCase):
 
         rows = self.rows()
 
-        self.assertIn(si.SkillRow("t:u", "plugin t", "U things."), rows)
+        self.assertIn(si.SkillRow("t:u", "plugin t", "U things.", skill_path(source, "u")), rows)
 
     def test_long_description_is_truncated_to_220(self) -> None:
         long_text = "x" * 300
@@ -147,14 +153,15 @@ class SkillsInventoryTest(unittest.TestCase):
 
         rows = self.rows()
 
-        self.assertEqual(si.SkillRow("long", "user", "x" * 220), rows[0])
+        self.assertEqual(si.SkillRow("long", "user", "x" * 220, skill_path(self.claude, "long")), rows[0])
 
     def test_pipe_in_description_is_replaced_for_table(self) -> None:
         write_skill(self.claude / "skills", "pipes", skill_md("pipes", "a | b"))
+        path = skill_path(self.claude, "pipes")
 
         table = si.render_table(self.project, self.rows())
 
-        self.assertIn("| pipes | user | a / b |", table)
+        self.assertIn(f"| pipes | user | {path} | a / b |", table)
 
     def test_skill_without_frontmatter_is_skipped(self) -> None:
         write_skill(self.claude / "skills", "nofm", "# Just a heading\n")
@@ -167,15 +174,30 @@ class SkillsInventoryTest(unittest.TestCase):
 
     def test_table_header_line_is_exact(self) -> None:
         write_skill(self.claude / "skills", "foo", skill_md("foo", "Foo things."))
+        path = skill_path(self.claude, "foo")
         out = io.StringIO()
 
         with redirect_stdout(out):
             code = si.main(["--claude-dir", str(self.claude), "--project-dir", str(self.project)])
 
         self.assertEqual(0, code)
-        self.assertIn("| Skill | Scope | Description |\n", out.getvalue())
-        self.assertIn("| --- | --- | --- |\n", out.getvalue())
-        self.assertIn("| foo | user | Foo things. |", out.getvalue())
+        self.assertIn("| Skill | Scope | Path | Description |\n", out.getvalue())
+        self.assertIn("| --- | --- | --- | --- |\n", out.getvalue())
+        self.assertIn(f"| foo | user | {path} | Foo things. |", out.getvalue())
+
+    def test_out_file_writes_table_with_path_column(self) -> None:
+        write_skill(self.claude / "skills", "foo", skill_md("foo", "Foo things."))
+        path = skill_path(self.claude, "foo")
+        out_file = Path(self._tmp.name) / "inventory.md"
+        out = io.StringIO()
+
+        with redirect_stdout(out):
+            code = si.main(["--claude-dir", str(self.claude), "--project-dir", str(self.project), "--out", str(out_file)])
+
+        self.assertEqual(0, code)
+        self.assertEqual(f"1 skills -> {out_file}\n", out.getvalue())
+        self.assertIn("| Skill | Scope | Path | Description |\n", out_file.read_text(encoding="utf-8"))
+        self.assertIn(f"| foo | user | {path} | Foo things. |", out_file.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

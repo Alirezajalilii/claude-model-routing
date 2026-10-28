@@ -2,7 +2,10 @@
 - Effort `max` on any agent. It burns several times the tokens without scoring better, and on Sonnet it fans out into out-of-scope work.
 - Effort `xhigh` on Haiku.
 - Opus as an executor.
-- Any agent outside the defined tiers.
+- Any agent outside the defined tiers and `dispatch.allow_agents`, including `general-purpose` and `fork`.
+- A `model` or `effort` parameter on any Agent call.
+- Copying an agent's output into a delegation or resume message instead of passing its path.
+- Giving tier agents the Skill tool.
 - Passing a paraphrase of a plan task instead of the plan path and task ID.
 - A delegation message without a Skills line.
 - A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.

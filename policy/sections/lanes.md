@@ -6,7 +6,7 @@ Use the fast lane only when all of these are true:
 - it does not touch authentication, payments, data integrity, migrations, or security.
 
 Fast lane process:
-- The main session writes a short spec: goal, file, exact change, verification command, and a Skills line (usually "none").
+- The main session writes a short spec: goal, file, exact change, verification command, a Skills line (usually "none"), and an Output line.
 - It dispatches to `exec-haiku-low`, or `exec-haiku-medium` if any logic is involved.
 - It runs the verification command itself.
 - It merges the executor's commit.

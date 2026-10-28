@@ -18,14 +18,24 @@ class InstallDocsTests(unittest.TestCase):
         self.assertIn("## Update the plugin", lines)
         for text in (
             "claude plugin marketplace add git@github.com:<owner>/model-routing.git",
-            "claude plugin install model-routing@claude-model-routing --scope user",
+            "claude plugin install mr@" + MARKET + " --scope user",
             "claude plugin marketplace update",
-            "claude plugin update model-routing@claude-model-routing",
+            "claude plugin update mr@" + MARKET,
+            "--keep-data",
+            "cp -Rpn",
             "make check-install",
         ):
             self.assertIn(text, readme)
         for line in lines:
             self.assertIsNone(re.search("(?<!@)" + re.escape(MARKET), line), line)
+
+    def test_readme_and_agents_teach_short_names(self):
+        readme = read("README.md")
+        self.assertIn("mr:exec-haiku-med", readme)
+        self.assertIn("`plan`, `exec`, `verify`", readme)
+        agents = read("AGENTS.md")
+        self.assertIn("effort_labels", agents)
+        self.assertIn("--keep-data", agents)
 
     def test_no_directory_source_or_home_paths(self):
         for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md", "CHANGELOG.md"):

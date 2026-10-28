@@ -67,6 +67,14 @@ class PluginManifestTest(unittest.TestCase):
         self.assertTrue(data["author"]["name"])
         self.assertFalse(find_key(data, "email"))
 
+    def test_version_matches_changelog_and_is_0_2_0(self) -> None:
+        data = load_json(".claude-plugin/plugin.json")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
+        self.assertIsNotNone(match)
+        self.assertEqual(data["version"], match.group(1))
+        self.assertEqual(data["version"], "0.2.0")
+
     def test_marketplace_json_fields(self) -> None:
         data = load_json(".claude-plugin/marketplace.json")
         self.assertTrue(data["name"])
@@ -173,7 +181,7 @@ RESERVED_PREFIXES = ("claude-", "anthropic-", "anthropics-", "cc-plugin-")
 class RevisionTwoTest(unittest.TestCase):
     def test_plugin_display_name_and_unreserved_id(self) -> None:
         data = load_json(".claude-plugin/plugin.json")
-        self.assertEqual(data["displayName"], "Claude Model Routing")
+        self.assertEqual(data["displayName"], "Model Routing (mr)")
         self.assertFalse(data["name"].startswith(RESERVED_PREFIXES), data["name"])
 
     def test_marketplace_description_and_names(self) -> None:

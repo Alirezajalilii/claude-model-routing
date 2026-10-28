@@ -1,5 +1,5 @@
 {
-  "name": "model-routing",
+  "name": "mr",
   "displayName": "Claude Model Routing",
   "version": "0.1.0",
   "description": "Cost-aware model routing for Claude Code: tiered subagents (scouts, planners, executors, verifiers), a dispatcher policy injected at session start, a dispatch guard and a session audit.",

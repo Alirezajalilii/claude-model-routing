@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""model-routing launcher for scripts/skills_inventory.py."""
+"""mr launcher for scripts/init_project.py."""
 import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from skills_inventory import main  # noqa: E402
+from init_project import main  # noqa: E402
 
 sys.exit(main())

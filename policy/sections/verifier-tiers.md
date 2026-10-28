@@ -1,8 +1,8 @@
 ## Verifier tier selection (made by the planner)
 A verifier is never weaker than the executor it checks.
-- Haiku executor tiers → `verifier-sonnet-medium`.
-- `exec-sonnet-medium` and `exec-sonnet-high` → `verifier-sonnet-high`.
-- `exec-sonnet-xhigh`, and any task touching authentication, payments, data integrity, migrations, or security → `verifier-opus-high`.
+- Haiku executor tiers → `verify-sonnet-med`.
+- `exec-sonnet-med` and `exec-sonnet-high` → `verify-sonnet-high`.
+- `exec-sonnet-xhigh`, and any task touching authentication, payments, data integrity, migrations, or security → `verify-opus-high`.
 
 ### Verification triggers (marked by the planner as Verify: yes)
 - the task touches authentication, payments, data integrity, migrations, or security;

@@ -88,7 +88,7 @@ Everything else goes through the full lane. A planner is only for work that need
    - If the planner returns NEED_EVIDENCE, dispatch one scout per `## Scout <k>` section of its requests file, passing the file path and the section; then resume the same planner instance with the scouts' output paths through SendMessage.
    - The planner treats the evidence files it is given as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own. Reading the files its delegation names, the project rules files and the listed SKILL.md files does not count against the budget.
    - Allow at most 2 evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
-3. **Execute.** Dispatch each task to the executor tier the plan assigns. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
+3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than 2 skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
 4. **Gate.** For every finished task, the main session runs these checks itself:
    - Red: if the task has Test Cases, check out commit one and run the new tests. They must fail. Tests that pass before the implementation exists are not testing the change.
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
@@ -96,8 +96,9 @@ Everything else goes through the full lane. A planner is only for work that need
    - Scope: every changed file is in the task's file list or is one of its test files.
    - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass.
    - Report: the status line's commits are the task's commits on its branch and the report file exists; a verifier judges the report's content when one runs.
-5. **Verifier, only when triggered.** Dispatch the plan's verifier tier when any of these apply:
+5. **Verifier, only when triggered.** Dispatch the plan's verifier tier for the tier that did the work (start or fallback) when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
+   - the task ran below the plan's executor tier, even if the plan marked it Verify: no;
    - a gate check other than Green failed (red, integrity, coverage, scope, or report mismatch); these failures need judgment, not a blind retry;
    - the task already went through a FIX round or an escalation;
    - calibration sampling selected the task.
@@ -106,7 +107,7 @@ Everything else goes through the full lane. A planner is only for work that need
    - Gate passed and no verifier was triggered, or the verifier returned PASS: the task is done.
    - Only the Green check failed (tests fail, everything else clean): resume the same executor instance through SendMessage with the path of a file holding the failure output. This counts as a FIX round. No verifier is needed for it.
    - Verifier FIX: resume the same executor instance with the verdict file path. Then resume the same verifier instance to re-verify; it must re-run every command.
-   - Allow at most 2 FIX rounds at one tier, counting both kinds. After that, escalate the executor one tier: launch a fresh executor with the plan path, the task ID, the Skills line and Project rules line as written in the plan, the paths of the earlier verdict and failure files, and a new Output line.
+   - Allow at most 2 FIX rounds at one tier, counting both kinds. After that, escalate the executor: from a start tier below the plan's executor tier straight to that tier, otherwise one tier up. Launch a fresh executor with the plan path, the task ID, the Skills line and Project rules line as written in the plan, the paths of the earlier verdict and failure files, and a new Output line. After a fallback, a verifier for the new work is a fresh instance of the plan's fallback verifier tier.
    - REPLAN, when the plan's design is wrong: resume the same planner instance with the verdict file path, so it can revise that task in the plan file (editing only that task), including its skills if the problem was a skill conflict or a missing skill. The planner may consult the advisor once for this revision (Advisor rules). After the revision, re-execute the task. If a second REPLAN occurs for the same task, move up one planner tier. A REPLAN with `fix=small` goes to the fast lane instead: its executor gets the verdict path as the spec input; log it as a deviation.
    - BLOCKED: the status line's `reason=` says why; fix the environment issue if that reason shows it is clearly mechanical. Otherwise, treat it as a failure under the escalation caps.
 7. **Final gate and integrate.**
@@ -141,11 +142,11 @@ Each task contains:
 - for a docs task that states commands, procedures or behavior: a fact sheet listing every command, path and claim the doc will contain, each with its source file and line;
 - Test Cases: each behavior to test, with inputs and the expected outcome; or "Tests: existing suite only" for tasks with no behavior change. The planner writes these, so tests come from the spec, not from the executor's reading of it;
 - dependencies on other tasks;
-- the assigned executor tier, with a one-line reason;
+- the planned executor tier, with a one-line reason, and the start tier (see Executor tier selection); the planned tier is the fallback;
 - the executor Skills line (absolute SKILL.md paths from the inventory, or none), alone on its own line so it can be copied verbatim, with a one-line reason per skill on separate lines;
 - the Project rules line: the project rules files the executor and verifier read (paths, or none when the task's constraints already carry every convention);
 - Verify: yes or no, naming the trigger if yes;
-- the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling.
+- the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling; a task that starts below its planned tier names its start and fallback verifier tiers.
 
 No task may leave a design decision to the executor.
 
@@ -168,7 +169,9 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than 2 skills cannot go to a Haiku tier.
+When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than 2 skills into tasks that each need at most 2; a task that cannot be split goes under the plan's Risks.
+
+Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is Verify: yes, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 
@@ -188,7 +191,10 @@ A verifier is never weaker than the executor it checks.
 - `exec-sonnet-med` and `exec-sonnet-high` → `verify-sonnet-high`.
 - `exec-sonnet-xhigh`, and any task touching authentication, payments, data integrity, migrations, or security → `verify-opus-high`.
 
+A task that starts below its planned tier names two verifier tiers: `verify-sonnet-med` for its start tier, and the tier the list above gives for its planned tier, used after a fallback. A task touching authentication, payments, data integrity, migrations, or security, or planned on `exec-sonnet-xhigh`, keeps `verify-opus-high` at both tiers.
+
 ### Verification triggers (marked by the planner as Verify: yes)
+- the task starts below its planned executor tier;
 - the task touches authentication, payments, data integrity, migrations, or security;
 - the executor tier is `exec-sonnet-xhigh`;
 - acceptance cannot be fully expressed as automated tests: UI behavior, documentation correctness, performance, or infrastructure configuration.
@@ -198,6 +204,7 @@ All other tasks are Verify: no and rely on the gate.
 ## Calibration sampling
 - For each project's first 50 full-lane tasks (count the rows in its `docs/model-routing-log.md`), the main session also sends a random 20% of Verify: no tasks to their verifier. Draw with `python3 -c "import random; print(random.random() < 0.2)"` and log the draw.
 - After those 50 tasks, read the log. If sampled verifiers found real defects (FIX or REPLAN) in under 5% of samples, drop sampling to 5%. If they found defects in more than 10% of samples for a given executor tier or task type, propose in the project's CLAUDE.md that this tier or task type becomes Verify: yes.
+Count tasks run below their planned tier separately. Once 50 of them have run with a defect rate under 5%, propose to the human that they be verified by sampling instead of always; until the human agrees, verify every one.
 
 ## Advisor rules
 - Only planners consult the advisor, once per plan: after the complete draft is written to the plan file, so the advisor sees the evidence, the problem and the whole plan, and before finalizing. Never earlier (not while gathering evidence, not before returning NEED_EVIDENCE).
@@ -228,7 +235,7 @@ All other tasks are Verify: no and rely on the gate.
 ## Haiku context discipline
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
-- A task that genuinely needs broad context or many skills is a Sonnet task.
+- Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 2 skills.
 - Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
 
 ## Escalation caps
@@ -244,7 +251,7 @@ When the caps are exhausted, stop work on that task and report to the human with
 - If the data shows a task type consistently passing one tier lower, consistently escalating, a planner tier consistently producing REPLANs, a skill consistently loaded unlisted, or a Skill Gap recurring, propose a rule change or a new skill in claude.md (or, where it is generated, in the log's proposals section and the session report). Never silently change this policy.
 
 ## Cost reference
-Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: Haiku 5.5 0.10 / 0.50 with prompts under 100K tokens; Sonnet 5.5 2 / 10; Opus 5.5 4 / 20. Executors produce the most tokens, so they run on the cheapest tier that passes verification. Planners produce few tokens, so a stronger model there is cheap insurance. A verifier costs about as much as the work it checks, and for Haiku tasks often more, so it runs only where risk or a failed check justifies it.
+Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: Haiku 5.5 0.10 / 0.50 with prompts under 100K tokens; Sonnet 5.5 2 / 10; Opus 5.5 4 / 20. Executors produce the most tokens, so they run on the cheapest tier that passes verification. Planners produce few tokens, so a stronger model there is cheap insurance. A verifier costs about as much as the work it checks, and for Haiku tasks often more, so it runs only where risk, a task run below its planned tier, or a failed check justifies it. In a 2026-10-29 run, five Sonnet-planned tasks done by Haiku executors cost under $1 instead of about $16 at Sonnet prices, but two of them shipped defects that only their verifiers caught.
 
 ## Core rules
 - You start without the user's and the project's instruction files. What you need comes from your delegation, the files it names, and the project rules files below.

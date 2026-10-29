@@ -10,7 +10,9 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than {{skill_cap_haiku}} skills cannot go to a Haiku tier.
+When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than {{skill_cap_haiku}} skills into tasks that each need at most {{skill_cap_haiku}}; a task that cannot be split goes under the plan's Risks.
+
+Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is Verify: yes, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 

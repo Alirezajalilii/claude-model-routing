@@ -13,10 +13,10 @@ Each task contains:
 - for a docs task that states commands, procedures or behavior: a fact sheet listing every command, path and claim the doc will contain, each with its source file and line;
 - Test Cases: each behavior to test, with inputs and the expected outcome; or "Tests: existing suite only" for tasks with no behavior change. The planner writes these, so tests come from the spec, not from the executor's reading of it;
 - dependencies on other tasks;
-- the assigned executor tier, with a one-line reason;
+- the planned executor tier, with a one-line reason, and the start tier (see Executor tier selection); the planned tier is the fallback;
 - the executor Skills line (absolute SKILL.md paths from the inventory, or none), alone on its own line so it can be copied verbatim, with a one-line reason per skill on separate lines;
 - the Project rules line: the project rules files the executor and verifier read (paths, or none when the task's constraints already carry every convention);
 - Verify: yes or no, naming the trigger if yes;
-- the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling.
+- the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling; a task that starts below its planned tier names its start and fallback verifier tiers.
 
 No task may leave a design decision to the executor.

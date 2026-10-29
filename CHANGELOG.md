@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
+### Changed
+- Executors start on Haiku: a task planned on a Sonnet executor tier starts on `exec-haiku-high`, gets its FIX rounds there, then falls back straight to its planned tier. Plans name a start tier next to the planned tier, and planners split a task that would need more than 2 skills (the Haiku skill cap).
+- Every task that runs below its planned tier gets a verifier: `verify-sonnet-med`, except tasks touching authentication, payments, data integrity, migrations or security, and tasks planned on `exec-sonnet-xhigh`, which keep `verify-opus-high`. Plans name the start and fallback verifier tiers. Calibration counts these tasks separately and proposes sampling to the human once their defect rate stays low.
+
+### Removed
+- The Haiku tool-call limit: the tunable `haiku_max_tool_calls` and the rule that a task needing more than about 25 tool calls is not a Haiku task.
+
+### Fixed
+- The policy no longer claims that tier agents load no CLAUDE.md. `omitClaudeMd` skips only the start-of-session load; Claude Code still attaches CLAUDE.md files as nested memory when an agent touches files below them, and no plugin setting stops this. Tier agents now ignore attached instruction files other than their project rules files, and the policy advises launching Claude Code in the project root.
+
+### Added
+- The session audit flags tier agents that received instruction files as nested memory (`<n> instruction-file attachments despite omitClaudeMd (<k> files: ...)`).
+
 ## [0.2.1] - 2026-10-29
 
 ### Fixed

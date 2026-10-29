@@ -8,7 +8,7 @@ This project follows the workspace standard in ~/Work/AGENTS.md. Read that first
 - Status: active
 
 ## Stack
-- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.2.1 per CHANGELOG.md).
+- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.3.0 per CHANGELOG.md).
 - Python 3.9+ standard library only; no third-party packages (CONTRIBUTING.md). Tests use `unittest`.
 - Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task` runs the dispatch guard, SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
 - Single source of truth for tiers, roles and tunables: `config/routing.json`. Policy text: `policy/`.
@@ -50,6 +50,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 ## Current state
 - Version 0.2.0 (2026-10-28) per CHANGELOG.md: the plugin is named `mr`, tiers use the short names (`scout`, `plan`, `exec`, `verify`; efforts `low`, `med`, `high`, `xhigh`), and `make check-install` compares file content.
 - Version 0.2.1 (2026-10-29): Haiku agents compact at about 90K tokens (`autoCompactWindow` 123000; Claude Code compacts 33K below the window), executors run lint, format and type checks before every commit and fix commit-one findings inside commit one, and the dispatch guard denies Output file names Claude Code refuses to subagents (`dispatch.blocked_output_names`).
+- Version 0.3.0 (2026-10-29): executors start on Haiku (`exec-haiku-high` for Sonnet-planned tasks) and fall back straight to the plan's tier after the FIX rounds; every task run below its planned tier gets a verifier, and sensitive or `exec-sonnet-xhigh`-planned tasks keep `verify-opus-high`; the tunable `haiku_max_tool_calls` is gone; tier agents ignore instruction files Claude Code attaches as nested memory, and the audit flags them.
 - Branch `chore/adopt-workspace-standard` holds the workspace-standard adoption.
 - The repository has 14 local branches (feature and task branches such as `agent/T09`). Do not switch branches to inspect them; read with `git show <branch>:<path>`.
 

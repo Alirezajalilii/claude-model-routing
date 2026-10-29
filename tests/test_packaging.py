@@ -67,13 +67,13 @@ class PluginManifestTest(unittest.TestCase):
         self.assertTrue(data["author"]["name"])
         self.assertFalse(find_key(data, "email"))
 
-    def test_version_matches_changelog_and_is_0_2_0(self) -> None:
+    def test_version_matches_changelog_and_is_0_3_0(self) -> None:
         data = load_json(".claude-plugin/plugin.json")
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
         self.assertIsNotNone(match)
         self.assertEqual(data["version"], match.group(1))
-        self.assertEqual(data["version"], "0.2.1")
+        self.assertEqual(data["version"], "0.3.0")
 
     def test_marketplace_json_fields(self) -> None:
         data = load_json(".claude-plugin/marketplace.json")

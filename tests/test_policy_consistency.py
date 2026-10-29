@@ -116,7 +116,7 @@ class LeanAgentFilesTest(unittest.TestCase):
 
     def test_new_tunables_render(self):
         values = pt.base_values(self.config)
-        self.assertEqual(values["haiku_max_tool_calls"], "25")
+        self.assertNotIn("haiku_max_tool_calls", values)
         self.assertEqual(values["haiku_prompt_flag_tokens"], "100000")
         self.assertEqual(values["status_line_max_chars"], "400")
 
@@ -260,8 +260,8 @@ class DispatcherHandoffTest(unittest.TestCase):
             if tier.role != "planner":
                 continue
             text = _agent_text(tier)
+            self.assertNotIn("tool calls in total is never a Haiku task", text, tier.name)
             for phrase in (
-                "more than about 25 tool calls",
                 "fact sheet",
                 "Docs that state commands, procedures or behavior",
                 "wording-only docs",
@@ -269,6 +269,11 @@ class DispatcherHandoffTest(unittest.TestCase):
                 "alone on its own line",
             ):
                 self.assertIn(phrase, text, f"{tier.name}: {phrase}")
+
+    def test_haiku_tool_call_limit_removed(self):
+        self.assertNotIn("haiku_max_tool_calls", pt.INT_KEYS)
+        part3 = pt.render_part(self.config, 3)
+        self.assertNotIn("is not a Haiku task", part3)
 
     def test_full_lane_output_lines_and_paths(self):
         for phrase in (

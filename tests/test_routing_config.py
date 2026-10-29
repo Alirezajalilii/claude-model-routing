@@ -251,13 +251,13 @@ class LeanSchemaTest(unittest.TestCase):
         self.assertEqual(config.dispatch_allow_agents, ("claude-code-guide", "statusline-setup"))
         self.assertEqual(config.dispatch_blocked_output_names,
                          r"^(report|summary|findings|analysis).*\.md$")
-        self.assertEqual(config.tunables["haiku_max_tool_calls"], 25)
+        self.assertNotIn("haiku_max_tool_calls", config.tunables)
         self.assertEqual(config.tunables["haiku_prompt_flag_tokens"], 100000)
         self.assertEqual(config.tunables["status_line_max_chars"], 400)
 
     def test_new_tunable_minimum(self):
-        messages = with_frontmatter(lambda r: r["tunables"].update(haiku_max_tool_calls=0))
-        self.assert_message(messages, "haiku_max_tool_calls")
+        messages = with_frontmatter(lambda r: r["tunables"].update(haiku_prompt_flag_tokens=0))
+        self.assert_message(messages, "haiku_prompt_flag_tokens")
 
 
 class LoadConfigTest(unittest.TestCase):

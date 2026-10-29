@@ -36,6 +36,7 @@ STATUS_RE = re.compile(
 SKILLS_RE = re.compile(r"\bSkills:[ \t]*\S")
 ADVISOR_RE = re.compile(r"never consult the advisor", re.IGNORECASE)
 PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA"
+INSTRUCTION_FILES_SHOWN = 3
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class AgentRow:
     short_id: str
     final_text: str = ""
     requests: tuple = ()
+    instruction_files: tuple = ()
 
 
 def _text_of(content) -> str:
@@ -97,6 +99,18 @@ def _scan_events(events: Sequence[dict]) -> tuple:
     return prompt, tuple(calls), stamps, final
 
 
+def _instruction_files(events: Sequence[dict]) -> tuple:
+    """Paths of instruction files Claude Code attached as nested memory, in order, repeats kept."""
+    paths = []
+    for event in events:
+        att = event.get("attachment") if event.get("type") == "attachment" else None
+        if isinstance(att, dict) and att.get("type") == "nested_memory":
+            path = att.get("path")
+            if isinstance(path, str) and path:
+                paths.append(path)
+    return tuple(paths)
+
+
 def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
     """Read every subagent transcript into rows sorted by time."""
     rows = []
@@ -115,6 +129,7 @@ def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
             short_id=jsonl.name[6:16],
             final_text=final,
             requests=tr.request_usage(events),
+            instruction_files=_instruction_files(events),
         ))
     return tuple(sorted(rows, key=lambda r: (r.first, r.last, r.agent_type or "", r.short_id)))
 
@@ -169,6 +184,17 @@ def _status_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
     return []
 
 
+def _instruction_labels(row: AgentRow) -> list:
+    if not row.instruction_files:
+        return []
+    files = list(dict.fromkeys(row.instruction_files))
+    shown = ", ".join(files[:INSTRUCTION_FILES_SHOWN])
+    if len(files) > INSTRUCTION_FILES_SHOWN:
+        shown += f", +{len(files) - INSTRUCTION_FILES_SHOWN} more"
+    return [f"{len(row.instruction_files)} instruction-file attachments despite omitClaudeMd "
+            f"({len(files)} files: {shown})"]
+
+
 def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
     """Return the policy flags of one agent; only tier agents get the tier checks."""
     tier = rc.resolve_tier(row.agent_type, config)
@@ -185,7 +211,8 @@ def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
         labels.extend(_budget_labels(row, config))
     if tier.name in config.audit_flag_every_use:
         labels.append(f"{tier.name}: every-use tier, check the escalation reason")
-    return labels + _haiku_labels(row, config) + _status_labels(row, config)
+    return (labels + _haiku_labels(row, config) + _status_labels(row, config)
+            + _instruction_labels(row))
 
 
 def _off_policy_types(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> set:

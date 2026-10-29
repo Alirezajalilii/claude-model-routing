@@ -14,6 +14,7 @@ import unittest  # noqa: E402
 from unittest import mock  # noqa: E402
 
 import routing_audit as ra  # noqa: E402
+import routing_config as rc  # noqa: E402
 
 TS = "2026-10-24T10:00:00.000Z"
 SONNET_PROMPT = ("Skills: example-plugin:tdd-workflow\n"
@@ -465,6 +466,91 @@ class RoutingAuditTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(out.getvalue(), "")
         self.assertTrue(err.getvalue().startswith("routing_audit:"))
+
+    def _append_events(self, base, aid, events):
+        path = Path(base) / "subagents" / f"agent-{aid}.jsonl"
+        with open(path, "a") as f:
+            for e in events:
+                f.write(json.dumps(e) + "\n")
+        return path
+
+    def test_instruction_files_tier_agent_label(self):
+        base = write_session(self.root, sid(30), [
+            agent("ins0000000000001", "exec-haiku-med", HAIKU_PROMPT),
+        ])
+        path = self._append_events(base, "ins0000000000001", [
+            nested_memory("/work/projects/CLAUDE.md"),
+            nested_memory("/work/projects/app/AGENTS.md"),
+            nested_memory("/work/projects/CLAUDE.md"),
+        ])
+        row = ra.summarize([path])[0]
+        self.assertEqual(row.instruction_files, (
+            "/work/projects/CLAUDE.md",
+            "/work/projects/app/AGENTS.md",
+            "/work/projects/CLAUDE.md",
+        ))
+        flags = ra.row_flags(row, rc.load_config())
+        self.assertIn("3 instruction-file attachments despite omitClaudeMd "
+                      "(2 files: /work/projects/CLAUDE.md, /work/projects/app/AGENTS.md)",
+                      flags)
+
+    def test_instruction_files_label_shows_three_then_count(self):
+        base = write_session(self.root, sid(31), [
+            agent("ins0000000000002", "exec-haiku-med", HAIKU_PROMPT),
+        ])
+        path = self._append_events(base, "ins0000000000002", [
+            nested_memory(f"/work/{name}/CLAUDE.md") for name in "abcde"
+        ])
+        row = ra.summarize([path])[0]
+        flags = ra.row_flags(row, rc.load_config())
+        self.assertIn("5 instruction-file attachments despite omitClaudeMd "
+                      "(5 files: /work/a/CLAUDE.md, /work/b/CLAUDE.md, /work/c/CLAUDE.md, +2 more)",
+                      flags)
+
+    def test_instruction_files_other_attachment_types_no_label(self):
+        base = write_session(self.root, sid(32), [
+            agent("ins0000000000003", "exec-haiku-med", HAIKU_PROMPT),
+        ])
+        path = self._append_events(base, "ins0000000000003", [
+            {"type": "attachment", "attachment": {"type": "session_context"}},
+            {"type": "attachment", "attachment": {"type": "hook_success"}},
+        ])
+        row = ra.summarize([path])[0]
+        self.assertEqual(row.instruction_files, ())
+        flags = ra.row_flags(row, rc.load_config())
+        self.assertFalse(any("instruction-file" in f for f in flags), flags)
+
+    def test_instruction_files_non_tier_agent_no_label(self):
+        base = write_session(self.root, sid(33), [
+            agent("ins0000000000004", "general-purpose", "Do a thing."),
+        ])
+        path = self._append_events(base, "ins0000000000004", [
+            nested_memory("/work/projects/CLAUDE.md"),
+        ])
+        row = ra.summarize([path])[0]
+        flags = ra.row_flags(row, rc.load_config())
+        self.assertFalse(any("instruction-file" in f for f in flags), flags)
+
+    def test_instruction_files_malformed_entries_ignored(self):
+        base = write_session(self.root, sid(34), [
+            agent("ins0000000000005", "exec-haiku-med", HAIKU_PROMPT),
+        ])
+        path = self._append_events(base, "ins0000000000005", [
+            {"type": "attachment"},
+            {"type": "attachment", "attachment": "x"},
+            {"type": "attachment", "attachment": {"type": "nested_memory"}},
+            {"type": "attachment",
+             "attachment": {"type": "nested_memory", "path": 7}},
+        ])
+        row = ra.summarize([path])[0]
+        self.assertEqual(row.instruction_files, ())
+        flags = ra.row_flags(row, rc.load_config())
+        self.assertFalse(any("instruction-file" in f for f in flags), flags)
+
+
+def nested_memory(path):
+    """Return an attachment transcript entry of type nested_memory for path."""
+    return {"type": "attachment", "attachment": {"type": "nested_memory", "path": path}}
 
 
 if __name__ == "__main__":

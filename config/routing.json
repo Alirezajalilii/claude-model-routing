@@ -14,7 +14,6 @@
     "max_fix_rounds_per_tier": 2,
     "max_executor_escalations": 2,
     "max_evidence_rounds": 2,
-    "haiku_max_tool_calls": 25,
     "haiku_prompt_flag_tokens": 100000,
     "status_line_max_chars": 400
   },

@@ -10,7 +10,7 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than {{skill_cap_haiku}} skills cannot go to a Haiku tier. A task expected to need more than about {{haiku_max_tool_calls}} tool calls in total is never a Haiku task.
+When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than {{skill_cap_haiku}} skills cannot go to a Haiku tier.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 

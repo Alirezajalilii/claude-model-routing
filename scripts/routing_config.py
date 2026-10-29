@@ -24,7 +24,6 @@ INT_TUNABLES = {
     "max_evidence_rounds": 1,
     "skill_cap_haiku": 0,
     "skill_cap_other": 0,
-    "haiku_max_tool_calls": 1,
     "haiku_prompt_flag_tokens": 1,
     "status_line_max_chars": 1,
 }

@@ -100,7 +100,7 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than 2 skills cannot go to a Haiku tier. A task expected to need more than about 25 tool calls in total is never a Haiku task.
+When torn between two tiers, pick the lower one and rely on escalation. Exceptions: authentication, payments, data integrity, and migrations go one tier higher; a task that needs more than 2 skills cannot go to a Haiku tier.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 
@@ -138,4 +138,3 @@ All other tasks are Verify: no and rely on the gate.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
 - A task that genuinely needs broad context or many skills is a Sonnet task.
 - Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
-- A task expected to need more than about 25 tool calls is not a Haiku task.

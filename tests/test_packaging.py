@@ -102,7 +102,7 @@ class HooksTest(unittest.TestCase):
 
     def test_pre_tool_use_and_session_end(self) -> None:
         pre = self.hooks["hooks"]["PreToolUse"][0]
-        self.assertEqual(pre["matcher"], "Agent|Task")
+        self.assertEqual(pre["matcher"], "Agent|Task|Skill")
         self.assertIn("dispatch_guard.py", pre["hooks"][0]["command"])
         end = self.hooks["hooks"]["SessionEnd"][0]["hooks"][0]
         self.assertIn("routing_audit.py", end["command"])

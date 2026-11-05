@@ -13,6 +13,7 @@ from unittest import mock  # noqa: E402
 
 import dispatch_guard as dg  # noqa: E402
 import routing_config as rc  # noqa: E402
+import skills_inventory as si  # noqa: E402
 
 SCRIPT = ROOT / "scripts" / "dispatch_guard.py"
 CONFIG = rc.load_config()
@@ -453,6 +454,136 @@ class TestHandoffScript(unittest.TestCase):
             result = run_script(json.dumps(event), "--config", str(missing))
         self.assertEqual(result.returncode, 0)
         self.assertIn("config unavailable", result.stderr)
+
+
+def write_skill(root: Path, folder: str, frontmatter: list) -> Path:
+    skill_dir = root / folder
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_md = skill_dir / "SKILL.md"
+    lines = ["---", *frontmatter, "---", "Body text.", ""]
+    skill_md.write_text("\n".join(lines), encoding="utf-8")
+    return skill_md
+
+
+def skill_call(skill: str, subagent: bool = True) -> dict:
+    event = {"tool_name": "Skill", "tool_input": {"skill": skill}}
+    if subagent:
+        event.update(agent_id="a1", agent_type="exec-haiku-low")
+    return event
+
+
+def agent_call(prompt: str, **extra) -> dict:
+    tool_input = {"subagent_type": "scout-haiku-low", "prompt": prompt}
+    return {"tool_name": "Agent", "tool_input": tool_input, **extra}
+
+
+class TestSkillForkAndNesting(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = Path(tmp.name)
+        self.claude_dir = self.tmp / "claude"
+        self.project = self.tmp / "project"
+        env = {"CLAUDE_CONFIG_DIR": str(self.claude_dir),
+               "CLAUDE_PROJECT_DIR": str(self.project)}
+        patcher = mock.patch.dict(os.environ, env)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def project_skill(self, folder: str, *frontmatter: str) -> Path:
+        return write_skill(self.project / ".claude" / "skills", folder, list(frontmatter))
+
+    def user_skill(self, folder: str, *frontmatter: str) -> Path:
+        return write_skill(self.claude_dir / "skills", folder, list(frontmatter))
+
+    def agent_prompt(self) -> str:
+        return (f"Task T9.\nSkills: none.\nNever consult the advisor.\n"
+                f"Output: {self.tmp / 'exec-T9.md'}")
+
+    def test_tc1_forked_skill_is_denied_for_subagent(self):
+        self.project_skill("forker", "name: forker", "description: d", "context: fork")
+        reasons = evaluate(skill_call("forker"))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("context: fork", reasons[0])
+        self.assertIn("'forker'", reasons[0])
+
+    def test_tc2_plain_skill_passes_for_subagent(self):
+        self.project_skill("plain", "name: plain", "description: d")
+        self.assertEqual(evaluate(skill_call("plain")), ())
+
+    def test_tc3_user_skill_with_quoted_capital_fork_is_denied(self):
+        self.user_skill("userfork", "name: userfork", "description: d",
+                        'context: "Fork"')
+        reasons = evaluate(skill_call("userfork"))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("context: fork", reasons[0])
+
+    def test_tc4_missing_skill_is_denied_for_subagent(self):
+        reasons = evaluate(skill_call("missing"))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("has no SKILL.md the guard can find", reasons[0])
+
+    def test_tc5_main_session_skill_call_is_not_checked(self):
+        self.project_skill("forker", "name: forker", "description: d", "context: fork")
+        self.assertEqual(evaluate(skill_call("forker", subagent=False)), ())
+
+    def test_tc6_folder_name_and_skill_name_both_match(self):
+        self.project_skill("fork-dir", "name: other", "description: d", "context: fork")
+        for name in ("fork-dir", "other"):
+            reasons = evaluate(skill_call(name))
+            self.assertEqual(len(reasons), 1, (name, reasons))
+            self.assertIn("context: fork", reasons[0])
+
+    def test_tc7_inventory_error_fails_closed(self):
+        self.project_skill("plain", "name: plain", "description: d")
+        with mock.patch.object(si, "build_rows", side_effect=RuntimeError("boom")):
+            reasons = evaluate(skill_call("plain"))
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn("could not check skill 'plain'", reasons[0])
+
+    def test_tc8_subagent_agent_call_is_denied(self):
+        event = agent_call(self.agent_prompt(), agent_id="a1",
+                           agent_type="exec-haiku-low")
+        reasons = evaluate(event)
+        self.assertTrue(any("must not delegate" in r for r in reasons), reasons)
+
+    def test_tc9_main_session_agent_call_is_unchanged(self):
+        self.assertEqual(evaluate(agent_call(self.agent_prompt())), ())
+
+    def test_tc10_main_entry_exits_two_for_forked_skill(self):
+        self.project_skill("forker", "name: forker", "description: d", "context: fork")
+        stderr = io.StringIO()
+        code = dg.main(argv=[], stdin=io.StringIO(json.dumps(skill_call("forker"))),
+                       stderr=stderr)
+        self.assertEqual(code, 2)
+        self.assertIn("context: fork", stderr.getvalue())
+
+    def test_tc11_pretooluse_matcher_includes_skill(self):
+        hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        guard = [entry for entry in hooks["hooks"]["PreToolUse"]
+                 if any("dispatch_guard.py" in hook.get("command", "")
+                        for hook in entry["hooks"])]
+        self.assertEqual(len(guard), 1, guard)
+        self.assertEqual(guard[0]["matcher"], "Agent|Task|Skill")
+
+    def test_tc12_agent_type_without_agent_id_is_main_session(self):
+        self.project_skill("forker", "name: forker", "description: d", "context: fork")
+        skill = {"tool_name": "Skill", "tool_input": {"skill": "forker"},
+                 "agent_type": "exec-haiku-low"}
+        self.assertEqual(evaluate(skill), ())
+        agent = agent_call(self.agent_prompt(), agent_type="exec-haiku-low")
+        self.assertEqual(evaluate(agent), evaluate(agent_call(self.agent_prompt())))
+        self.assertEqual(evaluate(agent), ())
+
+    def test_tc13_fork_with_comment_or_quotes_is_denied(self):
+        self.project_skill("commented", "name: commented", "description: d",
+                           "context: fork  # isolated")
+        self.project_skill("quoted", "name: quoted", "description: d",
+                           'context: "fork" # x')
+        for name in ("commented", "quoted"):
+            reasons = evaluate(skill_call(name))
+            self.assertEqual(len(reasons), 1, (name, reasons))
+            self.assertIn("context: fork", reasons[0])
 
 
 if __name__ == "__main__":

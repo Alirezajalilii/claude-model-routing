@@ -13,6 +13,7 @@ import tempfile  # noqa: E402
 import unittest  # noqa: E402
 from unittest import mock  # noqa: E402
 
+import dispatch_guard as dg  # noqa: E402
 import routing_audit as ra  # noqa: E402
 import routing_config as rc  # noqa: E402
 
@@ -546,6 +547,50 @@ class RoutingAuditTest(unittest.TestCase):
         self.assertEqual(row.instruction_files, ())
         flags = ra.row_flags(row, rc.load_config())
         self.assertFalse(any("instruction-file" in f for f in flags), flags)
+
+
+class SkillLoadFlagTest(unittest.TestCase):
+    """A tier agent that did not load every skill on its Skills line is flagged."""
+
+    LABEL = "listed skills not loaded"
+
+    def labels(self, prompt, calls=()):
+        """Return the skill-load labels that row_flags gives a tier agent row."""
+        row = ra.AgentRow(TS, TS, "exec-haiku-low", prompt, tuple(calls),
+                          "skl0000000000001")
+        flags = ra.row_flags(row, rc.load_config())
+        return [flag for flag in flags if flag.startswith(self.LABEL)]
+
+    def test_tc1_all_listed_skills_read_is_not_flagged(self):
+        calls = [(TS, "Read", "/x/a/SKILL.md"), (TS, "Read", "/x/b/SKILL.md")]
+        self.assertEqual(self.labels("Skills: /x/a/SKILL.md, /x/b/SKILL.md", calls), [])
+
+    def test_tc2_one_unread_listed_skill_is_flagged(self):
+        calls = [(TS, "Read", "/x/a/SKILL.md")]
+        self.assertEqual(self.labels("Skills: /x/a/SKILL.md, /x/b/SKILL.md", calls),
+                         ["listed skills not loaded: 1 of 2"])
+
+    def test_tc3_skills_none_is_not_flagged(self):
+        self.assertEqual(self.labels("Skills: none\nNever consult the advisor."), [])
+
+    def test_tc4_skill_tool_by_folder_name_counts_as_loaded(self):
+        prompt = "Skills: /x/p/skills/tdd-workflow/SKILL.md"
+        self.assertEqual(self.labels(prompt, [(TS, "Skill", "tdd-workflow")]), [])
+        self.assertEqual(self.labels(prompt, [(TS, "Skill", "ecc:tdd-workflow")]), [])
+
+    def test_tc5_skill_tool_with_other_name_does_not_count(self):
+        calls = [(TS, "Skill", "b")]
+        self.assertEqual(self.labels("Skills: /x/a/SKILL.md", calls),
+                         ["listed skills not loaded: 1 of 1"])
+
+    def test_tc6_read_of_expanded_home_path_counts_as_loaded(self):
+        calls = [(TS, "Read", os.path.expanduser("~/s/a/SKILL.md"))]
+        self.assertEqual(self.labels("Skills: ~/s/a/SKILL.md", calls), [])
+
+    def test_tc7_skill_items_lists_paths_or_nothing(self):
+        self.assertEqual(dg.skill_items("Skills: /x/a/SKILL.md, /x/b/SKILL.md"),
+                         ["/x/a/SKILL.md", "/x/b/SKILL.md"])
+        self.assertEqual(dg.skill_items("Skills: none"), [])
 
 
 def nested_memory(path):

@@ -12,6 +12,10 @@ The agent is `subagent_type`, or `general-purpose` when it is missing or empty.
   - An agent type that is neither a tier nor in `dispatch.allow_agents` of the
     routing config is blocked.
   - Any agent is blocked when it passes a non-empty `model` or `effort`.
+  - A subagent (an event with `agent_id`) is blocked from any Agent or Task
+    call, and from a Skill call whose SKILL.md sets `context: fork` or whose
+    SKILL.md the guard cannot find (fail closed). Main-session calls are not
+    checked for Skill.
 
 Malformed input, config errors and internal errors exit 0 (fail open).
 """
@@ -19,12 +23,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Optional, TextIO
 
 import routing_config as rc
+import skills_inventory as si
 
 GUARDED_TOOLS = frozenset({"Agent", "Task"})
 PARAMETERS = ("model", "effort")
@@ -34,6 +40,7 @@ OUTPUT_LINE = re.compile(r"\bOutput:[ \t]*(\S+)")
 NONE_VALUE = re.compile(r"^\W*none\b", re.IGNORECASE)
 DEFAULT_AGENT = "general-purpose"
 ADVISOR_LINE = re.compile(r"never consult the advisor", re.IGNORECASE)
+SKILL_TOOL = "Skill"
 
 
 def _is_set(value: Any) -> bool:
@@ -119,8 +126,62 @@ def _agent_reasons(tool_input: Mapping, agent: str, config: rc.RoutingConfig,
             "dispatch.allow_agents in the routing config."]
 
 
+def _is_subagent(event: Mapping) -> bool:
+    # Only agent_id marks a subagent; agent_type alone is the main session.
+    return bool(event.get("agent_id"))
+
+
+def _skill_paths(name: str, event: Mapping) -> list:
+    claude_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    project = Path(os.environ.get("CLAUDE_PROJECT_DIR") or event.get("cwd") or os.getcwd())
+    paths = []
+    for row in si.build_rows(claude_dir, project):
+        plugin = row.name.rpartition(":")[0]
+        folder = Path(row.path).parent.name
+        alias = f"{plugin}:{folder}" if plugin else folder
+        if name in (row.name, alias):
+            paths.append(Path(row.path))
+    return paths
+
+
+def _is_fork(skill_md: Path) -> bool:
+    value = str(si.read_frontmatter(skill_md).get("context", ""))
+    value = value.split("#", 1)[0].strip().strip("\"'").strip().lower()
+    return value == "fork"
+
+
+def _skill_event_reasons(event: Mapping, prefix: str) -> list:
+    tool_input = event.get("tool_input")
+    name = str(tool_input.get("skill") or "").strip() if isinstance(tool_input, dict) else ""
+    who = event.get("agent_type") or "a subagent"
+    try:
+        paths = _skill_paths(name, event)
+        if not paths:
+            return [f"{prefix} skill '{name}' called by {who} has no SKILL.md the guard "
+                    "can find; load it by Read of the SKILL.md path on your Skills line."]
+        if any(_is_fork(path) for path in paths):
+            return [f"{prefix} skill '{name}' runs in a forked subagent (context: fork), "
+                    f"which {who} must not start; Read its SKILL.md and follow it inline "
+                    "instead, or report the need in your Output file."]
+    except Exception:  # this check is a security boundary: fail closed
+        return [f"{prefix} could not check skill '{name}' for {who}; load it by Read "
+                "of the SKILL.md path on your Skills line."]
+    return []
+
+
+def _nested_reasons(event: Mapping, prefix: str) -> list:
+    if not _is_subagent(event):
+        return []
+    who = event.get("agent_type") or "a subagent"
+    return [f"{prefix} {who} must not delegate: only the main session dispatches agents. "
+            "Record the need in your Output file instead."]
+
+
 def evaluate(event: Mapping, config: rc.RoutingConfig) -> tuple:
     """Return the policy violations for one hook event; an empty tuple means allowed."""
+    prefix = f"{config.plugin_name} dispatch guard:"
+    if event.get("tool_name") == SKILL_TOOL:
+        return tuple(_skill_event_reasons(event, prefix)) if _is_subagent(event) else ()
     if event.get("tool_name") not in GUARDED_TOOLS:
         return ()
     tool_input = event.get("tool_input")
@@ -128,8 +189,7 @@ def evaluate(event: Mapping, config: rc.RoutingConfig) -> tuple:
         return ()
     subagent = tool_input.get("subagent_type")
     agent = subagent if isinstance(subagent, str) and subagent else DEFAULT_AGENT
-    prefix = f"{config.plugin_name} dispatch guard:"
-    reasons = _agent_reasons(tool_input, agent, config, prefix)
+    reasons = _nested_reasons(event, prefix) + _agent_reasons(tool_input, agent, config, prefix)
     return tuple(reasons + _parameter_reasons(tool_input, agent, prefix))
 
 

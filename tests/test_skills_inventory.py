@@ -199,6 +199,66 @@ class SkillsInventoryTest(unittest.TestCase):
         self.assertIn("| Skill | Scope | Path | Description |\n", out_file.read_text(encoding="utf-8"))
         self.assertIn(f"| foo | user | {path} | Foo things. |", out_file.read_text(encoding="utf-8"))
 
+    def test_grouped_skill_has_group_scope_and_path(self) -> None:
+        write_skill(self.claude / "skills", "grp/alpha", skill_md("alpha", "A"))
+        path = skill_path(self.claude, "grp/alpha")
+
+        rows = self.rows()
+
+        self.assertIn(si.SkillRow("alpha", "user group grp", "A", path), rows)
+        self.assertIn("| alpha | user group grp |", si.render_table(self.project, rows))
+
+    def test_skill_inside_skill_folder_is_not_grouped(self) -> None:
+        write_skill(self.claude / "skills", "top", skill_md("top", "Top."))
+        write_skill(self.claude / "skills", "top/sub", skill_md("sub", "Sub."))
+
+        rows = self.rows()
+
+        self.assertIn(si.SkillRow("top", "user", "Top.", skill_path(self.claude, "top")), rows)
+        self.assertNotIn("sub", [row.name for row in rows])
+
+    def test_two_levels_deep_skill_is_not_listed(self) -> None:
+        write_skill(self.claude / "skills", "grp/x/y", skill_md("y", "Deep."))
+
+        self.assertNotIn("y", [row.name for row in self.rows()])
+
+    def test_top_level_skill_comes_before_grouped_skill(self) -> None:
+        write_skill(self.claude / "skills", "b-top", skill_md("b-top", "Top."))
+        write_skill(self.claude / "skills", "a-grp/z", skill_md("z", "Grouped."))
+
+        names = [row.name for row in self.rows()]
+
+        self.assertLess(names.index("b-top"), names.index("z"))
+
+    def test_project_grouped_skill_has_project_group_scope(self) -> None:
+        write_skill(self.project / ".claude" / "skills", "grp2/beta", skill_md("beta", "Beta."))
+        path = skill_path(self.project / ".claude", "grp2/beta")
+
+        rows = self.rows()
+
+        self.assertIn(si.SkillRow("beta", "project group grp2", "Beta.", path), rows)
+
+    def test_grouped_skill_with_disable_model_invocation_is_excluded(self) -> None:
+        write_skill(self.claude / "skills", "grp3/hid", skill_md("hid", "Hidden.", "disable-model-invocation: true\n"))
+
+        self.assertNotIn("hid", [row.name for row in self.rows()])
+
+    def test_folded_block_description_is_joined(self) -> None:
+        body = "---\ndescription: >\n  First line\n  second line\nname: folded\n---\n\nBody.\n"
+        write_skill(self.claude / "skills", "fold-dir", body)
+
+        rows = self.rows()
+
+        self.assertIn(si.SkillRow("folded", "user", "First line second line", skill_path(self.claude, "fold-dir")), rows)
+
+    def test_strip_block_description_is_joined(self) -> None:
+        body = "---\nname: keep\ndescription: |-\n  Keep\n  this\n---\n\nBody.\n"
+        write_skill(self.claude / "skills", "keep", body)
+
+        rows = self.rows()
+
+        self.assertIn(si.SkillRow("keep", "user", "Keep this", skill_path(self.claude, "keep")), rows)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,10 @@ plugin skills from CLAUDE_CODE_PLUGIN_DIRS (settings env), enabled user-scope
 plugins, and local-scope plugins installed for the project. Directory marketplace
 plugins fall back to their source directory when the cache has no skills.
 Skills that set `disable-model-invocation: true` are excluded, because agents
-cannot load them. Skills without frontmatter are skipped. Bundled skills that
+cannot load them. Skills without frontmatter are skipped. Skills kept one group
+folder down (`<skills dir>/<group>/<name>/SKILL.md`, for example the ECC skills)
+are listed with scope `<scope> group <group>`; deeper nesting is not listed, and
+a folder that holds its own SKILL.md is a skill, not a group. Bundled skills that
 ship inside the Claude Code binary are not on disk and are not listed.
 
 Usage: skills_inventory.py [--claude-dir DIR] [--project-dir DIR] [--out FILE]
@@ -44,6 +47,9 @@ def load_json(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+BLOCK_SCALARS = (">", "|", ">-", "|-", ">+", "|+")
+
+
 def read_frontmatter(skill_md: Path) -> dict:
     text = skill_md.read_text(encoding="utf-8", errors="replace")
     if not text.startswith("---"):
@@ -51,19 +57,46 @@ def read_frontmatter(skill_md: Path) -> dict:
     end = text.find("\n---", 3)
     if end == -1:
         return {}
-    fields = {}
+    fields: dict = {}
+    block: tuple[str, list[str]] | None = None
     for line in text[3:end].splitlines():
-        if ":" in line and not line.startswith((" ", "\t")):
-            key, _, value = line.partition(":")
+        if not line.strip():
+            continue
+        if line.startswith((" ", "\t")):
+            if block is not None:
+                block[1].append(line.strip())
+            continue
+        if block is not None:
+            fields[block[0]] = " ".join(block[1])
+            block = None
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        if value.strip() in BLOCK_SCALARS:
+            block = (key.strip(), [])
+        else:
             fields[key.strip()] = value.strip().strip("\"'")
+    if block is not None:
+        fields[block[0]] = " ".join(block[1])
     return fields
+
+
+def _skill_files(skills_dir: Path) -> list[tuple[Path, str | None]]:
+    """Top-level skills first, then skills one group folder down (group name, else None)."""
+    top = [(path, None) for path in sorted(skills_dir.glob("*/SKILL.md"))]
+    grouped = [
+        (path, path.parent.parent.name)
+        for path in sorted(skills_dir.glob("*/*/SKILL.md"))
+        if not (path.parent.parent / "SKILL.md").is_file()
+    ]
+    return top + grouped
 
 
 def skill_rows(skills_dir: Path, prefix: str, scope: str) -> list[SkillRow]:
     if not skills_dir.is_dir():
         return []
     rows = []
-    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+    for skill_md, group in _skill_files(skills_dir):
         fields = read_frontmatter(skill_md)
         if not fields:
             continue
@@ -72,7 +105,8 @@ def skill_rows(skills_dir: Path, prefix: str, scope: str) -> list[SkillRow]:
         name = fields.get("name") or skill_md.parent.name
         desc = " ".join(fields.get("description", "").split())
         path = str(skill_md.resolve())
-        rows.append(SkillRow(f"{prefix}{name}", scope, desc[:DESCRIPTION_LIMIT], path))
+        skill_scope = scope if group is None else f"{scope} group {group}"
+        rows.append(SkillRow(f"{prefix}{name}", skill_scope, desc[:DESCRIPTION_LIMIT], path))
     return rows
 
 

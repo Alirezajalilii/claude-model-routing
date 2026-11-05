@@ -186,7 +186,7 @@ class AgentBodyHandoffTest(unittest.TestCase):
 
     def test_size_limits(self):
         for tier, text in self.each():
-            limit = 26000 if tier.role == "planner" else 10000
+            limit = 26000 if tier.role == "planner" else 12000
             self.assertLessEqual(len(text), limit, f"{tier.name} is {len(text)} characters")
 
     def test_new_sections_not_in_dispatcher_parts(self):

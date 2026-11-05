@@ -54,8 +54,8 @@ class ValuesTest(unittest.TestCase):
         self.assertEqual(v["calibration_reduced_sample_percent"], "5")
         self.assertEqual(v["calibration_high_defect_percent"], "10")
         self.assertEqual(v["planner_evidence_budget"], "5")
-        self.assertEqual(v["skill_cap_haiku"], "2")
-        self.assertEqual(v["skill_cap_other"], "4")
+        self.assertEqual(v["skill_cap_haiku"], "4")
+        self.assertEqual(v["skill_cap_other"], "6")
         self.assertEqual(
             v["calibration_draw_command"],
             'python3 -c "import random; print(random.random() < 0.2)"',

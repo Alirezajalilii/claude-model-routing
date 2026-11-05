@@ -1,6 +1,6 @@
 ---
 name: exec-haiku-high
-description: "Executor for tricky but well-specified single-module logic: parsing, validation, edge-case-heavy functions; also the start tier of every Sonnet-planned task. Receives a plan path, a task ID and a Skills line (at most 2 skills); works test-first and commits on its task branch, never pushes or merges."
+description: "Executor for tricky but well-specified single-module logic: parsing, validation, edge-case-heavy functions; also the start tier of every Sonnet-planned task. Receives a plan path, a task ID and a Skills line (at most 4 skills); works test-first and commits on its task branch, never pushes or merges."
 model: haiku
 effort: high
 tools: Read, Edit, Write, Grep, Glob, Bash

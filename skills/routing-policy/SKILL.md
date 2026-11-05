@@ -46,16 +46,17 @@ No other agent type (built-in agents, other plugins' agents, or project agents) 
 - Tier agents run with `omitClaudeMd: true` and without the Skill tool: they start without user or project CLAUDE.md files and without a skill listing; they read the project rules files and the SKILL.md paths their delegation names. On Claude Code 2.1.312, `omitClaudeMd` does not cover nested memory: when an agent touches a file, Claude Code still attaches the CLAUDE.md files (with their imports) of the directories between the session's launch folder and that file, and user rules whose `paths:` match it. No plugin setting stops this. Launch Claude Code in the project root to keep the project's and the workspace's CLAUDE.md files out of tier agents; the session audit flags every tier agent that still received one. Built-in commands that spawn other agent types (`/code-review`, `/simplify`, `/security-review`) are denied unless their type is allowlisted.
 
 ## Skills inventory
-- At the start of every full-lane run, the main session builds a skills inventory: every skill available in this session (user, project, and plugin, as listed in the session's skills listing), each with its name, scope, SKILL.md path and one-line description. Exclude skills that set `disable-model-invocation`, because agents cannot load them.
+- At the start of every full-lane run, the main session builds a skills inventory: every skill available in this session (user, project, and plugin, as listed in the session's skills listing, plus skills kept one folder deeper in a group folder, which are not in the listing and load only by Read), each with its name, scope, SKILL.md path and one-line description. Exclude skills that set `disable-model-invocation`, because agents cannot load them.
 - The main session passes the inventory file's path to the planner. It does not pass the full inventory to scouts, executors, or verifiers; they receive only their Skills line.
-- Run `mr-skills --out <handoff dir>/skills-inventory.md`; it writes the user, project and plugin skills it can find, with their SKILL.md paths and without those that set `disable-model-invocation`, as a Markdown table; add any skill from the session's listing that it missed.
+- Run `mr-skills --out <handoff dir>/skills-inventory.md`; it writes the user, project and plugin skills it can find, including grouped skills (scope `<scope> group <group>`), with their SKILL.md paths and without those that set `disable-model-invocation`, as a Markdown table; add any skill from the session's listing that it missed.
 
 ## Skill Assignment
 - Every delegation message to every agent includes a Skills line. "Skills: none" is valid and is the right answer for many tasks. Name each skill by the absolute path of its SKILL.md (the inventory's Path column), comma-separated.
 - Who assigns: the main session assigns skills for scouts, planners, and fast-lane executors; the planner assigns skills for executors and verifiers, per task, in the plan file.
-- What to assign: only skills that change how this specific task must be done. Examples: the project's framework or style conventions for the files being touched; the skill for a required output format (document, spreadsheet, slide deck); a testing or review skill for verifiers. Do not assign a skill merely because it is related to the topic.
+- The main session passes the skills the user names as must-follow to the planner with the user's decisions; the planner puts them on every executor and verifier Skills line they apply to, and the main session does the same for scouts and fast-lane executors.
+- What to assign: the general skills the user or the project rules name as must-follow, plus the skills for the task's language, framework and specific work (its testing, review or output-format skill). Do not assign a skill merely because it is related to the topic.
 - The verifier of a task always receives the same skills as that task's executor, plus any review or testing skill that applies. A verifier must judge against the same conventions the executor was told to follow.
-- Limits: at most 2 skills for any Haiku agent, because loaded skills consume context and Haiku bills about five times more once a prompt exceeds 100K tokens; at most 4 skills for any other agent.
+- Limits: at most 4 skills for any Haiku agent, because loaded skills consume context and Haiku bills about five times more once a prompt exceeds 100K tokens; at most 6 skills for any other agent.
 - Precedence when instructions conflict: this policy, then the project's claude.md, then the plan, then skills.
 - An agent may read at most one unlisted SKILL.md, only when clearly necessary, and must report it. Repeated unlisted loads for the same task type mean the planner's assignment rules need updating.
 
@@ -88,7 +89,7 @@ Everything else goes through the full lane. A planner is only for work that need
    - If the planner returns NEED_EVIDENCE, dispatch one scout per `## Scout <k>` section of its requests file, passing the file path and the section; then resume the same planner instance with the scouts' output paths through SendMessage.
    - The planner treats the evidence files it is given as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own. Reading the files its delegation names, the project rules files and the listed SKILL.md files does not count against the budget.
    - Allow at most 2 evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
-3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than 2 skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
+3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than 4 skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
 4. **Gate.** For every finished task, the main session runs these checks itself:
    - Red: if the task has Test Cases, check out commit one and run the new tests. They must fail. Tests that pass before the implementation exists are not testing the change.
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
@@ -169,7 +170,7 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than 2 skills into tasks that each need at most 2; a task that cannot be split goes under the plan's Risks.
+When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than 4 skills into tasks that each need at most 4; a task that cannot be split goes under the plan's Risks.
 
 Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is Verify: yes, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
 
@@ -234,8 +235,8 @@ Count tasks run below their planned tier separately. Once 50 of them have run wi
 
 ## Haiku context discipline
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
-- Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
-- Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 2 skills.
+- Keep Haiku tasks narrow: exact paths and line ranges, at most 4 skills, and an instruction not to read beyond them.
+- Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 4 skills.
 - Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
 
 ## Escalation caps

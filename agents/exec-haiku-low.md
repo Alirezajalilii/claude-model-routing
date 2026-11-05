@@ -1,6 +1,6 @@
 ---
 name: exec-haiku-low
-description: "Executor for renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and docs changes, and tests from cases given in the plan. Receives a plan path, a task ID and a Skills line (at most 2 skills); works test-first and commits on its task branch, never pushes or merges."
+description: "Executor for renames, config and environment changes, boilerplate following existing patterns, adding fields, copy and docs changes, and tests from cases given in the plan. Receives a plan path, a task ID and a Skills line (at most 4 skills); works test-first and commits on its task branch, never pushes or merges."
 model: haiku
 effort: low
 tools: Read, Edit, Write, Grep, Glob, Bash

@@ -45,7 +45,8 @@ def _prompt_of(tool_input: Mapping) -> str:
     return prompt if isinstance(prompt, str) else ""
 
 
-def _skill_items(prompt: str) -> list:
+def skill_items(prompt: str) -> list:
+    """Return the items on the prompt's Skills line ([] for none or no line)."""
     match = SKILLS_VALUE.search(prompt)
     if not match or NONE_VALUE.match(match.group(1)):
         return []
@@ -67,7 +68,7 @@ def _skills_reasons(agent: str, prompt: str, prefix: str) -> list:
         f"{prefix} Skills line of the delegation to {agent} names '{item}', "
         "which is not a readable absolute SKILL.md path. "
         "Use 'Skills: none' or SKILL.md paths from the skills inventory."
-        for item in _skill_items(prompt)
+        for item in skill_items(prompt)
         if not _is_skill_file(item)
     ]
 

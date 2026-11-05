@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
+import dispatch_guard as dg
 import routing_config as rc
 import transcripts as tr
 
@@ -195,6 +196,26 @@ def _instruction_labels(row: AgentRow) -> list:
             f"({len(files)} files: {shown})"]
 
 
+def _skill_loaded(path: str, calls) -> bool:
+    """Return True when a Read of the SKILL.md path or a Skill call for its folder ran."""
+    target = os.path.normpath(os.path.expanduser(path))
+    name = Path(target).parent.name
+    for _, tool, arg in calls:
+        if tool == "Read" and os.path.normpath(os.path.expanduser(arg)) == target:
+            return True
+        if tool == "Skill" and arg.rsplit(":", 1)[-1] == name:
+            return True
+    return False
+
+
+def _skill_load_label(row: AgentRow) -> Optional[str]:
+    listed = dg.skill_items(row.prompt)
+    missing = [p for p in listed if not _skill_loaded(p, row.calls)]
+    if not missing:
+        return None
+    return f"listed skills not loaded: {len(missing)} of {len(listed)}"
+
+
 def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
     """Return the policy flags of one agent; only tier agents get the tier checks."""
     tier = rc.resolve_tier(row.agent_type, config)
@@ -203,6 +224,9 @@ def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
     labels = []
     if not SKILLS_RE.search(row.prompt):
         labels.append("missing Skills line")
+    skill_label = _skill_load_label(row)
+    if skill_label:
+        labels.append(skill_label)
     if not rc.role_of(tier, config).uses_advisor and not ADVISOR_RE.search(row.prompt):
         labels.append("no 'Never consult the advisor' line")
     if tier.role == "executor" and not _plan_re(config).search(row.prompt):

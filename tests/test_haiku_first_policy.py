@@ -34,7 +34,7 @@ class FullLanePartTest(unittest.TestCase):
             self.assertIn(phrase, self.part2)
 
     def test_full_lane_asks_user_about_wide_task(self):
-        self.assertIn("ask the user first about a task with more than 2 skills", self.part2)
+        self.assertIn("ask the user first about a task with more than 4 skills", self.part2)
 
 
 class PlannerHaikuFirstTest(unittest.TestCase):
@@ -54,7 +54,7 @@ class PlannerHaikuFirstTest(unittest.TestCase):
                 "and the start tier (see Executor tier selection)",
                 "names its start and fallback verifier tiers",
                 "Assign every task a planned executor tier, a start tier and its verifier tiers",
-                "split a task that would need more than 2 skills into tasks that each need at most 2",
+                "split a task that would need more than 4 skills into tasks that each need at most 4",
             ):
                 self.assertIn(phrase, text, f"{name}: {phrase}")
             self.assertNotIn("cannot go to a Haiku tier", text, name)
@@ -80,7 +80,7 @@ class DispatcherHaikuContextTest(unittest.TestCase):
     def test_part3_says_executors_start_on_haiku(self):
         part3 = pt.render_part(self.config, 3)
         self.assertIn("Executors start on Haiku, Sonnet-planned tasks included", part3)
-        self.assertIn("so planners split work until each task needs at most 2 skills", part3)
+        self.assertIn("so planners split work until each task needs at most 4 skills", part3)
         self.assertNotIn("is a Sonnet task", part3)
 
     def test_part4_cost_and_calibration(self):

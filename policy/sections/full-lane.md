@@ -15,8 +15,8 @@
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
-   - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass.
-   - Report: the status line's commits are the task's commits on its branch and the report file exists; a verifier judges the report's content when one runs.
+   - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass. A failure the executor listed in its report's Out-of-scope findings under "Checks failing outside the task" does not fail Green when it fails the same way on the task's base commit (the parent of commit one; run the failing command in a temporary worktree there); route each confirmed one as an out-of-scope finding. An unlisted failure, or a listed one that passes on the base commit, fails Green.
+   - Report: the status line's commits are the task's commits on its branch, the report file exists, and its "Skills loaded" line names every skill on the task's Skills line; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier for the tier that did the work (start or fallback) when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
    - the task ran below the plan's executor tier, even if the plan marked it Verify: no;

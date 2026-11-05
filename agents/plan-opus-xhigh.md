@@ -3,7 +3,7 @@ name: plan-opus-xhigh
 description: "Planner for architecture or system design, large refactors, cross-service changes, or a second REPLAN after a plan-opus-high plan. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan. One instance per topic: never resume it for unrelated or small, clear work."
 model: opus
 effort: xhigh
-tools: Read, Grep, Glob, Write, Edit
+tools: Read, Grep, Glob, Write, Edit, Skill
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage
 omitClaudeMd: true
 ---

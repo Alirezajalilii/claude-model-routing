@@ -3,7 +3,7 @@ name: scout-haiku-low
 description: "Read-only scout, cheapest tier: locate files, symbols, call sites and configs; map directory structure. Give it a narrow question, exact starting paths and a Skills line. Writes its evidence only to the Output file it is given."
 model: haiku
 effort: low
-tools: Read, Grep, Glob, Bash, Write
+tools: Read, Grep, Glob, Bash, Write, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 autoCompactWindow: 123000

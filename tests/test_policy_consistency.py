@@ -78,7 +78,7 @@ class PolicyConsistencyTest(unittest.TestCase):
                 self.assertIn("NO_PLAN_NEEDED", text)
                 self.assertIn("Do not consult it again to check the revision.", text)
                 self.assertIn("One instance per topic", text)
-                self.assertIn("tools: Read, Grep, Glob, Write, Edit", text)
+                self.assertIn("tools: Read, Grep, Glob, Write, Edit, Skill", text)
             else:
                 self.assertIn("Never consult the advisor.", text, tier.name)
 
@@ -109,7 +109,12 @@ class LeanAgentFilesTest(unittest.TestCase):
             lines = head.split("\n")
             self.assertIn("omitClaudeMd: true", lines, tier.name)
             tools = next(ln for ln in lines if ln.startswith("tools: "))
-            self.assertNotIn("Skill", tools, tier.name)
+            self.assertIn("Skill", tools, tier.name)
+            if tier.role != "planner":
+                self.assertIn("Monitor", tools, tier.name)
+                self.assertIn("TaskStop", tools, tier.name)
+            else:
+                self.assertNotIn("Monitor", tools, tier.name)
             self.assertEqual(
                 "autoCompactWindow: 123000" in lines, tier.family == "haiku", tier.name
             )

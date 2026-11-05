@@ -3,7 +3,7 @@ name: exec-haiku-med
 description: "Executor for single-module logic with clear tests: serializers, simple endpoints, utilities, small components. Receives a plan path, a task ID and a Skills line (at most 4 skills); works test-first and commits on its task branch, never pushes or merges."
 model: haiku
 effort: medium
-tools: Read, Edit, Write, Grep, Glob, Bash
+tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 autoCompactWindow: 123000

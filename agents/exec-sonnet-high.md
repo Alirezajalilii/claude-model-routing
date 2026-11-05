@@ -3,7 +3,7 @@ name: exec-sonnet-high
 description: "Executor for cross-module changes, refactors, Celery and BullMQ work, Docker and terminal-heavy run-fix loops, and non-trivial merge conflicts. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."
 model: sonnet
 effort: high
-tools: Read, Edit, Write, Grep, Glob, Bash
+tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

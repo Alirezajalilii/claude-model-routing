@@ -3,7 +3,7 @@ name: verify-sonnet-med
 description: "Verifier for tasks done by any Haiku executor tier. Runs only when a verification trigger applies (Verify: yes, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."
 model: sonnet
 effort: medium
-tools: Read, Grep, Glob, Bash, Write
+tools: Read, Grep, Glob, Bash, Write, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

@@ -3,7 +3,7 @@ name: exec-sonnet-med
 description: "Executor for standard multi-file feature work across roughly two to five files. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."
 model: sonnet
 effort: medium
-tools: Read, Edit, Write, Grep, Glob, Bash
+tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

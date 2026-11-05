@@ -165,21 +165,66 @@ def with_frontmatter(mutate):
     return rc.validate(raw)
 
 
+def with_tools(role, tools):
+    return with_frontmatter(lambda r: r["roles"][role].__setitem__("tools", tools))
+
+
 class LeanSchemaTest(unittest.TestCase):
     def assert_message(self, messages, needle):
         self.assertTrue(any(needle in m for m in messages), messages)
 
     def test_shipped_tools_per_role(self):
         roles = rc.load_config().roles
-        self.assertEqual(roles["scout"].tools, ("Read", "Grep", "Glob", "Bash", "Write"))
-        self.assertEqual(roles["planner"].tools, ("Read", "Grep", "Glob", "Write", "Edit"))
         self.assertEqual(
-            roles["executor"].tools, ("Read", "Edit", "Write", "Grep", "Glob", "Bash"))
-        self.assertEqual(roles["verifier"].tools, ("Read", "Grep", "Glob", "Bash", "Write"))
+            roles["scout"].tools,
+            ("Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"))
+        self.assertEqual(
+            roles["planner"].tools, ("Read", "Grep", "Glob", "Write", "Edit", "Skill"))
+        self.assertEqual(
+            roles["executor"].tools,
+            ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"))
+        self.assertEqual(
+            roles["verifier"].tools,
+            ("Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"))
 
-    def test_skill_tool_rejected(self):
-        messages = with_frontmatter(lambda r: r["roles"]["scout"]["tools"].append("Skill"))
-        self.assert_message(messages, "roles.scout.tools: Skill is not allowed")
+    def test_skill_required_in_tools(self):
+        messages = with_tools(
+            "scout", ["Read", "Grep", "Glob", "Bash", "Write", "Monitor", "TaskStop"])
+        self.assert_message(messages, "roles.scout.tools: must contain Skill")
+
+    def test_write_required_in_tools(self):
+        messages = with_tools("planner", ["Read", "Grep", "Glob", "Edit", "Skill"])
+        self.assert_message(messages, "roles.planner.tools: must contain Write")
+
+    def test_read_required_in_tools(self):
+        messages = with_tools(
+            "executor",
+            ["Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"])
+        self.assert_message(messages, "roles.executor.tools: must contain Read")
+
+    def test_monitor_required_with_bash(self):
+        messages = with_tools(
+            "verifier", ["Read", "Grep", "Glob", "Bash", "Write", "Skill", "TaskStop"])
+        self.assert_message(
+            messages, "roles.verifier.tools: must contain Monitor when it contains Bash")
+
+    def test_task_stop_required_with_bash(self):
+        messages = with_tools(
+            "executor",
+            ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor"])
+        self.assert_message(
+            messages, "roles.executor.tools: must contain TaskStop when it contains Bash")
+
+    def test_nesting_tool_rejected_in_tools(self):
+        messages = with_frontmatter(lambda r: r["roles"]["executor"]["tools"].append("Agent"))
+        self.assert_message(messages, "roles.executor.tools: must not contain Agent")
+        self.assert_message(
+            messages, "roles.executor: Agent is in both tools and disallowed_tools")
+
+    def test_disallowed_tool_in_tools_rejected(self):
+        messages = with_frontmatter(lambda r: r["roles"]["scout"]["tools"].append("advisor"))
+        self.assert_message(
+            messages, "roles.scout: advisor is in both tools and disallowed_tools")
 
     def test_missing_agent_frontmatter(self):
         messages = with_frontmatter(lambda r: r.pop("agent_frontmatter"))

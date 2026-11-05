@@ -91,7 +91,7 @@ class GenerateTest(unittest.TestCase):
             self.assertEqual(pairs[-1][0], "omitClaudeMd", name)
             self.assertNotIn("autoCompactWindow", [k for k, _ in pairs])
         pairs, _ = split_agent(self.agent("plan-opus-high"))
-        self.assertEqual(dict(pairs)["tools"], "Read, Grep, Glob, Write, Edit")
+        self.assertEqual(dict(pairs)["tools"], "Read, Grep, Glob, Write, Edit, Skill")
 
     def test_fixture_config_by_model_only(self):
         raw = json.loads((ROOT / "config" / "routing.json").read_text(encoding="utf-8"))

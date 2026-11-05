@@ -6,7 +6,7 @@ mr is a Claude Code plugin for cost-aware model routing. It gives a dispatcher s
 ## Components
 There are no apps and no packages. The plugin is made of these parts:
 - **Plugin manifest and marketplace** (`.claude-plugin/`): `plugin.json` (name, version 0.1.0) and `marketplace.json` (source `.`). Tech: JSON.
-- **Hooks** (`hooks/hooks.json`, scripts in `scripts/`): SessionStart runs `session_context.py --part 1` to `--part 5` to inject the policy; PreToolUse on `Agent|Task` runs `dispatch_guard.py`; SessionEnd runs `routing_audit.py --hook`. Tech: Python 3.9+ standard library.
+- **Hooks** (`hooks/hooks.json`, scripts in `scripts/`): SessionStart runs `session_context.py --part 1` to `--part 5` to inject the policy; PreToolUse on `Agent|Task|Skill` runs `dispatch_guard.py`; SessionEnd runs `routing_audit.py --hook`. Tech: Python 3.9+ standard library.
 - **Config and policy** (`config/routing.json`, `policy/`): the single source of truth for tiers, roles, tunables and policy sections. `scripts/routing_config.py` loads and validates it; `scripts/policy_text.py` renders the policy text.
 - **Generated agents and skill** (`agents/*.md`, `skills/routing-policy/SKILL.md`): produced by `scripts/generate.py`; never edited by hand. Owns no data.
 - **Skills** (`skills/init-project`, `skills/routing-policy`, `skills/routing-report`): instructions Claude loads on demand. `init-project` copies `templates/` into a user project.
@@ -45,5 +45,5 @@ flowchart LR
 ## Key decisions
 No ADRs yet: `docs/decisions/` holds only `0000-adr-template.md`. Decisions visible in the code and changelog, pending ADRs:
 - Tiers and roles are data in `config/routing.json`; agent files are generated from it.
-- The dispatch guard enforces policy at PreToolUse on `Agent|Task` rather than trusting the dispatcher prompt.
+- The dispatch guard enforces policy at PreToolUse on `Agent|Task|Skill` rather than trusting the dispatcher prompt.
 - No third-party Python packages (CONTRIBUTING.md).

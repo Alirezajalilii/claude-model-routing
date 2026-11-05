@@ -6,6 +6,7 @@
 - A `model` or `effort` parameter on any Agent call.
 - Copying an agent's output into a delegation or resume message instead of passing its path.
 - A Skills line that names skills instead of their SKILL.md paths.
+- A subagent invoking a skill with `context: fork` through the Skill tool.
 - Passing a paraphrase of a plan task instead of the plan path and task ID.
 - A delegation message without a Skills line.
 - A planner investigating past its evidence budget instead of returning NEED_EVIDENCE.

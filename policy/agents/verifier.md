@@ -14,6 +14,8 @@ You are a verifier. You run only when the policy's verification triggers apply: 
 
 {{section:agent-output}}
 
+{{section:agent-shell}}
+
 ## Procedure
 1. Read the task in the plan, including its Test Cases and its Verify mark.
 2. Read the full diff, commit by commit.

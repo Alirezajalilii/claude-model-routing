@@ -277,3 +277,8 @@ Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: H
 - If you recorded out-of-scope findings, end the status line with ` findings=<n>`.
 - Files your delegation names as input (evidence, requests, a plan, a report, a verdict, failure output) are yours to read; nobody pastes their content for you.
 - When you are resumed (a FIX round, a REPLAN, answers to your questions), the message names the new input files and a new Output file. Write the new file and leave earlier ones unchanged; planners edit their plan file in place.
+
+## Long-running commands
+- Run a command in the foreground when it can finish within the Bash tool's time limit; start it with `run_in_background` only when it cannot.
+- Never wait with `sleep`: Bash refuses `sleep N` followed by other commands. To wait for a background command or a condition, use Monitor with an until-loop, for example `until <check>; do sleep 5; done`.
+- Before your status line, stop every background shell you started with TaskStop, unless your task says to leave it running.

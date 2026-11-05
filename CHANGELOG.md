@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-06
+
+### Fixed
+- On Claude Code 2.1.318, a skill with `context: fork` that a subagent invoked through the Skill tool ran as a separate `general-purpose` subagent, past the agent's `disallowedTools` and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`. The dispatch guard now checks Skill calls as well.
+- The dispatch guard hook matches `Agent|Task|Skill` (was `Agent|Task`).
+- For a call from a subagent (the hook event carries `agent_id`), the dispatch guard denies a Skill call whose SKILL.md sets `context: fork` or that it cannot find among the user, project and plugin skills, and denies any Agent or Task call. If the Skill check fails internally, the guard denies the call.
+- Main-session Skill calls are not checked.
+- A denied agent can still Read the skill's SKILL.md path and follow it inline.
+
 ## [0.4.0] - 2026-11-06
 
 ### Added

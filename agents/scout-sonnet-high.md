@@ -3,7 +3,7 @@ name: scout-sonnet-high
 description: "Read-only deep-investigation scout: cross-module investigation, unclear root causes, async and concurrency issues, data-flow tracing across services. Returns evidence, never the diagnosis. Writes its evidence only to the Output file it is given."
 model: sonnet
 effort: high
-tools: Read, Grep, Glob, Bash, Write
+tools: Read, Grep, Glob, Bash, Write, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

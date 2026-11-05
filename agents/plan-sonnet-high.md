@@ -3,7 +3,7 @@ name: plan-sonnet-high
 description: "Planner for work confined to one module, with clear evidence and roughly five tasks or fewer. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan. One instance per topic: never resume it for unrelated or small, clear work."
 model: sonnet
 effort: high
-tools: Read, Grep, Glob, Write, Edit
+tools: Read, Grep, Glob, Write, Edit, Skill
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage
 omitClaudeMd: true
 ---

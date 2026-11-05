@@ -15,6 +15,8 @@ TIER_FAMILIES = ("haiku", "sonnet", "opus")
 EFFORTS = ("low", "medium", "high", "xhigh")
 ROLES = ("scout", "planner", "executor", "verifier")
 NESTING_TOOLS = ("Agent", "TeamCreate", "TeamDelete", "SendMessage")
+REQUIRED_TOOLS = ("Read", "Write", "Skill")
+BACKGROUND_TOOLS = ("Monitor", "TaskStop")
 
 INT_TUNABLES = {
     "planner_evidence_budget": 1,
@@ -130,12 +132,31 @@ def _validate_tunables(tunables: Any) -> list:
     return errors
 
 
+def _tool_list_errors(name: str, tools: list, disallowed: list) -> list:
+    errors = []
+    for tool in REQUIRED_TOOLS:
+        if tool not in tools:
+            errors.append(f"roles.{name}.tools: must contain {tool}")
+    if "Bash" in tools:
+        for tool in BACKGROUND_TOOLS:
+            if tool not in tools:
+                errors.append(f"roles.{name}.tools: must contain {tool} when it contains Bash")
+    for tool in NESTING_TOOLS:
+        if tool in tools:
+            errors.append(f"roles.{name}.tools: must not contain {tool}")
+    for tool in tools:
+        if tool in disallowed:
+            errors.append(f"roles.{name}: {tool} is in both tools and disallowed_tools")
+    return errors
+
+
 def _validate_role(name: str, role: Any) -> list:
     if not isinstance(role, dict):
         return [f"roles.{name}: must be an object"]
     errors = []
     tools = role.get("tools")
-    if not (isinstance(tools, list) and tools and all(isinstance(t, str) for t in tools)):
+    tools_ok = isinstance(tools, list) and bool(tools) and all(isinstance(t, str) for t in tools)
+    if not tools_ok:
         errors.append(f"roles.{name}.tools: must be a non-empty list of strings")
     disallowed = role.get("disallowed_tools")
     if not isinstance(disallowed, list):
@@ -144,9 +165,9 @@ def _validate_role(name: str, role: Any) -> list:
         for tool in NESTING_TOOLS:
             if tool not in disallowed:
                 errors.append(f"roles.{name}.disallowed_tools: must contain {tool}")
-    if isinstance(tools, list) and "Skill" in tools:
-        errors.append(
-            f"roles.{name}.tools: Skill is not allowed; agents read SKILL.md files with Read"
+    if tools_ok:
+        errors.extend(
+            _tool_list_errors(name, tools, disallowed if isinstance(disallowed, list) else [])
         )
     advisor = role.get("uses_advisor")
     if not isinstance(advisor, bool):

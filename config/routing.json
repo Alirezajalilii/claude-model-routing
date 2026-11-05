@@ -18,10 +18,10 @@
     "status_line_max_chars": 400
   },
   "roles": {
-    "scout": {"prefix": "scout", "tools": ["Read", "Grep", "Glob", "Bash", "Write"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
-    "planner": {"prefix": "plan", "tools": ["Read", "Grep", "Glob", "Write", "Edit"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage"], "uses_advisor": true},
-    "executor": {"prefix": "exec", "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
-    "verifier": {"prefix": "verify", "tools": ["Read", "Grep", "Glob", "Bash", "Write"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false}
+    "scout": {"prefix": "scout", "tools": ["Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
+    "planner": {"prefix": "plan", "tools": ["Read", "Grep", "Glob", "Write", "Edit", "Skill"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage"], "uses_advisor": true},
+    "executor": {"prefix": "exec", "tools": ["Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false},
+    "verifier": {"prefix": "verify", "tools": ["Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"], "disallowed_tools": ["Agent", "TeamCreate", "TeamDelete", "SendMessage", "advisor"], "uses_advisor": false}
   },
   "extra_rules_by_model": {
     "haiku": ["Stay inside the paths, line ranges and question you were given. Do not read beyond them or explore the wider repository; if the answer is not there, say so and stop."]

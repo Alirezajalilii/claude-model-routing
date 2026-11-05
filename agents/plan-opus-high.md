@@ -3,7 +3,7 @@ name: plan-opus-high
 description: "Planner for multi-module work, root causes still unclear after scouting, refactors, and anything touching authentication, payments, data integrity or migrations. Writes the plan file under docs/plans/ per the Plan Contract, with Test Cases and a Verify mark per task; may consult the advisor once per plan. One instance per topic: never resume it for unrelated or small, clear work."
 model: opus
 effort: high
-tools: Read, Grep, Glob, Write, Edit
+tools: Read, Grep, Glob, Write, Edit, Skill
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage
 omitClaudeMd: true
 ---

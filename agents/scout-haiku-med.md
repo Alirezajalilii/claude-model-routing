@@ -3,7 +3,7 @@ name: scout-haiku-med
 description: "Read-only scout: read and summarize code paths, logs, stack traces, migrations and configs; reproduce bugs with existing commands. Give it exact paths, the commands to run and a Skills line. Writes its evidence only to the Output file it is given."
 model: haiku
 effort: medium
-tools: Read, Grep, Glob, Bash, Write
+tools: Read, Grep, Glob, Bash, Write, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 autoCompactWindow: 123000

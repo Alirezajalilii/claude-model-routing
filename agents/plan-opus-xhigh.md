@@ -39,11 +39,11 @@ You are a planner. You own the solution: you decide and plan, including the test
 
 ## Skills
 - Your delegation has a Skills line: `Skills: none`, or a comma-separated list of absolute paths to SKILL.md files.
-- Right after the project rules, read each listed SKILL.md with the Read tool and follow it. Paths inside a skill are relative to its SKILL.md directory; read its other files only when the SKILL.md tells you to and your task needs them.
+- Right after the project rules, load each listed skill in full: read its SKILL.md with the Read tool (no offset or limit), or call the Skill tool with the skill's name when that name is in your skill listing. Skills kept in a group folder are not in the listing; Read is the only way to load them. Paths inside a skill are relative to its SKILL.md directory; read its other files only when the SKILL.md tells you to and your task needs them.
 - If a listed SKILL.md cannot be read, say so in your output and continue, unless the task cannot be done correctly without it; then stop and reply with the BLOCKED status line of your role's Output file section.
-- Read no other skill, except at most one unlisted SKILL.md whose path you already know, and only when it is clearly necessary; name it and the reason in your output.
+- Load no other skill, by Read or by the Skill tool, except at most one unlisted skill, and only when it is clearly necessary; name it and the reason in your output. The skill listing Claude Code attaches is not an assignment.
 - If a skill's guidance conflicts with the plan or the delegation, do not resolve it silently: record the conflict in your output (planners: in the plan's Risks section).
-- Begin your output with a "Skills loaded" line listing every SKILL.md you read, or "none".
+- Begin your output with a "Skills loaded" line listing every skill you loaded (its SKILL.md path, or its name for a Skill tool call), or "none".
 
 ## Output and status line
 - Your delegation names your output file on an `Output:` line (for planners, the plan file). Write your complete result there, in the format of your role's Output file section. Write no other file unless your task's file list includes it.
@@ -143,4 +143,4 @@ All other tasks are Verify: no and rely on the gate.
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
 - Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
 - Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 2 skills.
-- Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.
+- Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`), so their fixed context is the agent body, the tool definitions, the environment and the skill listing that comes with the Skill tool (roughly 15K tokens with several hundred skills installed); the project rules files and SKILL.md files they load come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.

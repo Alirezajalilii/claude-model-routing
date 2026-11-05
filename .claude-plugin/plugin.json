@@ -1,7 +1,7 @@
 {
   "name": "mr",
   "displayName": "Model Routing (mr)",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Cost-aware model routing for Claude Code: tiered subagents (scouts, planners, executors, verifiers), a dispatcher policy injected at session start, a dispatch guard and a session audit.",
   "author": {"name": "Alireza Jalili", "url": "https://github.com/Alirezajalilii"},
   "homepage": "https://github.com/Alirezajalilii/claude-model-routing",

@@ -83,9 +83,10 @@ No task may leave a design decision to the executor.
 ## Skill Assignment
 - Every delegation message to every agent includes a Skills line. "Skills: none" is valid and is the right answer for many tasks. Name each skill by the absolute path of its SKILL.md (the inventory's Path column), comma-separated.
 - Who assigns: the main session assigns skills for scouts, planners, and fast-lane executors; the planner assigns skills for executors and verifiers, per task, in the plan file.
-- What to assign: only skills that change how this specific task must be done. Examples: the project's framework or style conventions for the files being touched; the skill for a required output format (document, spreadsheet, slide deck); a testing or review skill for verifiers. Do not assign a skill merely because it is related to the topic.
+- The main session passes the skills the user names as must-follow to the planner with the user's decisions; the planner puts them on every executor and verifier Skills line they apply to, and the main session does the same for scouts and fast-lane executors.
+- What to assign: the general skills the user or the project rules name as must-follow, plus the skills for the task's language, framework and specific work (its testing, review or output-format skill). Do not assign a skill merely because it is related to the topic.
 - The verifier of a task always receives the same skills as that task's executor, plus any review or testing skill that applies. A verifier must judge against the same conventions the executor was told to follow.
-- Limits: at most 2 skills for any Haiku agent, because loaded skills consume context and Haiku bills about five times more once a prompt exceeds 100K tokens; at most 4 skills for any other agent.
+- Limits: at most 4 skills for any Haiku agent, because loaded skills consume context and Haiku bills about five times more once a prompt exceeds 100K tokens; at most 6 skills for any other agent.
 - Precedence when instructions conflict: this policy, then the project's claude.md, then the plan, then skills.
 - An agent may read at most one unlisted SKILL.md, only when clearly necessary, and must report it. Repeated unlisted loads for the same task type mean the planner's assignment rules need updating.
 
@@ -101,7 +102,7 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than 2 skills into tasks that each need at most 2; a task that cannot be split goes under the plan's Risks.
+When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than 4 skills into tasks that each need at most 4; a task that cannot be split goes under the plan's Risks.
 
 Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is Verify: yes, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
 
@@ -141,6 +142,6 @@ All other tasks are Verify: no and rely on the gate.
 
 ## Haiku context discipline
 - Haiku bills about five times more for any request whose prompt exceeds 100K tokens.
-- Keep Haiku tasks narrow: exact paths and line ranges, at most 2 skills, and an instruction not to read beyond them.
-- Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 2 skills.
+- Keep Haiku tasks narrow: exact paths and line ranges, at most 4 skills, and an instruction not to read beyond them.
+- Executors start on Haiku, Sonnet-planned tasks included (on `exec-haiku-high`), so planners split work until each task needs at most 4 skills.
 - Tier agents start without the user's and the project's CLAUDE.md files (`omitClaudeMd`) and without a skill-loading tool, so their fixed context is the agent body, the tool definitions and the environment; the project rules files and SKILL.md files they read come on top. Haiku tier agents compact once their context passes about 90K tokens (`autoCompactWindow` 123000: Claude Code compacts 33K below that window, its 20K output reserve plus a 13K buffer), and the audit flags every Haiku request over 100000 prompt tokens. Where the project rules files are large, name only the rules a task needs on its Project rules line.

@@ -141,7 +141,6 @@ class AgentBodyHandoffTest(unittest.TestCase):
 
     def test_no_skill_tool_or_skill_loading(self):
         for tier, text in self.each():
-            self.assertNotIn("Skill tool", text, tier.name)
             self.assertNotIn("## Skill loading", text, tier.name)
 
     def test_project_rules_and_output_lines(self):

@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
+### Added
+- Agents that have Bash (scouts, executors and verifiers) also have the `Monitor` and `TaskStop` tools. Config validation requires `Read`, `Write` and `Skill` in every role, requires `Monitor` and `TaskStop` in roles with Bash, and rejects nesting tools in `tools` and any tool listed in both `tools` and `disallowed_tools`.
+- A "Long-running commands" section in the agent policy: no `sleep` waits (Bash refuses `sleep N` followed by other commands), Monitor until-loops to wait for background commands, and TaskStop for every background shell before the status line.
+- The session audit flags `listed skills not loaded: <k> of <n>` when a tier agent did not load each skill on its Skills line, by Read of the path or by a Skill-tool call.
+- `mr-skills` lists skills kept one folder deeper in a group folder (such as the ECC skills) with scope `<scope> group <group>`, and reads block-scalar (`>`, `|`) descriptions.
+
+### Changed
+- Every tier agent has the `Skill` tool and keeps `Read` and `Write`. This reverses the 0.2.0 removal of the `Skill` tool.
+- Agents load each listed skill in full, by Read of its SKILL.md path or by the Skill tool when the skill's name is in the session's skill listing. The "Skills loaded" line names Skill-tool loads by name. The skill listing costs roughly 15K tokens per agent with several hundred skills installed, and the policy documents this cost.
+- Agents read every file they must follow in chunks of at most 250 lines (`offset` and `limit`), never with one long Read or `cat`, and re-read any range a result marks as omitted. A token-saving proxy between Claude Code and the model can cut the middle out of a long tool result.
+- Executors reply DONE when only failures their change did not cause remain, and list each one under "Checks failing outside the task" in their Out-of-scope findings. The gate confirms each one fails the same way on the task's base commit, and the Report check covers the "Skills loaded" line.
+- Skill caps rise to 4 for Haiku agents and 6 for other agents (`skill_cap_haiku`, `skill_cap_other`). Skill assignment follows the user's order: the must-follow general skills the user or the project rules name, plus the skills for the task's language, framework and specific work. The main session passes the user's must-follow skills to the planner.
+- The three Haiku executor tier descriptions say "at most 4 skills", matching `skill_cap_haiku`; a test keeps them in step.
+- The `agent-shell` section is listed in `policy.sections`, so it also appears in the `mr:routing-policy` skill.
+- The policy test's non-planner agent body size limit is 12000 characters (was 10000), for the text this release adds.
+
 ## [0.3.0] - 2026-10-29
 
 ### Changed

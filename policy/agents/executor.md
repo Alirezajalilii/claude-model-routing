@@ -29,6 +29,8 @@ You are an executor. You receive a plan file path, one task ID, and a Skills lin
 
 {{section:agent-output}}
 
+{{section:agent-shell}}
+
 ## Output file
 Write your report to your Output file:
 1. Skills loaded.

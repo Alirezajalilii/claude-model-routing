@@ -49,6 +49,10 @@ class StallWatchShippedTest(unittest.TestCase):
         self.assertEqual(sw.read_only_streak_limit, 60)
         self.assertEqual(sw.max_nudges, 1)
         self.assertEqual(sw.state_max_age_hours, 24)
+        self.assertEqual(
+            sw.call_key_fields,
+            (("Bash", ("command", "timeout", "run_in_background")),),
+        )
 
     def test_v2_stall_watch_is_frozen(self):
         with self.assertRaises(dataclasses.FrozenInstanceError):
@@ -193,6 +197,100 @@ class StallWatchLoadErrorTest(unittest.TestCase):
             with self.assertRaises(rc.ConfigError) as ctx:
                 rc.load_config(path)
         self.assertIn("stall_watch.repeat_limit", str(ctx.exception))
+
+
+def load_with(mutate):
+    raw = copy.deepcopy(raw_config())
+    mutate(raw)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "routing.json"
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        return rc.load_config(path)
+
+
+class StallWatchCallKeyFieldsTest(unittest.TestCase):
+    KEY_MSG = "stall_watch.call_key_fields: "
+
+    def test_c1_shipped_value_loads(self):
+        cfg = rc.load_config()
+        self.assertEqual(
+            cfg.stall_watch.call_key_fields,
+            (("Bash", ("command", "timeout", "run_in_background")),),
+        )
+
+    def test_c2_frozen_and_plain_data(self):
+        sw = rc.load_config().stall_watch
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            sw.call_key_fields = ()
+        dataclasses.asdict(sw)
+
+    def test_c2_empty_object_loads_as_empty_tuple(self):
+        cfg = load_with(set_key("call_key_fields", {}))
+        self.assertEqual(cfg.stall_watch.call_key_fields, ())
+
+    def test_c2_pairs_sorted_by_tool_name(self):
+        cfg = load_with(
+            set_key("call_key_fields", {"Read": ["file_path"], "Bash": ["command"]})
+        )
+        self.assertEqual(
+            cfg.stall_watch.call_key_fields,
+            (("Bash", ("command",)), ("Read", ("file_path",))),
+        )
+
+    def test_c3_missing_key(self):
+        def mutate(raw):
+            del raw["stall_watch"]["call_key_fields"]
+        self.assertIn(self.KEY_MSG + "missing", messages(mutate))
+
+    def test_c4_not_an_object(self):
+        for value in ([], "Bash", None):
+            with self.subTest(value=value):
+                self.assertIn(
+                    self.KEY_MSG + "must be an object",
+                    messages(set_key("call_key_fields", value)),
+                )
+
+    def test_c5_empty_object_is_accepted(self):
+        self.assertNotIn("stall_watch", messages(set_key("call_key_fields", {})))
+
+    def test_c6_tool_not_of_watched_role(self):
+        self.assertIn(
+            self.KEY_MSG + "Agent is not a tool of any watched role",
+            messages(set_key("call_key_fields", {"Agent": ["prompt"]})),
+        )
+
+    def test_c7_ignored_tool(self):
+        self.assertIn(
+            self.KEY_MSG + "Monitor is also in ignored_tools",
+            messages(set_key("call_key_fields", {"Monitor": ["command"]})),
+        )
+
+    def test_c8_bad_field_lists_for_bash(self):
+        bad_values = ([], ["command", "command"], [""], "command", [1])
+        for value in bad_values:
+            with self.subTest(value=value):
+                self.assertIn(
+                    "stall_watch.call_key_fields.Bash: must be a non-empty list of unique non-empty strings",
+                    messages(set_key("call_key_fields", {"Bash": value})),
+                )
+
+    def test_c9_all_errors_collected(self):
+        text = messages(set_key("call_key_fields", {"Agent": ["x"], "Bash": []}))
+        self.assertIn(self.KEY_MSG + "Agent is not a tool of any watched role", text)
+        self.assertIn(
+            "stall_watch.call_key_fields.Bash: must be a non-empty list of unique non-empty strings",
+            text,
+        )
+
+    def test_c10_load_config_reports_call_key_error(self):
+        raw = raw_config()
+        raw["stall_watch"]["call_key_fields"] = {"Bash": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "routing.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaises(rc.ConfigError) as ctx:
+                rc.load_config(path)
+        self.assertIn("stall_watch.call_key_fields.Bash", str(ctx.exception))
 
 
 if __name__ == "__main__":

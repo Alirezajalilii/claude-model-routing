@@ -47,14 +47,15 @@
   ],
   "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
   "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"], "blocked_output_names": "^(report|summary|findings|analysis).*\\.md$"},
+  "stall_watch": {"enabled": true, "roles": ["executor"], "ignored_tools": ["Monitor", "TaskStop"], "change_tools": ["Edit", "Write"], "handback_tools": ["Write"], "read_only_tools": ["Read", "Grep", "Glob"], "read_only_bash_prefixes": ["cat", "head", "tail", "grep", "rg", "ls", "find", "wc", "sed -n", "git log", "git show", "git diff", "git status"], "repeat_window": 40, "repeat_limit": 4, "read_only_streak_limit": 60, "max_nudges": 1, "state_max_age_hours": 24},
   "policy": {
-    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell"],
+    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "task-contracts", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell", "stall-watch"],
     "dispatcher_parts": [
       {"title": "Roles, tiers and lanes", "sections": ["overview", "roles", "lanes", "planner-tiers", "advisor"]},
       {"title": "Full-lane workflow", "sections": ["full-lane", "escalation"]},
       {"title": "Dispatch mechanics and skills", "sections": ["dispatch-mechanics", "skills-inventory", "skill-assignment", "haiku-context"]},
-      {"title": "Calibration, logging and limits", "sections": ["calibration", "logging", "forbidden", "cost"]},
-      {"title": "Handoffs between agents", "sections": ["handoffs"]}
+      {"title": "Calibration, logging and limits", "sections": ["calibration", "logging", "forbidden", "cost", "stall-watch"]},
+      {"title": "Handoffs between agents", "sections": ["handoffs", "task-contracts"]}
     ]
   }
 }

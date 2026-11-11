@@ -89,18 +89,19 @@ Everything else goes through the full lane. A planner is only for work that need
    - If the planner returns NEED_EVIDENCE, dispatch one scout per `## Scout <k>` section of its requests file, passing the file path and the section; then resume the same planner instance with the scouts' output paths through SendMessage.
    - The planner treats the evidence files it is given as verified and has an evidence budget: at most 5 Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own. Reading the files its delegation names, the project rules files and the listed SKILL.md files does not count against the budget.
    - Allow at most 2 evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
-3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than 4 skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
+3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than 4 skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Order and branch tasks as Task contracts says.
 4. **Gate.** For every finished task, the main session runs these checks itself:
    - Red: if the task has Test Cases, check out commit one and run the new tests. They must fail. Tests that pass before the implementation exists are not testing the change.
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
+   - Contract: `mr-plan check` passes for the task (see Task contracts).
    - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass. A failure the executor listed in its report's Out-of-scope findings under "Checks failing outside the task" does not fail Green when it fails the same way on the task's base commit (the parent of commit one; run the failing command in a temporary worktree there); route each confirmed one as an out-of-scope finding. An unlisted failure, or a listed one that passes on the base commit, fails Green.
    - Report: the status line's commits are the task's commits on its branch, the report file exists, and its "Skills loaded" line names every skill on the task's Skills line; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier for the tier that did the work (start or fallback) when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
    - the task ran below the plan's executor tier, even if the plan marked it Verify: no;
-   - a gate check other than Green failed (red, integrity, coverage, scope, or report mismatch); these failures need judgment, not a blind retry;
+   - a gate check other than Green failed (red, integrity, coverage, scope, contract, or report mismatch); these failures need judgment, not a blind retry;
    - the task already went through a FIX round or an escalation;
    - calibration sampling selected the task.
    Pass the plan path, task ID, branch or worktree, the executor's report path, an Output line, the gate results file path, and the task's verifier Skills line and Project rules line exactly as written in the plan.
@@ -132,7 +133,7 @@ Everything else goes through the full lane. A planner is only for work that need
 Every plan file (`docs/plans/YYYY-MM-DD-short-slug.md`) contains: the goal; the evidence summary, with file references; assumptions (including any departure from the main session's framing, with the reason); the tasks; risks; Skill Gaps (skills that do not exist but would have helped); and Advisor Notes (suggestions applied and suggestions rejected, with reasons).
 
 Each task contains:
-- a task ID;
+- a task ID, in the task's heading `### Task <ID>: <title>`;
 - the goal;
 - exact files and functions to touch;
 - ordered steps;
@@ -142,7 +143,7 @@ Each task contains:
 - exact verification commands;
 - for a docs task that states commands, procedures or behavior: a fact sheet listing every command, path and claim the doc will contain, each with its source file and line;
 - Test Cases: each behavior to test, with inputs and the expected outcome; or "Tests: existing suite only" for tasks with no behavior change. The planner writes these, so tests come from the spec, not from the executor's reading of it;
-- dependencies on other tasks;
+- the Contract block (Task contract format below), from which the run order follows;
 - the planned executor tier, with a one-line reason, and the start tier (see Executor tier selection); the planned tier is the fallback;
 - the executor Skills line (absolute SKILL.md paths from the inventory, or none), alone on its own line so it can be copied verbatim, with a one-line reason per skill on separate lines;
 - the Project rules line: the project rules files the executor and verifier read (paths, or none when the task's constraints already carry every convention);
@@ -150,6 +151,21 @@ Each task contains:
 - the verifier tier and verifier Skills line, assigned for every task, because a verifier can still run through a gate failure, a FIX round, or sampling; a task that starts below its planned tier names its start and fallback verifier tiers.
 
 No task may leave a design decision to the executor.
+
+### Task contract format
+Every task has a `Contract:` line followed by its items, one per line, up to the first line that is not an item; a task that provides, requires and follows nothing has `Contract: none`. `mr-plan` reads these lines (backticks are ignored, code fences are skipped), so keep exactly this form:
+- `- provides: <kind> <name> in <path> -- <shape>`: a name this task creates that a sibling task uses. `<kind>` is symbol, file, config, env, flag, endpoint or id; `<path>` is the repository-relative file that will contain the name. A `file` provide has no `in`: its name is the path. `-- <shape>` is optional and one line, for example a function's parameters and return value.
+- `- requires: <task-id> <name> -- <shape>`: a name that task's provides line declares. Copy its shape, so the executor sees it in its own task.
+- `- after: <task-id>, <task-id>`: tasks that must pass first although this task uses no name from them.
+List as provides every name a sibling task relies on, spelled exactly as the code will spell them (other deliverables may be listed too): the gate checks presence (a whole word for a symbol, the key path for a config key in a JSON file, the exact text otherwise). Two tasks that change the same file are never independent: link them with requires or after. The run order follows from requires and after; there is no separate dependency list.
+
+## Task contracts
+Plans declare, per task, what it provides to sibling tasks, what it requires from them and which tasks it runs after (Plan Contract, Task contract format). The main session derives the run order and a gate check from these lines with `mr-plan`; it never orders tasks by hand.
+- **Order.** After the planner returns READY, run `mr-plan waves <plan path>`. Exit 0 prints one line per wave; each task is followed by the tasks it depends on. Exit 1 prints contract errors (an unknown task, a requires line that no provides line matches, a cycle): resume the same planner instance with the path of a file holding them, to fix the Contract blocks of the tasks named. This contract fix is not a REPLAN: it does not count toward the REPLAN limits and needs no advisor consult. When the only error is `no task has a Contract line`, the plan predates contracts: order its tasks by hand. Exit 2 is a usage or file error.
+- **Branches.** Before the first task, create the plan's integration branch `agent/<plan-slug>-integration` (`<plan-slug>` is the plan file name without its date and `.md`) from the base branch. A task is ready when every task it depends on has passed and been merged into the integration branch. Dispatch ready tasks in parallel, each in its own worktree branched from the integration branch's head, and merge each task into the integration branch as soon as it passes; where red-only commits are forbidden, fold the task's red commit into its green commit before that merge. The final gate runs on the integration branch; then merge it.
+- **Gate.** The Contract check runs `mr-plan check <plan path> <task-id> <worktree path>` with the plan's absolute path in the main checkout (plans are not in worktrees). Exit 0: every provides and requires line of the task is present. Exit 1 lists what is missing. A missing provides line, or a requires line the task's own diff removed, fails the gate as a check other than Green. Any other missing requires line means the worktree's base lacked the provider: recreate the worktree from the integration branch's head and dispatch the task again; this is not a FIX round.
+- **Failed providers.** A task does not run while a task it depends on has not passed. When that task ends BLOCKED or fails after the escalation caps, report its dependents with it; tasks that do not depend on it go on.
+- Presence is not correctness: the requiring task's own tests and the full suite on the integration branch judge behavior.
 
 ## Planner tier selection (made by the main session)
 - **plan-sonnet-high:** work confined to one module, with clear evidence and roughly five tasks or fewer.
@@ -285,3 +301,12 @@ Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: H
 - Run a command in the foreground when it can finish within the Bash tool's time limit; start it with `run_in_background` only when it cannot.
 - Never wait with `sleep`: Bash refuses `sleep N` followed by other commands. To wait for a background command or a condition, use Monitor with an until-loop, for example `until <check>; do sleep 5; done`.
 - Before your status line, stop every background shell you started with TaskStop, unless your task says to leave it running.
+
+## Stall watch
+A PreToolUse hook (`scripts/stall_watch.py`) watches executors while they run (the roles in `stall_watch.roles`, `config/routing.json`). It uses no model and never consults the advisor; its own errors never block a call (it fails open).
+- Signals: the same tool call `repeat_limit` times within the last `repeat_window` calls with no new file change in between, or `read_only_streak_limit` read-only calls in a row.
+- Nudge: the hook denies the call that tripped the signal and tells the executor why and what to do next; the executor keeps working. Waiting must use a background command and Monitor: Monitor calls are not counted, a repeated status poll is.
+- Hand-back: after `max_nudges` nudges, the next signal makes the hook deny every tool except `handback_tools` (Write). The executor writes its Output file and replies `BLOCKED <output path> reason=stalled: <signal>`.
+- On that reply, do not resume the executor (the hook keeps denying its tools) and skip its remaining FIX rounds: escalate the task now, as after its last failed FIX round; it counts under the escalation caps. Give the next executor the stalled Output file as an input file.
+- A task that stalls a second time, or has no executor escalation left, goes to REPLAN with its stalled Output files, within the escalation caps. A stalled fast-lane task moves to the full lane (the stall shows it is not small and clear): give it to a planner with the stalled Output file.
+- Log each stall in the routing log with the signal from `reason=`.

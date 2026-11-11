@@ -9,18 +9,19 @@
    - If the planner returns NEED_EVIDENCE, dispatch one scout per `## Scout <k>` section of its requests file, passing the file path and the section; then resume the same planner instance with the scouts' output paths through SendMessage.
    - The planner treats the evidence files it is given as verified and has an evidence budget: at most {{planner_evidence_budget}} Read/Grep/Glob calls in total, each to fill a gap it names in the plan. A larger gap goes back as NEED_EVIDENCE, answered by cheap scouts, instead of the planner investigating on its own. Reading the files its delegation names, the project rules files and the listed SKILL.md files does not count against the budget.
    - Allow at most {{max_evidence_rounds}} evidence rounds. After that, the planner must plan with what it has and list its assumptions explicitly.
-3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than {{skill_cap_haiku}} skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Independent tasks run in parallel, each in its own worktree; dependent tasks run in order.
+3. **Execute.** Dispatch each task to the start tier the plan assigns; the plan's executor tier is the fallback. For a plan without start tiers, start on its executor tier if that is a Haiku tier, otherwise on `exec-haiku-high`; ask the user first about a task with more than {{skill_cap_haiku}} skills. Pass the plan file path, the task ID, the task's executor Skills line and Project rules line exactly as written in the plan, and an Output line. Never pass a paraphrase of the task. Order and branch tasks as Task contracts says.
 4. **Gate.** For every finished task, the main session runs these checks itself:
    - Red: if the task has Test Cases, check out commit one and run the new tests. They must fail. Tests that pass before the implementation exists are not testing the change.
    - Test integrity: commit two and any later commits must not modify files from commit one. The diff must add no skip, xfail, or only markers, and must remove no assertions.
    - Coverage: every Test Case in the plan has a corresponding test.
    - Scope: every changed file is in the task's file list or is one of its test files.
+   - Contract: `{{plugin_name}}-plan check` passes for the task (see Task contracts).
    - Green: the task's verification commands, the project's lint and type checks, and the full test suite pass. A failure the executor listed in its report's Out-of-scope findings under "Checks failing outside the task" does not fail Green when it fails the same way on the task's base commit (the parent of commit one; run the failing command in a temporary worktree there); route each confirmed one as an out-of-scope finding. An unlisted failure, or a listed one that passes on the base commit, fails Green.
    - Report: the status line's commits are the task's commits on its branch, the report file exists, and its "Skills loaded" line names every skill on the task's Skills line; a verifier judges the report's content when one runs.
 5. **Verifier, only when triggered.** Dispatch the plan's verifier tier for the tier that did the work (start or fallback) when any of these apply:
    - the plan marked the task Verify: yes (see Verification triggers);
    - the task ran below the plan's executor tier, even if the plan marked it Verify: no;
-   - a gate check other than Green failed (red, integrity, coverage, scope, or report mismatch); these failures need judgment, not a blind retry;
+   - a gate check other than Green failed (red, integrity, coverage, scope, contract, or report mismatch); these failures need judgment, not a blind retry;
    - the task already went through a FIX round or an escalation;
    - calibration sampling selected the task.
    Pass the plan path, task ID, branch or worktree, the executor's report path, an Output line, the gate results file path, and the task's verifier Skills line and Project rules line exactly as written in the plan.

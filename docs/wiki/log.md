@@ -16,3 +16,8 @@ Append-only. Header format: ## [YYYY-MM-DD] ingest|update|query|lint | short tit
 ## [2026-10-27] lint | Mac final audit: tests and lint pass on macOS
 - `make test` had 4 failures on the Mac: `scripts/skills_inventory.py` compared a resolved `projectPath` with an unresolved project dir (macOS `/var` vs `/private/var`); the code-limit test scanned the git-ignored `.agent/` run records; the packaging test failed on the git-ignored local `CLAUDE.md`; the naming test flagged the old checkout name in this append-only log.
 - Fixed: both sides are resolved; the code-limit and packaging tests look at what git ships; the wiki log is exempt from the old-name check. `make lint` validates a temporary copy of the shipped files. Result: 215 tests OK, lint passes.
+
+## [2026-11-11] update | release 0.5.0: task contracts, mr-plan, stall watch
+- Pages and files: AGENTS.md (stack version, bin/ launchers, current state, hooks line and gotchas), CHANGELOG.md, policy/sections/task-contracts.md and stall-watch.md (new), plan-contract.md, full-lane.md, config/routing.json (`stall_watch`, policy sections), hooks/hooks.json (stall watch PreToolUse group).
+- Source: a comparison with Atomic Agent's Fusion mode (inter-task contracts, dependency waves, stuck-worker detection), adapted without a model call in the hook so the advisor rule stays unchanged.
+- Open: the stall-watch thresholds rest on 66 healthy executor transcripts (63 on Sonnet, no stuck run measured); tune `repeat_limit` and `read_only_streak_limit` from real firings (every denial starts with `mr stall watch:`).

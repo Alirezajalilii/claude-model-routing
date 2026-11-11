@@ -315,5 +315,66 @@ class DispatcherHandoffTest(unittest.TestCase):
         self.assertTrue(ctx.startswith("# mr policy, part 5 of 5:"), ctx[:80])
 
 
+class TaskContractPolicyTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.config = rc.load_config()
+        count = pt.part_count(cls.config)
+        cls.text = "\n".join(pt.render_part(cls.config, i) for i in range(1, count + 1))
+
+    def test_task_contracts_section_after_plan_contract(self):
+        sections = list(self.config.policy_sections)
+        self.assertEqual(sections[sections.index("plan-contract") + 1], "task-contracts")
+        last = self.config.dispatcher_parts[-1]
+        title = last["title"] if isinstance(last, dict) else last.title
+        part_sections = last["sections"] if isinstance(last, dict) else last.sections
+        self.assertEqual(title, "Handoffs between agents")
+        self.assertEqual(list(part_sections), ["handoffs", "task-contracts"])
+
+    def test_run_order_and_gate_wording_rendered(self):
+        for phrase in (
+            "mr-plan waves <plan path>",
+            "mr-plan check <plan path> <task-id> <worktree path>",
+            "integration branch",
+            "no task has a Contract line",
+            "## Task contracts",
+        ):
+            self.assertIn(phrase, self.text)
+
+    def test_hand_ordering_wording_removed(self):
+        self.assertNotIn("dependent tasks run in order", self.text)
+
+    def test_full_lane_contract_gate_in_part_two(self):
+        part2 = pt.render_part(self.config, 2)
+        self.assertIn("Contract: `mr-plan check` passes for the task", part2)
+        self.assertIn("scope, contract, or report mismatch", part2)
+        self.assertLessEqual(len(part2), 9000)
+
+    def test_planner_bodies_carry_contract_format(self):
+        for tier in self.config.tiers:
+            if tier.role != "planner":
+                continue
+            text = _agent_text(tier)
+            for phrase in (
+                "### Task <ID>: <title>",
+                "Contract: none",
+                "- provides: <kind> <name> in <path> -- <shape>",
+                "- requires: <task-id> <name> -- <shape>",
+                "- after: <task-id>, <task-id>",
+            ):
+                self.assertIn(phrase, text, f"{tier.name}: {phrase}")
+            self.assertNotIn("- dependencies on other tasks;", text, tier.name)
+
+    def test_routing_policy_skill_has_contract_sections(self):
+        text = (ROOT / "skills" / "routing-policy" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("## Task contracts", text)
+        self.assertIn("### Task contract format", text)
+
+    def test_executor_and_verifier_bodies_omit_task_contracts(self):
+        for tier in self.config.tiers:
+            if tier.role in ("executor", "verifier"):
+                self.assertNotIn("## Task contracts", _agent_text(tier), tier.name)
+
+
 if __name__ == "__main__":
     unittest.main()

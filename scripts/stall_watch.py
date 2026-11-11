@@ -2,7 +2,9 @@
 
 Two signals mark a stall: the same call repeated within the last few calls with no
 file change in between (the repeat signal), and a long run of read-only calls in a
-row (the reads signal). The first signal in a run gets a nudge: the call is not run
+row (the reads signal). A call is the same when its tool and its key fields are equal;
+the key fields come from stall_watch.call_key_fields in the config, so a changing Bash
+description does not make a repeat look new. The first signal in a run gets a nudge: the call is not run
 and the agent is told to change course. When the agent stalls again beyond the
 allowed nudges, the watch cuts it: every tool except the hand-back tool is denied
 until the agent writes its Output file and replies BLOCKED.
@@ -83,9 +85,23 @@ class Verdict:
     message: str
 
 
-def call_key(tool_name: str, tool_input: Any) -> str:
-    """Return a short key for one call; the raw input is never stored."""
-    canonical = json.dumps(tool_input, sort_keys=True, separators=(",", ":"),
+def _key_input(tool_name: str, tool_input: Any, key_fields: Optional[Mapping]) -> Any:
+    """Return the part of the input that identifies the call: the listed fields, else all of it."""
+    fields = dict(key_fields).get(tool_name) if key_fields else None
+    if not fields or not isinstance(tool_input, dict):
+        return tool_input
+    kept = {field: tool_input[field] for field in fields if field in tool_input}
+    return kept if kept else tool_input
+
+
+def call_key(tool_name: str, tool_input: Any, key_fields: Optional[Mapping] = None) -> str:
+    """Return a short key for one call: the tool and the fields that decide what it does.
+
+    Without key_fields the key covers the whole input. The raw input is never stored;
+    only the 16 hex digits of the digest are kept.
+    """
+    keyed = _key_input(tool_name, tool_input, key_fields)
+    canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"),
                            ensure_ascii=False, default=str)
     digest = hashlib.sha256((tool_name + "\x00" + canonical).encode("utf-8", "replace"))
     return digest.hexdigest()[:16]
@@ -164,7 +180,7 @@ def observe(state: WatchState, tool_name: str, tool_input: Any, settings: rc.Sta
         return state, None
     if state.cut_signal:
         return _after_cut(state, tool_name, settings, prefix)
-    key = call_key(tool_name, tool_input)
+    key = call_key(tool_name, tool_input, settings.call_key_fields)
     history = (state.history + (key,))[-settings.repeat_window:]
     count = history.count(key)
     if tool_name in settings.change_tools and count == 1:

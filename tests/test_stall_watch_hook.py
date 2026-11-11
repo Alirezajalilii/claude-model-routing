@@ -5,6 +5,7 @@ import dataclasses
 import io
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -29,6 +30,7 @@ BASH_CMD = "python3 -m unittest"
 BASH_DENIED = f"{PREFIX} you made this exact Bash call 4 times"
 HOOK = "scripts/stall_watch.py"
 HOOK_COMMAND = 'python3 -B "${CLAUDE_PLUGIN_ROOT}/scripts/stall_watch.py"'
+HEX16 = re.compile(r"[0-9a-f]{16}")
 
 
 def event(tool: str, tool_input: object, agent_id: str = "a1",
@@ -47,6 +49,13 @@ def read_event(path: str, **kwargs: str) -> dict:
 
 def without(ev: dict, key: str) -> dict:
     return {k: v for k, v in ev.items() if k != key}
+
+
+def smoke_event(n: int, agent_id: str = "a1") -> dict:
+    """Call n of the live-run smoke: same command, description reworded each time."""
+    return event("Bash", {"command": "git status --short",
+                          "description": f"Run git status --short (call {n} of 5)"},
+                 agent_id=agent_id)
 
 
 class HookCase(unittest.TestCase):
@@ -166,6 +175,31 @@ class RepeatTest(HookCase):
         state = sw.state_from_json(path.read_text(encoding="utf-8"))
         self.assertEqual(state.streak, 1)
         self.assertEqual(len(state.history), 1)
+
+
+class RepeatWithDescriptionHookTest(HookCase):
+    def test_fourth_call_with_new_description_is_denied(self) -> None:
+        results = [self.run_main(smoke_event(n)) for n in range(1, 6)]
+        self.assertEqual(results[:3], [(0, "")] * 3)
+        code, err = results[3]
+        self.assertEqual(code, 2)
+        self.assertTrue(err.startswith(BASH_DENIED), err)
+        self.assertEqual(err.count("\n"), 1)
+        self.assertEqual(results[4], (0, ""))
+
+    def test_state_keeps_digests_not_raw_description(self) -> None:
+        for n in range(1, 4):
+            self.assertEqual(self.run_main(smoke_event(n)), (0, ""))
+        state = sw.state_from_json(self.state_file().read_text(encoding="utf-8"))
+        self.assertEqual(len(state.history), 3)
+        for key in state.history:
+            self.assertIsNotNone(HEX16.fullmatch(key), key)
+        self.assertNotIn("Run git status", self.state_file().read_text(encoding="utf-8"))
+
+    def test_each_agent_has_its_own_count(self) -> None:
+        for n in range(1, 6):
+            with self.subTest(n=n):
+                self.assertEqual(self.run_main(smoke_event(n, agent_id=f"agent{n}")), (0, ""))
 
 
 class StateFileTest(HookCase):
@@ -301,6 +335,13 @@ class ProcessTest(HookCase):
         self.assertTrue(runs[3].stderr.startswith(BASH_DENIED), runs[3].stderr)
         for proc in runs:
             self.assertEqual(proc.stdout, "")
+
+    def test_smoke_descriptions_exit_codes_in_subprocess(self) -> None:
+        runs = [self.run_hook(json.dumps(smoke_event(n))) for n in range(1, 6)]
+        self.assertEqual([proc.returncode for proc in runs], [0, 0, 0, 2, 0])
+        stderr = runs[3].stderr
+        self.assertTrue(stderr.startswith(BASH_DENIED), stderr)
+        self.assertEqual(stderr.count("\n"), 1, stderr)
 
 
 if __name__ == "__main__":

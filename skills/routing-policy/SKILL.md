@@ -304,7 +304,7 @@ Prices as of 2026-10-24; check current pricing. Per 1M tokens, input / output: H
 
 ## Stall watch
 A PreToolUse hook (`scripts/stall_watch.py`) watches executors while they run (the roles in `stall_watch.roles`, `config/routing.json`). It uses no model and never consults the advisor; its own errors never block a call (it fails open).
-- Signals: the same tool call `repeat_limit` times within the last `repeat_window` calls with no new file change in between, or `read_only_streak_limit` read-only calls in a row.
+- Signals: the same tool call `repeat_limit` times within the last `repeat_window` calls with no new file change in between (two calls are the same when the tool and the input fields in `stall_watch.call_key_fields` match, or the whole input for a tool not listed there, so a different Bash `description` does not make a call different), or `read_only_streak_limit` read-only calls in a row.
 - Nudge: the hook denies the call that tripped the signal and tells the executor why and what to do next; the executor keeps working. Waiting must use a background command and Monitor: Monitor calls are not counted, a repeated status poll is.
 - Hand-back: after `max_nudges` nudges, the next signal makes the hook deny every tool except `handback_tools` (Write). The executor writes its Output file and replies `BLOCKED <output path> reason=stalled: <signal>`.
 - On that reply, do not resume the executor (the hook keeps denying its tools) and skip its remaining FIX rounds: escalate the task now, as after its last failed FIX round; it counts under the escalation caps. Give the next executor the stalled Output file as an input file.

@@ -21,3 +21,8 @@ Append-only. Header format: ## [YYYY-MM-DD] ingest|update|query|lint | short tit
 - Pages and files: AGENTS.md (stack version, bin/ launchers, current state, hooks line and gotchas), CHANGELOG.md, policy/sections/task-contracts.md and stall-watch.md (new), plan-contract.md, full-lane.md, config/routing.json (`stall_watch`, policy sections), hooks/hooks.json (stall watch PreToolUse group).
 - Source: a comparison with Atomic Agent's Fusion mode (inter-task contracts, dependency waves, stuck-worker detection), adapted without a model call in the hook so the advisor rule stays unchanged.
 - Open: the stall-watch thresholds rest on 66 healthy executor transcripts (63 on Sonnet, no stuck run measured); tune `repeat_limit` and `read_only_streak_limit` from real firings (every denial starts with `mr stall watch:`).
+
+## [2026-11-11] update | release 0.5.1: stall watch repeat key fix
+- Pages and files: AGENTS.md (stack version, current state), CHANGELOG.md, config/routing.json (`stall_watch.call_key_fields`), scripts/routing_config.py, scripts/stall_watch.py, policy/sections/stall-watch.md.
+- Finding: the 0.5.0 release smoke test showed the repeat signal never fired, because the call key hashed Bash's free-text `description`. Fixed by keying on the fields that decide what a call does.
+- Open: re-check the Bash input keys when the Claude Code version changes; a new parameter that changes what a call does would be ignored by the key until it is added to `call_key_fields`.

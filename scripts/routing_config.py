@@ -45,7 +45,9 @@ STALL_WATCH_INTS = {
     "state_max_age_hours": 1,
 }
 STALL_WATCH_LISTS = ("change_tools", "handback_tools", "read_only_tools", "read_only_bash_prefixes")
-STALL_WATCH_KEYS = ("enabled", "roles", "ignored_tools") + STALL_WATCH_LISTS + tuple(STALL_WATCH_INTS)
+STALL_WATCH_KEYS = (
+    ("enabled", "roles", "ignored_tools", "call_key_fields") + STALL_WATCH_LISTS + tuple(STALL_WATCH_INTS)
+)
 
 
 class ConfigError(Exception):
@@ -91,6 +93,7 @@ class StallWatch:
     read_only_streak_limit: int
     max_nudges: int
     state_max_age_hours: int
+    call_key_fields: tuple
 
 
 @dataclass(frozen=True)
@@ -460,6 +463,25 @@ def _stall_watch_overlaps(section: Mapping) -> list:
     return errors
 
 
+def _stall_watch_call_key_fields(config: Mapping, section: Mapping) -> list:
+    if "call_key_fields" not in section:
+        return []
+    value = section["call_key_fields"]
+    if not isinstance(value, dict):
+        return ["stall_watch.call_key_fields: must be an object mapping a tool name to a list of input field names"]
+    watched = _watched_tools(config, section["roles"]) if _is_str_list(section.get("roles")) else set()
+    ignored = section["ignored_tools"] if _stall_watch_has_list(section, "ignored_tools") else []
+    errors = []
+    for tool in sorted(value):
+        if watched and tool not in watched:
+            errors.append(f"stall_watch.call_key_fields: {tool} is not a tool of any watched role")
+        if tool in ignored:
+            errors.append(f"stall_watch.call_key_fields: {tool} is also in ignored_tools")
+        if not _is_str_list(value[tool]):
+            errors.append(f"stall_watch.call_key_fields.{tool}: must be a non-empty list of unique non-empty strings")
+    return errors
+
+
 def _validate_stall_watch(config: Mapping) -> list:
     if "stall_watch" not in config:
         return ["stall_watch: missing"]
@@ -472,6 +494,7 @@ def _validate_stall_watch(config: Mapping) -> list:
     errors.extend(_stall_watch_lists(section))
     errors.extend(_stall_watch_tools(config, section))
     errors.extend(_stall_watch_overlaps(section))
+    errors.extend(_stall_watch_call_key_fields(config, section))
     return errors
 
 
@@ -606,6 +629,9 @@ def _build_stall_watch(section: Mapping) -> StallWatch:
         read_only_streak_limit=section["read_only_streak_limit"],
         max_nudges=section["max_nudges"],
         state_max_age_hours=section["state_max_age_hours"],
+        call_key_fields=tuple(
+            sorted((tool, tuple(fields)) for tool, fields in section["call_key_fields"].items())
+        ),
     )
 
 

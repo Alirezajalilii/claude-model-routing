@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-11
+
+### Fixed
+- The stall watch's repeat signal never fired in a live run. Its call key hashed the whole tool input, and a model writes a different Bash `description` on every call, so five identical commands counted as five different calls. The key now covers only the fields listed for that tool in the new config key `stall_watch.call_key_fields` (shipped: Bash `command`, `timeout`, `run_in_background`); tools not listed, and inputs with none of the listed fields, are still keyed on the whole input.
+- Tests replay the live failure (identical commands with changing descriptions) and guard the shipped key fields, so the bug cannot return unnoticed.
+
 ## [0.5.0] - 2026-11-11
 
 ### Added

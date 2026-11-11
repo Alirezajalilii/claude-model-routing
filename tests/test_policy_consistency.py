@@ -115,14 +115,12 @@ class LeanAgentFilesTest(unittest.TestCase):
                 self.assertIn("TaskStop", tools, tier.name)
             else:
                 self.assertNotIn("Monitor", tools, tier.name)
-            self.assertEqual(
-                "autoCompactWindow: 123000" in lines, tier.family == "haiku", tier.name
-            )
+            self.assertNotIn("autoCompactWindow", head, tier.name)
 
     def test_new_tunables_render(self):
         values = pt.base_values(self.config)
         self.assertNotIn("haiku_max_tool_calls", values)
-        self.assertEqual(values["haiku_prompt_flag_tokens"], "100000")
+        self.assertEqual(values["haiku_prompt_flag_tokens"], "300000")
         self.assertEqual(values["status_line_max_chars"], "400")
 
 
@@ -252,9 +250,10 @@ class DispatcherHandoffTest(unittest.TestCase):
             "the verdict file path",
             "Claude Code refuses a subagent's Write",
             "the project's lint and type checks",
-            "compact once their context passes about 90K tokens",
+            "run on Haiku's full context window",
         ):
             self.assertIn(phrase, self.text)
+        self.assertNotIn("autoCompactWindow", self.text)
 
     def test_old_report_gate_wording_removed(self):
         self.assertNotIn("the executor's claims match the diff", self.text)
@@ -329,7 +328,7 @@ class TaskContractPolicyTest(unittest.TestCase):
         title = last["title"] if isinstance(last, dict) else last.title
         part_sections = last["sections"] if isinstance(last, dict) else last.sections
         self.assertEqual(title, "Handoffs between agents")
-        self.assertEqual(list(part_sections), ["handoffs", "task-contracts"])
+        self.assertEqual(list(part_sections), ["handoffs", "task-contracts", "gate"])
 
     def test_run_order_and_gate_wording_rendered(self):
         for phrase in (
@@ -346,9 +345,11 @@ class TaskContractPolicyTest(unittest.TestCase):
 
     def test_full_lane_contract_gate_in_part_two(self):
         part2 = pt.render_part(self.config, 2)
-        self.assertIn("Contract: `mr-plan check` passes for the task", part2)
+        part5 = pt.render_part(self.config, 5)
+        self.assertIn("`mr-gate <plan path> <task-id> <worktree path>", part2)
         self.assertIn("scope, contract, or report mismatch", part2)
         self.assertLessEqual(len(part2), 9000)
+        self.assertIn("Contract: every provides and requires line of the task is present", part5)
 
     def test_planner_bodies_carry_contract_format(self):
         for tier in self.config.tiers:

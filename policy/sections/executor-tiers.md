@@ -10,9 +10,9 @@ Count the yes answers:
 - **2:** `exec-sonnet-high`.
 - **3:** `exec-sonnet-xhigh`.
 
-When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher. Every task starts on Haiku, so split a task that would need more than {{skill_cap_haiku}} skills into tasks that each need at most {{skill_cap_haiku}}; a task that cannot be split goes under the plan's Risks.
+When torn between two tiers, pick the lower one and rely on escalation. Exception: authentication, payments, data integrity, and migrations go one tier higher, but never above `exec-sonnet-high`: `exec-sonnet-xhigh` needs three yes answers. Every task starts on Haiku, so split a task that would need more than {{skill_cap_haiku}} skills into tasks that each need at most {{skill_cap_haiku}}; a task that cannot be split goes under the plan's Risks.
 
-Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is Verify: yes, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
+Start tier: the tier chosen above is the planned tier and the fallback. Every task starts on Haiku: on its planned tier if that is a Haiku tier, otherwise on `exec-haiku-high`. The same executor gets the FIX rounds first; then the task goes straight to its planned tier. A task that starts below its planned tier is at least `Verify: batch`, so write its steps, file list and Test Cases precisely enough for a Haiku executor.
 
 Split for the cheap tier: a mechanical change spread over many files (a rename, a class or token migration, a repeated edit) becomes folder-sized tasks with an exact mapping table in the plan, each `exec-haiku-low`, rather than one large Sonnet task.
 
@@ -24,4 +24,4 @@ What each executor tier is for:
 - **exec-haiku-high:** tricky but well-specified single-module logic, such as parsing, validation, and edge-case-heavy functions.
 - **exec-sonnet-med:** standard multi-file feature work across roughly two to five files.
 - **exec-sonnet-high:** cross-module changes, refactors, Celery and BullMQ work, Docker and terminal-heavy run-fix loops.
-- **exec-sonnet-xhigh:** the delegation ceiling. Large refactors, concurrency, performance, security-sensitive code, and tasks that already failed at sonnet-high.
+- **exec-sonnet-xhigh:** the delegation ceiling, only for a task with three yes answers or as the escalation after a failure at `exec-sonnet-high`; the audit flags any other use.

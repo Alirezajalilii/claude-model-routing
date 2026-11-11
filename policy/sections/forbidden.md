@@ -2,6 +2,7 @@
 - Effort `max` on any agent. It burns several times the tokens without scoring better, and on Sonnet it fans out into out-of-scope work.
 - Effort `xhigh` on Haiku.
 - Opus as an executor.
+- `exec-sonnet-xhigh` for a task without three yes answers, except as the escalation after a failure at `exec-sonnet-high`.
 - Any agent outside the defined tiers and `dispatch.allow_agents`, including `general-purpose` and `fork`.
 - A `model` or `effort` parameter on any Agent call.
 - Copying an agent's output into a delegation or resume message instead of passing its path.

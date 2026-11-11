@@ -24,6 +24,7 @@ INT_TUNABLES = {
     "max_fix_rounds_per_tier": 1,
     "max_executor_escalations": 1,
     "max_evidence_rounds": 1,
+    "batch_verify_max_tasks": 1,
     "skill_cap_haiku": 0,
     "skill_cap_other": 0,
     "haiku_prompt_flag_tokens": 1,

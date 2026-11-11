@@ -56,7 +56,7 @@ class PlanContract:
     errors: Tuple[Tuple[int, str], ...]
 
 
-def _fence_mask(lines: List[str]) -> List[bool]:
+def fence_mask(lines: List[str]) -> List[bool]:
     mask = []  # type: List[bool]
     fenced = False
     for line in lines:
@@ -68,7 +68,7 @@ def _fence_mask(lines: List[str]) -> List[bool]:
     return mask
 
 
-def _task_spans(lines: List[str], mask: List[bool]) -> List[Tuple[int, int, str, str]]:
+def task_spans(lines: List[str], mask: List[bool]) -> List[Tuple[int, int, str, str]]:
     spans = []  # type: List[Tuple[int, int, str, str]]
     current = None  # type: Optional[Tuple[int, str, str]]
     for index, line in enumerate(lines):
@@ -248,11 +248,11 @@ def _parse_task(
 
 def parse_plan(text: str) -> PlanContract:
     lines = text.splitlines()
-    mask = _fence_mask(lines)
+    mask = fence_mask(lines)
     errors = []  # type: List[Tuple[int, str]]
     tasks = [
         _parse_task(lines, mask, start, end, task_id, title, errors)
-        for start, end, task_id, title in _task_spans(lines, mask)
+        for start, end, task_id, title in task_spans(lines, mask)
     ]
     return PlanContract(tuple(tasks), tuple(errors))
 

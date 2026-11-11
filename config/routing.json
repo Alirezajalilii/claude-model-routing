@@ -14,7 +14,8 @@
     "max_fix_rounds_per_tier": 2,
     "max_executor_escalations": 2,
     "max_evidence_rounds": 2,
-    "haiku_prompt_flag_tokens": 100000,
+    "batch_verify_max_tasks": 6,
+    "haiku_prompt_flag_tokens": 300000,
     "status_line_max_chars": 400
   },
   "roles": {
@@ -26,7 +27,7 @@
   "extra_rules_by_model": {
     "haiku": ["Stay inside the paths, line ranges and question you were given. Do not read beyond them or explore the wider repository; if the answer is not there, say so and stop."]
   },
-  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {"haiku": {"autoCompactWindow": 123000}}},
+  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {}},
   "effort_labels": {"low": "low", "medium": "med", "high": "high", "xhigh": "xhigh"},
   "tiers": [
       {"name": "scout-haiku-low", "role": "scout", "model": "haiku", "effort": "low", "description": "Read-only scout, cheapest tier: locate files, symbols, call sites and configs; map directory structure. Give it a narrow question, exact starting paths and a Skills line. Writes its evidence only to the Output file it is given."},
@@ -40,22 +41,22 @@
       {"name": "exec-haiku-high", "role": "executor", "model": "haiku", "effort": "high", "description": "Executor for tricky but well-specified single-module logic: parsing, validation, edge-case-heavy functions; also the start tier of every Sonnet-planned task. Receives a plan path, a task ID and a Skills line (at most 4 skills); works test-first and commits on its task branch, never pushes or merges."},
       {"name": "exec-sonnet-med", "role": "executor", "model": "sonnet", "effort": "medium", "description": "Executor for standard multi-file feature work across roughly two to five files. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
       {"name": "exec-sonnet-high", "role": "executor", "model": "sonnet", "effort": "high", "description": "Executor for cross-module changes, refactors, Celery and BullMQ work, Docker and terminal-heavy run-fix loops, and non-trivial merge conflicts. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
-      {"name": "exec-sonnet-xhigh", "role": "executor", "model": "sonnet", "effort": "xhigh", "description": "Delegation ceiling executor: large refactors, concurrency, performance, security-sensitive code, and tasks that already failed at exec-sonnet-high. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
-      {"name": "verify-sonnet-med", "role": "verifier", "model": "sonnet", "effort": "medium", "description": "Verifier for tasks done by any Haiku executor tier. Runs only when a verification trigger applies (Verify: yes, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."},
-      {"name": "verify-sonnet-high", "role": "verifier", "model": "sonnet", "effort": "high", "description": "Verifier for tasks done by exec-sonnet-med or exec-sonnet-high. Runs only when a verification trigger applies (Verify: yes, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."},
-      {"name": "verify-opus-high", "role": "verifier", "model": "opus", "effort": "high", "description": "Verifier for tasks planned on exec-sonnet-xhigh and any task touching authentication, payments, data integrity, migrations or security, whichever executor tier did the work. Runs only when a verification trigger applies (Verify: yes, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID, branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."}
+      {"name": "exec-sonnet-xhigh", "role": "executor", "model": "sonnet", "effort": "xhigh", "description": "Delegation ceiling executor: only for tasks with three yes answers in tier selection, or after a failure at exec-sonnet-high. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."},
+      {"name": "verify-sonnet-med", "role": "verifier", "model": "sonnet", "effort": "medium", "description": "Verifier for tasks done by any Haiku executor tier. Runs only when a verification trigger applies (Verify: task or batch, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID (several for a batch), branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."},
+      {"name": "verify-sonnet-high", "role": "verifier", "model": "sonnet", "effort": "high", "description": "Verifier for tasks done by exec-sonnet-med or exec-sonnet-high. Runs only when a verification trigger applies (Verify: task or batch, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID (several for a batch), branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."},
+      {"name": "verify-opus-high", "role": "verifier", "model": "opus", "effort": "high", "description": "Verifier for tasks planned on exec-sonnet-xhigh and any task touching authentication, payments, data integrity, migrations or security, whichever executor tier did the work. Runs only when a verification trigger applies (Verify: task or batch, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID (several for a batch), branch or worktree, executor report path, gate results and Skills line; reruns every check and returns PASS, FIX, REPLAN or BLOCKED. Writes only its verdict file; never edits code."}
   ],
   "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
   "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"], "blocked_output_names": "^(report|summary|findings|analysis).*\\.md$"},
   "stall_watch": {"enabled": true, "roles": ["executor"], "ignored_tools": ["Monitor", "TaskStop"], "change_tools": ["Edit", "Write"], "handback_tools": ["Write"], "read_only_tools": ["Read", "Grep", "Glob"], "read_only_bash_prefixes": ["cat", "head", "tail", "grep", "rg", "ls", "find", "wc", "sed -n", "git log", "git show", "git diff", "git status"], "call_key_fields": {"Bash": ["command", "timeout", "run_in_background"]}, "repeat_window": 40, "repeat_limit": 4, "read_only_streak_limit": 60, "max_nudges": 1, "state_max_age_hours": 24},
   "policy": {
-    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "task-contracts", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell", "stall-watch"],
+    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "task-contracts", "gate", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell", "stall-watch"],
     "dispatcher_parts": [
       {"title": "Roles, tiers and lanes", "sections": ["overview", "roles", "lanes", "planner-tiers", "advisor"]},
       {"title": "Full-lane workflow", "sections": ["full-lane", "escalation"]},
       {"title": "Dispatch mechanics and skills", "sections": ["dispatch-mechanics", "skills-inventory", "skill-assignment", "haiku-context"]},
       {"title": "Calibration, logging and limits", "sections": ["calibration", "logging", "forbidden", "cost", "stall-watch"]},
-      {"title": "Handoffs between agents", "sections": ["handoffs", "task-contracts"]}
+      {"title": "Handoffs between agents", "sections": ["handoffs", "task-contracts", "gate"]}
     ]
   }
 }

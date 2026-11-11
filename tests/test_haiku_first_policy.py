@@ -28,7 +28,7 @@ class FullLanePartTest(unittest.TestCase):
         for phrase in (
             "Dispatch each task to the start tier the plan assigns",
             "straight to that tier",
-            "- the task ran below the plan's executor tier, even if the plan marked it Verify: no;",
+            "a task that ran below the plan's executor tier, even if the plan marked it Verify: no",
             "a fresh instance of the plan's fallback verifier tier",
         ):
             self.assertIn(phrase, self.part2)
@@ -91,6 +91,10 @@ class DispatcherHaikuContextTest(unittest.TestCase):
             "until the human agrees, verify every one",
         ):
             self.assertIn(phrase, part4)
+
+    def test_part4_states_haiku_price_above_100k(self):
+        part4 = pt.render_part(self.config, 4)
+        self.assertIn("(0.50 / 2.50 above)", part4)
 
 
 class ShippedConfigDescriptionsTest(unittest.TestCase):

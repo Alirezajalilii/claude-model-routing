@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
+### Added
+- Task contracts in the Plan Contract. Every plan task has a heading `### Task <ID>: <title>` and a `Contract:` block: what it provides to sibling tasks (`- provides: <kind> <name> in <path> -- <shape>`, kinds `symbol`, `file`, `config`, `env`, `flag`, `endpoint`, `id`), what it requires from them (`- requires: <task-id> <name> -- <shape>`) and which tasks it runs after (`- after: <task-id>, <task-id>`), or `Contract: none`.
+- The `mr-plan` command (`bin/mr-plan`, `scripts/plan_cli.py`). `mr-plan waves <plan>` validates the Contract blocks and prints the run order, one line per wave. `mr-plan check <plan> <task-id> <worktree>` reports each provides and requires line of one task as `ok:` or `missing:`. Exit 0 when the plan is valid and nothing is missing, 1 for contract errors or missing lines, 2 for usage, file or internal errors.
+- A Contract gate check: the main session runs `mr-plan check` for every finished task. A missing provides line fails the gate as a check other than Green.
+- Stall watch: a PreToolUse hook (`scripts/stall_watch.py`, config section `stall_watch`) watches executors while they run. When an executor repeats the same tool call `repeat_limit` times within the last `repeat_window` calls with no file change in between, or makes `read_only_streak_limit` read-only calls in a row, the hook denies that call and says why (a nudge). After `max_nudges` nudges, the next signal denies every tool except `handback_tools` (Write), and the executor replies `BLOCKED <output path> reason=stalled: <signal>`. The hook uses no model, never consults the advisor, keeps per-agent state in `$CLAUDE_PLUGIN_DATA/stall-watch/<agent_id>.json`, and fails open.
+
+### Changed
+- Tasks run in dependency order from `mr-plan waves` instead of being ordered by hand; a plan without Contract lines is still ordered by hand. Each plan gets an integration branch `agent/<plan-slug>-integration`: every task branches from its head and merges into it as soon as it passes, and the final gate runs on it.
+- On a `reason=stalled` BLOCKED reply the main session does not resume the executor, skips its remaining FIX rounds and escalates the task at once. A second stall, or a stall with no executor escalation left, goes to REPLAN. A stalled fast-lane task moves to the full lane.
+
 ## [0.4.1] - 2026-11-06
 
 ### Fixed

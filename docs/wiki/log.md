@@ -26,3 +26,6 @@ Append-only. Header format: ## [YYYY-MM-DD] ingest|update|query|lint | short tit
 - Pages and files: AGENTS.md (stack version, current state), CHANGELOG.md, config/routing.json (`stall_watch.call_key_fields`), scripts/routing_config.py, scripts/stall_watch.py, policy/sections/stall-watch.md.
 - Finding: the 0.5.0 release smoke test showed the repeat signal never fired, because the call key hashed Bash's free-text `description`. Fixed by keying on the fields that decide what a call does.
 - Open: re-check the Bash input keys when the Claude Code version changes; a new parameter that changes what a call does would be ignored by the key until it is added to `call_key_fields`.
+
+## [2026-11-12] update | release 0.6.0: mr-gate, batch verification, Haiku window
+- Pages and files: AGENTS.md, CHANGELOG.md, policy/sections/gate.md (new), plan-contract.md, verifier-tiers.md, executor-tiers.md, full-lane.md, handoffs.md, calibration.md, logging.md, forbidden.md, cost.md, haiku-context.md, policy/agents/verifier.md and executor.md, config/routing.json, scripts/session_context.py, scripts/routing_audit.py, the new gate scripts and bin/mr-gate.

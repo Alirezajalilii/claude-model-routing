@@ -8,9 +8,9 @@ This project follows the workspace standard in ~/Work/AGENTS.md. Read that first
 - Status: active
 
 ## Stack
-- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.5.1 per CHANGELOG.md).
+- Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.6.0 per CHANGELOG.md).
 - Python 3.9+ standard library only; no third-party packages (CONTRIBUTING.md). Tests use `unittest`.
-- Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task|Skill` runs the dispatch guard, PreToolUse on the executor tools runs the stall watch (`scripts/stall_watch.py`), SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
+- Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5` (after a compaction only part 1, a pointer to the routing-policy skill), PreToolUse on `Agent|Task|Skill` runs the dispatch guard, PreToolUse on the executor tools runs the stall watch (`scripts/stall_watch.py`), SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
 - Single source of truth for tiers, roles and tunables: `config/routing.json`. Policy text: `policy/`.
 - No database, no queue, no containers, no CI (CONTRIBUTING.md: "There is no CI").
 
@@ -39,7 +39,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 ## Deviations from the workspace standard
 - `CLAUDE.md` is not committed. The project's own `.gitignore` ignores `/CLAUDE.md` (kept as the project chose). The file on disk holds only `@AGENTS.md`; the pre-standard content was merged into this file. Decide whether to track it: remove the `/CLAUDE.md` line from `.gitignore` and commit the one-line file.
 - `.claude-plugin/`, `agents/`, `hooks/`, `skills/` at the repo root: the Claude Code plugin format and the marketplace entry (`source: "."` in `.claude-plugin/marketplace.json`) require them at the plugin root. Not movable to `apps/` without breaking the plugin.
-- `bin/`: launchers for the plugin commands `mr-usage`, `mr-audit`, `mr-skills`, `mr-init`, `mr-plan`.
+- `bin/`: launchers for the plugin commands `mr-usage`, `mr-audit`, `mr-skills`, `mr-init`, `mr-plan`, `mr-gate`.
 - `config/`: `routing.json`, the single source of truth for tiers, roles and tunables.
 - `policy/`: policy text fragments and agent body templates rendered by `scripts/generate.py`.
 - `templates/`: `model-routing-log.md` and `plans-README.md`, copied into user projects by the init-project skill.
@@ -55,6 +55,7 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - Version 0.4.1 (2026-11-06): the dispatch guard hook matches `Agent|Task|Skill`; for subagent calls (the event carries `agent_id`) it denies Skill calls for `context: fork` skills and for skills it cannot find, fails closed if that check errors, and denies any Agent or Task call; main-session Skill calls are not checked; a denied agent can Read the SKILL.md and follow it inline.
 - Version 0.5.0 (2026-11-11): plan tasks carry Contract blocks (provides, requires, after); `mr-plan waves` gives the run order and `mr-plan check` is a gate check; each plan merges its tasks through an integration branch `agent/<plan-slug>-integration`; the stall watch PreToolUse hook (`scripts/stall_watch.py`, config `stall_watch`) nudges, then cuts off, an executor that repeats a call or reads without end, and the main session escalates on `BLOCKED ... reason=stalled`.
 - Version 0.5.1 (2026-11-11): the stall watch keys a call on the fields listed in `stall_watch.call_key_fields` (Bash: `command`, `timeout`, `run_in_background`), so a changing Bash `description` no longer hides a repeated command.
+- Version 0.6.0 (2026-11-12): `mr-gate` runs the per-task gate from each plan task's Gate block; Verify marks are `task`, `batch` or `no` and low-risk tasks share batch verifiers once per plan (`batch_verify_max_tasks`); guard Test Cases pass on commit one by design; Haiku agents run on the full context window and the audit flags Haiku prompts over 300000 tokens, `exec-sonnet-xhigh` runs outside the three-yes rule and agents stopped by the usage limit; after a compaction the SessionStart hook prints only a pointer to the routing-policy skill.
 - Branch `chore/adopt-workspace-standard` holds the workspace-standard adoption.
 - The repository has 14 local branches (feature and task branches such as `agent/T09`). Do not switch branches to inspect them; read with `git show <branch>:<path>`.
 

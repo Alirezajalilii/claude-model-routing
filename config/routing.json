@@ -48,13 +48,13 @@
   "audit": {"flag_every_use": ["scout-sonnet-high"], "plan_path_pattern": "docs/plans/[^\\s`'\"]+\\.md"},
   "dispatch": {"allow_agents": ["claude-code-guide", "statusline-setup"], "blocked_output_names": "^(report|summary|findings|analysis).*\\.md$"},
   "policy": {
-    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell"],
+    "sections": ["overview", "roles", "dispatch-mechanics", "skills-inventory", "skill-assignment", "lanes", "full-lane", "handoffs", "plan-contract", "task-contracts", "planner-tiers", "executor-tiers", "verifier-tiers", "calibration", "advisor", "forbidden", "haiku-context", "escalation", "logging", "cost", "agent-core", "agent-skills", "agent-output", "agent-shell"],
     "dispatcher_parts": [
       {"title": "Roles, tiers and lanes", "sections": ["overview", "roles", "lanes", "planner-tiers", "advisor"]},
       {"title": "Full-lane workflow", "sections": ["full-lane", "escalation"]},
       {"title": "Dispatch mechanics and skills", "sections": ["dispatch-mechanics", "skills-inventory", "skill-assignment", "haiku-context"]},
       {"title": "Calibration, logging and limits", "sections": ["calibration", "logging", "forbidden", "cost"]},
-      {"title": "Handoffs between agents", "sections": ["handoffs"]}
+      {"title": "Handoffs between agents", "sections": ["handoffs", "task-contracts"]}
     ]
   }
 }

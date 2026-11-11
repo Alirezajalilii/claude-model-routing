@@ -23,6 +23,7 @@ LAUNCHERS = (
     "mr-skills",
     "mr-init",
     "mr-plan",
+    "mr-gate",
 )
 
 

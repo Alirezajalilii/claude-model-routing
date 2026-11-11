@@ -36,6 +36,11 @@ STATUS_RE = re.compile(
     r"^(DONE|BLOCKED|PASS|FIX|REPLAN|READY|NEED_EVIDENCE|OUT_OF_TOPIC|NO_PLAN_NEEDED)\b")
 SKILLS_RE = re.compile(r"\bSkills:[ \t]*\S")
 ADVISOR_RE = re.compile(r"never consult the advisor", re.IGNORECASE)
+TASK_ID_RE = re.compile(r"\b[Tt]ask(?: ID)?[:\s]+([A-Z][\w.-]*\d[\w.-]*)")
+USAGE_LIMIT_RE = re.compile(r"^You(?:['’]ve hit your\b|['’]re out of usage credits)")
+USAGE_LIMIT_ERROR = "usage_limit_reached"
+XHIGH_TIER = "exec-sonnet-xhigh"
+XHIGH_PRIOR_TIERS = ("exec-haiku-high", "exec-sonnet-high")
 PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA"
 INSTRUCTION_FILES_SHOWN = 3
 
@@ -51,6 +56,7 @@ class AgentRow:
     final_text: str = ""
     requests: tuple = ()
     instruction_files: tuple = ()
+    final_error: str = ""
 
 
 def _text_of(content) -> str:
@@ -84,6 +90,7 @@ def _last_text(content) -> str:
 def _scan_events(events: Sequence[dict]) -> tuple:
     prompt = ""
     final = ""
+    final_error = ""
     calls: list = []
     stamps: list = []
     for event in events:
@@ -96,8 +103,12 @@ def _scan_events(events: Sequence[dict]) -> tuple:
             prompt = _text_of(content)
         if event.get("type") == "assistant" and isinstance(content, list):
             calls.extend(c for c in (_tool_call(b, ts) for b in content) if c)
-            final = _last_text(content) or final
-    return prompt, tuple(calls), stamps, final
+            text = _last_text(content)
+            if text:
+                final = text
+                err = event.get("apiError")
+                final_error = err if isinstance(err, str) else ""
+    return prompt, tuple(calls), stamps, final, final_error
 
 
 def _instruction_files(events: Sequence[dict]) -> tuple:
@@ -120,7 +131,7 @@ def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
         if want and not re.search(want, agent_type or ""):
             continue
         events = list(tr.read_jsonl(jsonl))
-        prompt, calls, stamps, final = _scan_events(events)
+        prompt, calls, stamps, final, final_error = _scan_events(events)
         rows.append(AgentRow(
             first=stamps[0] if stamps else "",
             last=stamps[-1] if stamps else "",
@@ -131,6 +142,7 @@ def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
             final_text=final,
             requests=tr.request_usage(events),
             instruction_files=_instruction_files(events),
+            final_error=final_error,
         ))
     return tuple(sorted(rows, key=lambda r: (r.first, r.last, r.agent_type or "", r.short_id)))
 
@@ -185,6 +197,15 @@ def _status_labels(row: AgentRow, config: rc.RoutingConfig) -> list:
     return []
 
 
+def _usage_limit_labels(row: AgentRow) -> list:
+    """Flag a run stopped by the account usage limit; its task must be dispatched again."""
+    text = row.final_text.strip()
+    if row.final_error != USAGE_LIMIT_ERROR and not USAGE_LIMIT_RE.match(text):
+        return []
+    first = (text.splitlines() or [""])[0][:120]
+    return [f"stopped by the usage limit ({first}): dispatch its task again after the reset"]
+
+
 def _instruction_labels(row: AgentRow) -> list:
     if not row.instruction_files:
         return []
@@ -220,7 +241,7 @@ def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
     """Return the policy flags of one agent; only tier agents get the tier checks."""
     tier = rc.resolve_tier(row.agent_type, config)
     if tier is None:
-        return _haiku_labels(row, config)
+        return _haiku_labels(row, config) + _usage_limit_labels(row)
     labels = []
     if not SKILLS_RE.search(row.prompt):
         labels.append("missing Skills line")
@@ -235,7 +256,8 @@ def row_flags(row: AgentRow, config: rc.RoutingConfig) -> list:
         labels.extend(_budget_labels(row, config))
     if tier.name in config.audit_flag_every_use:
         labels.append(f"{tier.name}: every-use tier, check the escalation reason")
-    return (labels + _haiku_labels(row, config) + _status_labels(row, config)
+    return (labels + _haiku_labels(row, config)
+            + (_usage_limit_labels(row) or _status_labels(row, config))
             + _instruction_labels(row))
 
 
@@ -254,7 +276,7 @@ def non_tier_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
 def flag_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
     lines = [f"- {_bare_type(r.agent_type, config)} `{r.short_id}` ({_hhmm(r.first)} UTC): {label}"
              for r in rows for label in row_flags(r, config)]
-    return lines + non_tier_lines(rows, config)
+    return lines + xhigh_lines(rows, config) + non_tier_lines(rows, config)
 
 
 def _main_agent_calls(events: Iterable[dict]) -> list:
@@ -312,6 +334,35 @@ def _executor_name(row: AgentRow, config: rc.RoutingConfig) -> Optional[str]:
     return tier.name if tier is not None and tier.role == "executor" else None
 
 
+def _task_key(row: AgentRow, config: rc.RoutingConfig) -> Optional[tuple]:
+    """Plan path and task ID of a run, or None when its prompt names no task."""
+    task = TASK_ID_RE.search(row.prompt)
+    if task is None:
+        return None
+    plan = _plan_re(config).search(row.prompt)
+    return (plan.group(0) if plan else "", task.group(1).rstrip("."))
+
+
+def _earlier_prior_run(rows: Sequence[AgentRow], index: int, config: rc.RoutingConfig) -> bool:
+    key = _task_key(rows[index], config)
+    return key is not None and any(
+        _executor_name(r, config) in XHIGH_PRIOR_TIERS and _task_key(r, config) == key
+        for r in rows[:index])
+
+
+def xhigh_lines(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
+    """Flag each exec-sonnet-xhigh run with no earlier Haiku-high or Sonnet-high run of its task."""
+    lines = []
+    for i, row in enumerate(rows):
+        if _executor_name(row, config) != XHIGH_TIER or _earlier_prior_run(rows, i, config):
+            continue
+        lines.append(f"- {_bare_type(row.agent_type, config)} `{row.short_id}` "
+                     f"({_hhmm(row.first)} UTC): exec-sonnet-xhigh with no earlier "
+                     "exec-haiku-high or exec-sonnet-high run of this task (allowed only as a "
+                     "three-yes plan tier or after a failure at exec-sonnet-high)")
+    return lines
+
+
 def executor_mix(rows: Sequence[AgentRow], config: rc.RoutingConfig) -> list:
     execs = [n for n in (_executor_name(r, config) for r in rows) if n]
     total = len(execs)
@@ -343,7 +394,7 @@ def span(rows: Sequence[AgentRow]) -> str:
 
 def _detail_header(row: AgentRow, config: rc.RoutingConfig, plan_re: re.Pattern) -> str:
     plan = plan_re.search(row.prompt)
-    task = re.search(r"task(?: ID)?[:\s]+([A-Z][\w.-]*\d[\w.-]*)", row.prompt)
+    task = TASK_ID_RE.search(row.prompt)
     skills = re.search(r"Skills:\s*([^\n]*)", row.prompt)
     return (f"{row.first[11:16]}-{row.last[11:16]} {_bare_type(row.agent_type, config)} "
             f"{row.short_id} prompt={len(row.prompt)}ch "

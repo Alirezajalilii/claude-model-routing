@@ -293,5 +293,63 @@ class BuildContextTest(FixtureTestCase):
         self.assertIn("this session runs on claude-opus-5-5", text)
 
 
+class CompactEventTest(FixtureTestCase):
+    def test_compact_part_one_sends_short_note_with_session(self):
+        stdin = event_json(source="compact", session_id=SESSION_ID)
+        code, out, _ = self.run_main(1, stdin)
+        self.assertEqual(code, 0)
+        text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("mr:routing-policy", text)
+        self.assertIn("ignore this note", text)
+        self.assertIn(f"Session id: `{SESSION_ID}`", text)
+        self.assertNotIn("policy, part 1 of", text)
+        self.assertLess(len(text), 1200)
+
+    def test_compact_part_two_prints_nothing(self):
+        stdin = event_json(source="compact", session_id=SESSION_ID)
+        code, out, _ = self.run_main(2, stdin)
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+
+    def test_compact_note_without_session_has_no_session_block(self):
+        code, out, _ = self.run_main(1, event_json(source="compact"))
+        self.assertEqual(code, 0)
+        text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("mr:routing-policy", text)
+        self.assertNotIn("## Session", text)
+
+    def test_compact_with_agent_id_prints_nothing(self):
+        stdin = event_json(source="compact", agent_id="a1b2c3")
+        code, out, _ = self.run_main(1, stdin)
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+
+    def test_agent_id_on_startup_prints_nothing(self):
+        stdin = event_json(source="startup", agent_id="a1b2c3")
+        code, out, _ = self.run_main(2, stdin)
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+
+    def test_startup_part_one_keeps_full_policy(self):
+        stdin = event_json(source="startup", session_id=SESSION_ID)
+        code, out, _ = self.run_main(1, stdin)
+        self.assertEqual(code, 0)
+        text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertTrue(text.startswith("# mr policy, part 1 of 2: Alpha"))
+        self.assertIn("## Session", text)
+
+    def test_resume_part_two_keeps_full_policy(self):
+        code, out, _ = self.run_main(2, event_json(source="resume"))
+        self.assertEqual(code, 0)
+        text = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Beta body.", text)
+
+    def test_compact_tier_agent_type_still_prints_nothing(self):
+        stdin = event_json(source="compact", agent_type="mr:exec-haiku-low")
+        code, out, _ = self.run_main(1, stdin)
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+
+
 if __name__ == "__main__":
     unittest.main()

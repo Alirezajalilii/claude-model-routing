@@ -22,6 +22,7 @@ LAUNCHERS = (
     "mr-audit",
     "mr-skills",
     "mr-init",
+    "mr-plan",
 )
 
 

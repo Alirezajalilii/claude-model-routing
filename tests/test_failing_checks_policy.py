@@ -80,10 +80,10 @@ class FailingChecksPolicyTest(unittest.TestCase):
 
     def test_handoffs_routes_checks_section_and_skills_line(self):
         self.assertIn(
-            'its "Checks failing outside the task" sub-heading feeds the Green check',
+            'reads its "Checks failing outside the task" sub-heading itself',
             self.handoffs,
         )
-        self.assertIn(
+        self.assertNotIn(
             'For the Report check, also read the report\'s "Skills loaded" line.',
             self.handoffs,
         )

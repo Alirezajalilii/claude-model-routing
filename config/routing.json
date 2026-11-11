@@ -14,7 +14,7 @@
     "max_fix_rounds_per_tier": 2,
     "max_executor_escalations": 2,
     "max_evidence_rounds": 2,
-    "haiku_prompt_flag_tokens": 100000,
+    "haiku_prompt_flag_tokens": 300000,
     "status_line_max_chars": 400
   },
   "roles": {
@@ -26,7 +26,7 @@
   "extra_rules_by_model": {
     "haiku": ["Stay inside the paths, line ranges and question you were given. Do not read beyond them or explore the wider repository; if the answer is not there, say so and stop."]
   },
-  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {"haiku": {"autoCompactWindow": 123000}}},
+  "agent_frontmatter": {"all": {"omitClaudeMd": true}, "by_model": {}},
   "effort_labels": {"low": "low", "medium": "med", "high": "high", "xhigh": "xhigh"},
   "tiers": [
       {"name": "scout-haiku-low", "role": "scout", "model": "haiku", "effort": "low", "description": "Read-only scout, cheapest tier: locate files, symbols, call sites and configs; map directory structure. Give it a narrow question, exact starting paths and a Skills line. Writes its evidence only to the Output file it is given."},

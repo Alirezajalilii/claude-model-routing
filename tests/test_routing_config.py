@@ -238,8 +238,8 @@ class LeanSchemaTest(unittest.TestCase):
 
     def test_auto_compact_window_bounds(self):
         def set_window(value):
-            return with_frontmatter(lambda r: r["agent_frontmatter"]["by_model"]["haiku"]
-                                    .update(autoCompactWindow=value))
+            return with_frontmatter(lambda r: r["agent_frontmatter"].__setitem__(
+                "by_model", {"haiku": {"autoCompactWindow": value}}))
 
         for bad in (99999, 1000001, True):
             self.assert_message(set_window(bad), "autoCompactWindow: must be an integer")
@@ -286,10 +286,9 @@ class LeanSchemaTest(unittest.TestCase):
         messages = with_frontmatter(lambda r: r["dispatch"].pop("blocked_output_names"))
         self.assert_message(messages, "dispatch.blocked_output_names")
 
-    def test_haiku_compacts_at_90k(self):
-        # Claude Code compacts at the window minus the output reserve (20000) and a 13000 buffer.
-        window = dict(rc.load_config().agent_frontmatter_by_model["haiku"])["autoCompactWindow"]
-        self.assertEqual(window - 20000 - 13000, 90000)
+    def test_haiku_has_no_compact_window(self):
+        haiku = dict(rc.load_config().agent_frontmatter_by_model.get("haiku", ()))
+        self.assertNotIn("autoCompactWindow", haiku)
 
     def test_shipped_values(self):
         config = rc.load_config()
@@ -297,7 +296,7 @@ class LeanSchemaTest(unittest.TestCase):
         self.assertEqual(config.dispatch_blocked_output_names,
                          r"^(report|summary|findings|analysis).*\.md$")
         self.assertNotIn("haiku_max_tool_calls", config.tunables)
-        self.assertEqual(config.tunables["haiku_prompt_flag_tokens"], 100000)
+        self.assertEqual(config.tunables["haiku_prompt_flag_tokens"], 300000)
         self.assertEqual(config.tunables["status_line_max_chars"], 400)
 
     def test_new_tunable_minimum(self):

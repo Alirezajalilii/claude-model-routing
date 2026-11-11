@@ -334,18 +334,18 @@ class RoutingAuditTest(unittest.TestCase):
 
     def test_tc6_haiku_requests_over_limit_deduplicated(self):
         m = "claude-haiku-5-5"
-        base = self.haiku_session(33, [("m1", m, 50000), ("m2", m, 120000),
-                                       ("m3", m, 150000), ("m2", m, 120000)])
+        base = self.haiku_session(33, [("m1", m, 50000), ("m2", m, 320000),
+                                       ("m3", m, 350000), ("m2", m, 320000)])
         _, out = self.run_report(base)
-        self.assertIn("2 Haiku requests over 100000 prompt tokens (peak 150000)", out)
+        self.assertIn("2 Haiku requests over 300000 prompt tokens (peak 350000)", out)
 
     def test_tc7_haiku_request_at_limit_is_not_flagged(self):
-        base = self.haiku_session(34, [("m1", "claude-haiku-5-5", 100000)])
+        base = self.haiku_session(34, [("m1", "claude-haiku-5-5", 300000)])
         _, out = self.run_report(base)
         self.assertNotIn("Haiku requests over", out)
 
     def test_tc8_sonnet_over_limit_is_not_flagged(self):
-        base = self.haiku_session(35, [("m1", "claude-sonnet-5-5", 150000)],
+        base = self.haiku_session(35, [("m1", "claude-sonnet-5-5", 350000)],
                                   atype="exec-sonnet-high")
         _, out = self.run_report(base)
         self.assertNotIn("Haiku requests over", out)
@@ -353,10 +353,10 @@ class RoutingAuditTest(unittest.TestCase):
     def test_tc9_non_tier_haiku_agent_is_flagged(self):
         base = write_session(self.root, sid(36), [
             agent("gh00000000000001", "general-purpose", "Do a thing.",
-                  requests=[("m1", "claude-haiku-5-5", 120000)]),
+                  requests=[("m1", "claude-haiku-5-5", 320000)]),
         ])
         _, out = self.run_report(base)
-        self.assertIn("1 Haiku requests over 100000 prompt tokens (peak 120000)", out)
+        self.assertIn("1 Haiku requests over 300000 prompt tokens (peak 320000)", out)
 
     def test_tc10_status_line_check(self):
         good = self.haiku_session(37, [], final="DONE /tmp/h/report.md commits=abc,def")

@@ -115,14 +115,12 @@ class LeanAgentFilesTest(unittest.TestCase):
                 self.assertIn("TaskStop", tools, tier.name)
             else:
                 self.assertNotIn("Monitor", tools, tier.name)
-            self.assertEqual(
-                "autoCompactWindow: 123000" in lines, tier.family == "haiku", tier.name
-            )
+            self.assertNotIn("autoCompactWindow", head, tier.name)
 
     def test_new_tunables_render(self):
         values = pt.base_values(self.config)
         self.assertNotIn("haiku_max_tool_calls", values)
-        self.assertEqual(values["haiku_prompt_flag_tokens"], "100000")
+        self.assertEqual(values["haiku_prompt_flag_tokens"], "300000")
         self.assertEqual(values["status_line_max_chars"], "400")
 
 
@@ -252,9 +250,10 @@ class DispatcherHandoffTest(unittest.TestCase):
             "the verdict file path",
             "Claude Code refuses a subagent's Write",
             "the project's lint and type checks",
-            "compact once their context passes about 90K tokens",
+            "run on Haiku's full context window",
         ):
             self.assertIn(phrase, self.text)
+        self.assertNotIn("autoCompactWindow", self.text)
 
     def test_old_report_gate_wording_removed(self):
         self.assertNotIn("the executor's claims match the diff", self.text)

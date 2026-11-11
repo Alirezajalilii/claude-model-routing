@@ -6,11 +6,11 @@ mr is a Claude Code plugin for cost-aware model routing. It gives a dispatcher s
 ## Components
 There are no apps and no packages. The plugin is made of these parts:
 - **Plugin manifest and marketplace** (`.claude-plugin/`): `plugin.json` (name, version 0.1.0) and `marketplace.json` (source `.`). Tech: JSON.
-- **Hooks** (`hooks/hooks.json`, scripts in `scripts/`): SessionStart runs `session_context.py --part 1` to `--part 5` to inject the policy; PreToolUse on `Agent|Task|Skill` runs `dispatch_guard.py`; SessionEnd runs `routing_audit.py --hook`. Tech: Python 3.9+ standard library.
+- **Hooks** (`hooks/hooks.json`, scripts in `scripts/`): SessionStart runs `session_context.py --part 1` to `--part 5` to inject the policy (after a compaction only part 1 runs, with a pointer to the `mr:routing-policy` skill); PreToolUse on `Agent|Task|Skill` runs `dispatch_guard.py`; SessionEnd runs `routing_audit.py --hook`. Tech: Python 3.9+ standard library.
 - **Config and policy** (`config/routing.json`, `policy/`): the single source of truth for tiers, roles, tunables and policy sections. `scripts/routing_config.py` loads and validates it; `scripts/policy_text.py` renders the policy text.
 - **Generated agents and skill** (`agents/*.md`, `skills/routing-policy/SKILL.md`): produced by `scripts/generate.py`; never edited by hand. Owns no data.
 - **Skills** (`skills/init-project`, `skills/routing-policy`, `skills/routing-report`): instructions Claude loads on demand. `init-project` copies `templates/` into a user project.
-- **Commands** (`bin/mr-*`): launchers for `scripts/routing_audit.py`, `subagent_usage.py`, `skills_inventory.py` and `init_project.py`.
+- **Commands** (`bin/mr-*`): launchers for `scripts/routing_audit.py`, `subagent_usage.py`, `skills_inventory.py`, `init_project.py`, `plan_cli.py` (`mr-plan`) and `gate_cli.py` (`mr-gate`, built on `plan_gate.py`, `gate_checks.py` and `gate_git.py`).
 - **Transcript reader** (`scripts/transcripts.py`, `subagent_usage.py`): reads Claude Code session JSONL transcripts; reads only.
 - **Data owned**: the session audit written under `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository. `init-project` writes its two files into the user's own project, not into this repository.
 

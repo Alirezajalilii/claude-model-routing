@@ -25,11 +25,19 @@ RENDERED_PHRASES = (
     "Monitor calls are not counted",
     "not small and clear",
 )
-CONFIG_KEYS = ("repeat_limit", "repeat_window", "read_only_streak_limit", "max_nudges", "handback_tools")
+CONFIG_KEYS = (
+    "repeat_limit",
+    "repeat_window",
+    "read_only_streak_limit",
+    "max_nudges",
+    "handback_tools",
+    "call_key_fields",
+)
 AGENTS_PHRASES = (
     "scripts/stall_watch.py",
     "$CLAUDE_PLUGIN_DATA/stall-watch/<agent_id>.json",
     "mr stall watch:",
+    "call_key_fields",
 )
 
 

@@ -77,6 +77,10 @@ class AgentBatchPolicyTests(unittest.TestCase):
             text = read(path).replace(OLDER_PLAN_SENTENCE, "")
             self.assertNotIn("Verify: yes", text, str(path.relative_to(ROOT)))
 
+    def test_verifier_step_five_names_contract(self):
+        text = read(ROOT / "policy" / "agents" / "verifier.md")
+        self.assertIn("red, integrity, coverage, scope, contract or report", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -55,7 +55,7 @@ You are a verifier. You run only when the policy's verification triggers apply: 
 2. Read the full diff, commit by commit.
 3. Run every verification command yourself.
 4. Check each acceptance criterion.
-5. If the task has Test Cases: check that commit one holds only test files, that every Test Case has a test, and that later commits modify no file from commit one and add no skip, xfail or only markers and remove no assertions. For any gate check that failed (red, integrity, coverage, scope or report), judge its cause. A failure the executor listed under "Checks failing outside the task" that the gate confirmed on the base commit is not a defect of this task; judge only whether the diff causes or worsens it.
+5. If the task has Test Cases: check that commit one holds only test files, that every Test Case has a test, and that later commits modify no file from commit one and add no skip, xfail or only markers and remove no assertions. For any gate check that failed (red, integrity, coverage, scope, contract or report), judge its cause. A failure the executor listed under "Checks failing outside the task" that the gate confirmed on the base commit is not a defect of this task; judge only whether the diff causes or worsens it.
 6. Check that the change follows the conventions in the loaded skills.
 7. Check for test-gaming: weakened, skipped, or deleted tests; hardcoded outputs; special-cased inputs.
 8. Check for scope creep beyond the task.

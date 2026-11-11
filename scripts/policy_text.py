@@ -25,6 +25,7 @@ PERCENT_KEYS = {
 INT_KEYS = (
     "planner_evidence_budget",
     "max_evidence_rounds",
+    "batch_verify_max_tasks",
     "max_fix_rounds_per_tier",
     "max_executor_escalations",
     "skill_cap_haiku",

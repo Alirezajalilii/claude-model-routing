@@ -37,6 +37,15 @@ RATE_TUNABLES = (
 )
 SLUG = re.compile(r"^[a-z0-9-]+$")
 RESERVED_PLUGIN_PREFIXES = ("claude-", "anthropic-", "anthropics-", "cc-plugin-")
+STALL_WATCH_INTS = {
+    "repeat_window": 2,
+    "repeat_limit": 2,
+    "read_only_streak_limit": 1,
+    "max_nudges": 0,
+    "state_max_age_hours": 1,
+}
+STALL_WATCH_LISTS = ("change_tools", "handback_tools", "read_only_tools", "read_only_bash_prefixes")
+STALL_WATCH_KEYS = ("enabled", "roles", "ignored_tools") + STALL_WATCH_LISTS + tuple(STALL_WATCH_INTS)
 
 
 class ConfigError(Exception):
@@ -69,6 +78,22 @@ class DispatcherPart:
 
 
 @dataclass(frozen=True)
+class StallWatch:
+    enabled: bool
+    roles: tuple
+    ignored_tools: tuple
+    change_tools: tuple
+    handback_tools: tuple
+    read_only_tools: tuple
+    read_only_bash_prefixes: tuple
+    repeat_window: int
+    repeat_limit: int
+    read_only_streak_limit: int
+    max_nudges: int
+    state_max_age_hours: int
+
+
+@dataclass(frozen=True)
 class RoutingConfig:
     plugin_name: str
     dispatcher_model_family: str
@@ -85,6 +110,7 @@ class RoutingConfig:
     agent_frontmatter_by_model: Mapping = field(default_factory=dict)
     dispatch_allow_agents: tuple = ()
     dispatch_blocked_output_names: str = ""
+    stall_watch: Optional[StallWatch] = None
 
 
 def model_family(model: Optional[str]) -> Optional[str]:
@@ -340,6 +366,115 @@ def _validate_dispatch(raw: Any, tier_names: set) -> list:
     return errors
 
 
+def _is_str_list(value: Any, allow_empty: bool = False) -> bool:
+    return (isinstance(value, list) and (allow_empty or bool(value))
+            and all(isinstance(v, str) and v for v in value)
+            and len(set(value)) == len(value))
+
+
+def _stall_watch_has_list(section: Mapping, key: str) -> bool:
+    return key in section and _is_str_list(section[key], allow_empty=key == "ignored_tools")
+
+
+def _stall_watch_has_int(section: Mapping, key: str) -> bool:
+    return key in section and _is_int(section[key]) and section[key] >= STALL_WATCH_INTS[key]
+
+
+def _stall_watch_shape(section: Mapping) -> list:
+    errors = [f"stall_watch.{key}: unknown key" for key in sorted(section) if key not in STALL_WATCH_KEYS]
+    errors.extend(f"stall_watch.{key}: missing" for key in STALL_WATCH_KEYS if key not in section)
+    return errors
+
+
+def _stall_watch_scalars(section: Mapping) -> list:
+    errors = []
+    if "enabled" in section and not isinstance(section["enabled"], bool):
+        errors.append("stall_watch.enabled: must be true or false")
+    for key, minimum in STALL_WATCH_INTS.items():
+        if key in section and not _stall_watch_has_int(section, key):
+            errors.append(f"stall_watch.{key}: must be an integer >= {minimum}")
+    if (_stall_watch_has_int(section, "repeat_limit")
+            and _stall_watch_has_int(section, "repeat_window")
+            and section["repeat_limit"] > section["repeat_window"]):
+        errors.append("stall_watch.repeat_limit: must not exceed repeat_window")
+    return errors
+
+
+def _stall_watch_roles(section: Mapping) -> list:
+    if "roles" not in section:
+        return []
+    if not _is_str_list(section["roles"]):
+        return ["stall_watch.roles: must be a non-empty list of unique non-empty strings"]
+    return [f"stall_watch.roles: unknown role {r}" for r in section["roles"] if r not in ROLES]
+
+
+def _stall_watch_lists(section: Mapping) -> list:
+    errors = [
+        f"stall_watch.{key}: must be a non-empty list of unique non-empty strings"
+        for key in STALL_WATCH_LISTS if key in section and not _is_str_list(section[key])
+    ]
+    if "ignored_tools" in section and not _is_str_list(section["ignored_tools"], allow_empty=True):
+        errors.append("stall_watch.ignored_tools: must be a list of unique non-empty strings")
+    return errors
+
+
+def _watched_tools(config: Mapping, roles: list) -> set:
+    tools: set = set()
+    config_roles = config.get("roles")
+    for name in roles:
+        entry = config_roles.get(name) if isinstance(config_roles, dict) else None
+        if isinstance(entry, dict) and isinstance(entry.get("tools"), list):
+            tools.update(t for t in entry["tools"] if isinstance(t, str))
+    return tools
+
+
+def _stall_watch_tools(config: Mapping, section: Mapping) -> list:
+    if "roles" not in section or not _is_str_list(section["roles"]):
+        return []
+    watched = _watched_tools(config, section["roles"])
+    if not watched:
+        return []
+    errors = []
+    for key in ("ignored_tools", "change_tools", "handback_tools", "read_only_tools"):
+        if _stall_watch_has_list(section, key):
+            errors.extend(
+                f"stall_watch.{key}: {tool} is not a tool of any watched role"
+                for tool in section[key] if tool not in watched
+            )
+    return errors
+
+
+def _stall_watch_overlaps(section: Mapping) -> list:
+    errors = []
+    ignored = section.get("ignored_tools") if _stall_watch_has_list(section, "ignored_tools") else []
+    for tool in ignored:
+        for key in ("change_tools", "handback_tools", "read_only_tools"):
+            if _stall_watch_has_list(section, key) and tool in section[key]:
+                errors.append(f"stall_watch.ignored_tools: {tool} is also in {key}")
+                break
+    if _stall_watch_has_list(section, "change_tools") and _stall_watch_has_list(section, "read_only_tools"):
+        errors.extend(
+            f"stall_watch.change_tools: {tool} is also in read_only_tools"
+            for tool in section["change_tools"] if tool in section["read_only_tools"]
+        )
+    return errors
+
+
+def _validate_stall_watch(config: Mapping) -> list:
+    if "stall_watch" not in config:
+        return ["stall_watch: missing"]
+    section = config["stall_watch"]
+    if not isinstance(section, dict):
+        return ["stall_watch: must be an object"]
+    errors = _stall_watch_shape(section)
+    errors.extend(_stall_watch_scalars(section))
+    errors.extend(_stall_watch_roles(section))
+    errors.extend(_stall_watch_lists(section))
+    errors.extend(_stall_watch_tools(config, section))
+    errors.extend(_stall_watch_overlaps(section))
+    return errors
+
+
 def _validate_policy(policy: Any) -> list:
     if not isinstance(policy, dict):
         return ["policy: must be an object"]
@@ -409,6 +544,7 @@ def validate(raw: Mapping) -> list:
     errors.extend(_validate_agent_frontmatter(raw.get("agent_frontmatter")))
     errors.extend(_validate_dispatch(raw.get("dispatch"), seen))
     errors.extend(_validate_policy(raw.get("policy")))
+    errors.extend(_validate_stall_watch(raw))
     return errors
 
 
@@ -452,6 +588,24 @@ def _build(raw: Mapping) -> RoutingConfig:
         }),
         dispatch_allow_agents=tuple(raw["dispatch"]["allow_agents"]),
         dispatch_blocked_output_names=raw["dispatch"]["blocked_output_names"],
+        stall_watch=_build_stall_watch(raw["stall_watch"]),
+    )
+
+
+def _build_stall_watch(section: Mapping) -> StallWatch:
+    return StallWatch(
+        enabled=section["enabled"],
+        roles=tuple(section["roles"]),
+        ignored_tools=tuple(section["ignored_tools"]),
+        change_tools=tuple(section["change_tools"]),
+        handback_tools=tuple(section["handback_tools"]),
+        read_only_tools=tuple(section["read_only_tools"]),
+        read_only_bash_prefixes=tuple(section["read_only_bash_prefixes"]),
+        repeat_window=section["repeat_window"],
+        repeat_limit=section["repeat_limit"],
+        read_only_streak_limit=section["read_only_streak_limit"],
+        max_nudges=section["max_nudges"],
+        state_max_age_hours=section["state_max_age_hours"],
     )
 
 

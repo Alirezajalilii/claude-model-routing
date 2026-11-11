@@ -328,7 +328,7 @@ class TaskContractPolicyTest(unittest.TestCase):
         title = last["title"] if isinstance(last, dict) else last.title
         part_sections = last["sections"] if isinstance(last, dict) else last.sections
         self.assertEqual(title, "Handoffs between agents")
-        self.assertEqual(list(part_sections), ["handoffs", "task-contracts"])
+        self.assertEqual(list(part_sections), ["handoffs", "task-contracts", "gate"])
 
     def test_run_order_and_gate_wording_rendered(self):
         for phrase in (
@@ -345,9 +345,11 @@ class TaskContractPolicyTest(unittest.TestCase):
 
     def test_full_lane_contract_gate_in_part_two(self):
         part2 = pt.render_part(self.config, 2)
-        self.assertIn("Contract: `mr-plan check` passes for the task", part2)
+        part5 = pt.render_part(self.config, 5)
+        self.assertIn("`mr-gate <plan path> <task-id> <worktree path>", part2)
         self.assertIn("scope, contract, or report mismatch", part2)
         self.assertLessEqual(len(part2), 9000)
+        self.assertIn("Contract: every provides and requires line of the task is present", part5)
 
     def test_planner_bodies_carry_contract_format(self):
         for tier in self.config.tiers:

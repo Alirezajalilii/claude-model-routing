@@ -71,7 +71,7 @@ class FailingChecksPolicyTest(unittest.TestCase):
             )
 
     def test_routing_policy_skill_green_and_report_checks(self):
-        self.assertIn("fails the same way on the task's base commit", self.skill)
+        self.assertIn("also fails on the task's base commit", self.skill)
         self.assertIn("An unlisted failure, or a listed one that passes on the base commit, fails Green.", self.skill)
         self.assertIn(
             'its "Skills loaded" line names every skill on the task\'s Skills line',

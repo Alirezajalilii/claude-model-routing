@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-12
+
+### Added
+- The `mr-gate` command (`bin/mr-gate`, `scripts/gate_cli.py`) runs red, integrity, coverage, scope, contract, green and report for one task from the plan's Gate block, writes the gate file and prints `PASS <gate file>` or `FAIL <gate file> checks=<names>` (exit 0, 1, 2).
+- The Gate block (`files`, `tests`, `red`, `guard`, `green`) and `TC<n>` Test Case IDs with `(guard)` marks in the Plan Contract.
+- Batch verification with the tunable `batch_verify_max_tasks` (6).
+- Audit flags for agents stopped by the usage limit and for `exec-sonnet-xhigh` runs with no earlier `exec-haiku-high` or `exec-sonnet-high` run of the task.
+- The usage-limit recovery rule in the handoffs policy.
+
+### Changed
+- Haiku tier agents no longer get `autoCompactWindow` and run on Haiku's full context window; `haiku_prompt_flag_tokens` is 300000 (was 100000).
+- Verify marks are `task`, `batch` or `no`: risk tasks keep a per-task verifier, other triggered tasks share batch verifiers once per plan, guard tests no longer trigger a verifier.
+- `exec-sonnet-xhigh` only for three yes answers or after a failure at `exec-sonnet-high`, and the one-tier-higher exception stops at `exec-sonnet-high`.
+- The main session runs `mr-gate` instead of the gate checks by hand; executors tag tests with Test Case IDs.
+- The verifier body's step 5 names the contract check among the gate checks it judges.
+- docs/architecture.md lists the stall-watch PreToolUse hook.
+
+### Fixed
+- The SessionStart hook re-sent the whole dispatcher policy into every subagent that compacted (Claude Code gives the hook no subagent marker on compaction); after a compaction only part 1 prints a short pointer to the `mr:routing-policy` skill, and events with `agent_id` get nothing.
+- Calibration and logging proposals go to the log's proposals section where CLAUDE.md is generated or not committed.
+
 ## [0.5.1] - 2026-11-11
 
 ### Fixed

@@ -28,7 +28,7 @@ class FullLanePartTest(unittest.TestCase):
         for phrase in (
             "Dispatch each task to the start tier the plan assigns",
             "straight to that tier",
-            "- the task ran below the plan's executor tier, even if the plan marked it Verify: no;",
+            "a task that ran below the plan's executor tier, even if the plan marked it Verify: no",
             "a fresh instance of the plan's fallback verifier tier",
         ):
             self.assertIn(phrase, self.part2)

@@ -6,14 +6,28 @@ row (the reads signal). The first signal in a run gets a nudge: the call is not 
 and the agent is told to change course. When the agent stalls again beyond the
 allowed nudges, the watch cuts it: every tool except the hand-back tool is denied
 until the agent writes its Output file and replies BLOCKED.
+
+The hook keeps per-agent state in $CLAUDE_PLUGIN_DATA/stall-watch/<agent_id>.json,
+read and written under an exclusive lock. It fails open: any error lets the call
+through with nothing on stdout, and a denial is one line on stderr with exit 2.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
+import sys
+import time
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from pathlib import Path
+from typing import Any, Callable, Mapping, Optional, TextIO, Tuple
+
+try:
+    import fcntl
+except ImportError:  # no flock on this platform: the watch fails open
+    fcntl = None
 
 import routing_config as rc
 
@@ -22,6 +36,11 @@ BASH_COMMAND_KEY = "command"
 WAIT_TOOL = "Monitor"
 SEGMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
 STATE_VERSION = 1
+PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA"
+STATE_DIR_NAME = "stall-watch"
+SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+STATE_FILE = re.compile(r"^[A-Za-z0-9_-]{1,64}\.json$")
+HOUR_SECONDS = 3600
 REPEAT_SIGNAL = "same {tool} call {count} times"
 READS_SIGNAL = "{count} read-only calls in a row"
 REPEAT_NUDGE = (
@@ -200,3 +219,117 @@ def state_from_json(text: str) -> WatchState:
         return WatchState()
     return WatchState(tuple(data["history"]), data["streak"], data["nudges"],
                       data["cut_signal"])
+
+
+def state_path(data_dir: str, agent_id: Any) -> Optional[Path]:
+    """Return the state file for one agent, or None when the data dir or the id is unusable."""
+    if not isinstance(data_dir, str) or not data_dir.strip():
+        return None
+    if not isinstance(agent_id, str) or not SAFE_ID.fullmatch(agent_id):
+        return None
+    return Path(data_dir) / STATE_DIR_NAME / f"{agent_id}.json"
+
+
+def prune_states(directory: Path, max_age_hours: int, now: float, keep: Path) -> None:
+    """Delete state files older than the limit; only regular files with the state name."""
+    cutoff = now - max_age_hours * HOUR_SECONDS
+    for entry in directory.iterdir():
+        if entry == keep or not STATE_FILE.fullmatch(entry.name):
+            continue
+        try:
+            info = os.lstat(entry)
+            if stat.S_ISREG(info.st_mode) and info.st_mtime < cutoff:
+                os.unlink(entry)
+        except OSError:
+            continue
+
+
+def update_state(path: Path, step: Callable[[WatchState], Tuple[WatchState, Optional[Verdict]]],
+                 max_age_hours: int, now: float) -> Optional[Verdict]:
+    """Apply one step to the agent's saved state under an exclusive lock, then save it."""
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not os.path.lexists(path):
+        prune_states(path.parent, max_age_hours, now, path)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "r+", encoding="utf-8", errors="replace") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        state = state_from_json(handle.read())
+        new_state, verdict = step(state)
+        if new_state != state:
+            handle.seek(0)
+            handle.truncate()
+            handle.write(state_to_json(new_state))
+    return verdict
+
+
+def watched_settings(event: Mapping, config: rc.RoutingConfig) -> Optional[rc.StallWatch]:
+    """Return the watch settings when the event comes from a watched agent type, else None."""
+    settings = config.stall_watch
+    if not settings.enabled:
+        return None
+    tier = rc.resolve_tier(event.get("agent_type"), config)
+    if tier is None or tier.role not in settings.roles:
+        return None
+    return settings
+
+
+def evaluate(event: Mapping, config: rc.RoutingConfig, data_dir: str, now: float) -> Optional[str]:
+    """Return the denial message for this call, or None to let it run."""
+    agent_id = event.get("agent_id")
+    if not isinstance(agent_id, str) or not SAFE_ID.fullmatch(agent_id):
+        return None
+    settings = watched_settings(event, config)
+    if settings is None:
+        return None
+    tool_name = event.get("tool_name")
+    if not isinstance(tool_name, str) or not tool_name:
+        return None
+    if tool_name in settings.ignored_tools:
+        return None
+    path = state_path(data_dir, agent_id)
+    if path is None or fcntl is None:
+        return None
+    prefix = f"{config.plugin_name} stall watch:"
+    tool_input = event.get("tool_input")
+
+    def step(state: WatchState) -> Tuple[WatchState, Optional[Verdict]]:
+        return observe(state, tool_name, tool_input, settings, prefix)
+
+    verdict = update_state(path, step, settings.state_max_age_hours, now)
+    return None if verdict is None else verdict.message
+
+
+def _read_event(stream: TextIO) -> Optional[dict]:
+    """Parse the hook event from stdin; anything that is not a JSON object gives None."""
+    try:
+        event = json.loads(stream.read())
+    except (ValueError, RecursionError):
+        return None
+    return event if isinstance(event, dict) else None
+
+
+def main(stdin: Optional[TextIO] = None, stderr: Optional[TextIO] = None) -> int:
+    """Hook entry point: exit 2 with one stderr line to deny a call, 0 to let it run."""
+    event = _read_event(sys.stdin if stdin is None else stdin)
+    if event is None or not event.get("agent_id"):
+        return 0
+    out = sys.stderr if stderr is None else stderr
+    try:
+        config = rc.load_config()
+    except rc.ConfigError as exc:
+        out.write(f"stall watch: config unavailable ({exc})\n")
+        return 0
+    except Exception:  # fail open: a broken watch must never block the agent
+        return 0
+    try:
+        message = evaluate(event, config, os.environ.get(PLUGIN_DATA_ENV, ""), time.time())
+    except Exception:  # fail open, silently
+        return 0
+    if message is None:
+        return 0
+    out.write(message + "\n")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

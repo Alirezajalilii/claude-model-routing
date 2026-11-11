@@ -12,7 +12,8 @@
       }
     ],
     "PreToolUse": [
-      {"matcher": "Agent|Task|Skill", "hooks": [{"type": "command", "command": "python3 -B \"${CLAUDE_PLUGIN_ROOT}/scripts/dispatch_guard.py\"", "timeout": 10}]}
+      {"matcher": "Agent|Task|Skill", "hooks": [{"type": "command", "command": "python3 -B \"${CLAUDE_PLUGIN_ROOT}/scripts/dispatch_guard.py\"", "timeout": 10}]},
+      {"matcher": "Read|Edit|Write|Grep|Glob|Bash|Skill", "hooks": [{"type": "command", "command": "python3 -B \"${CLAUDE_PLUGIN_ROOT}/scripts/stall_watch.py\"", "timeout": 10}]}
     ],
     "SessionEnd": [
       {"hooks": [{"type": "command", "command": "python3 -B \"${CLAUDE_PLUGIN_ROOT}/scripts/routing_audit.py\" --hook", "timeout": 30}]}

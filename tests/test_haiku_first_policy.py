@@ -92,6 +92,10 @@ class DispatcherHaikuContextTest(unittest.TestCase):
         ):
             self.assertIn(phrase, part4)
 
+    def test_part4_states_haiku_price_above_100k(self):
+        part4 = pt.render_part(self.config, 4)
+        self.assertIn("(0.50 / 2.50 above)", part4)
+
 
 class ShippedConfigDescriptionsTest(unittest.TestCase):
     @classmethod

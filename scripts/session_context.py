@@ -13,6 +13,14 @@ from routing_config import RoutingConfig, load_config, model_family, resolve_tie
 
 MAX_CONTEXT_CHARS = 9900
 SPAWN_DEPTH_VAR = "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"
+COMPACT_NOTE = (
+    "# {plugin} policy after compaction\n\n"
+    "Compaction dropped the routing policy that session start injected. If you are the "
+    "main session (the dispatcher), invoke the skill `{plugin}:routing-policy` and reread "
+    "the sections you need (at least the full lane workflow, handoffs and task contracts) "
+    "before your next dispatch or gate. If you are a scout, planner, executor or verifier, "
+    "ignore this note; it is not addressed to you."
+)
 
 
 def parse_event(text: str) -> dict:
@@ -124,6 +132,11 @@ def build_context(
     return policy + extra
 
 
+def compact_note(config: RoutingConfig, event: Mapping) -> str:
+    """Return the short context a compaction gets instead of the policy parts."""
+    return COMPACT_NOTE.format(plugin=config.plugin_name) + _session_block(event, config)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--part", type=int, required=True, help="dispatcher part number")
@@ -147,9 +160,14 @@ def main(
     try:
         cfg = config if config is not None else load_config()
         event = parse_event(stdin.read())
-        if resolve_tier(event.get("agent_type"), cfg) is not None:
+        if event.get("agent_id") or resolve_tier(event.get("agent_type"), cfg) is not None:
             return 0
-        text = build_context(cfg, args.part, event, env, sections_dir or SECTIONS_DIR)
+        if event.get("source") == "compact":
+            if args.part != 1:
+                return 0
+            text = compact_note(cfg, event)
+        else:
+            text = build_context(cfg, args.part, event, env, sections_dir or SECTIONS_DIR)
     except Exception as exc:  # hook must report, never crash the session
         stderr.write(f"session_context: {exc}\n")
         return 1

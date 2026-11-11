@@ -276,5 +276,103 @@ class MessageLengthTest(unittest.TestCase):
         self.assertLess(len(verdict.message), 400)
 
 
+KF = SETTINGS.call_key_fields
+
+
+class CallKeyFieldsTest(unittest.TestCase):
+    def key(self, tool: str, tool_input: object) -> str:
+        return sw.call_key(tool, tool_input, KF)
+
+    def test_description_does_not_change_bash_key(self) -> None:
+        first = self.key("Bash", {"command": "git status --short", "description": "call 1"})
+        second = self.key("Bash", {"command": "git status --short", "description": "call 2"})
+        self.assertEqual(first, second)
+
+    def test_invented_field_does_not_change_bash_key(self) -> None:
+        plain = self.key("Bash", {"command": "git status --short"})
+        for note in ("x", "y"):
+            with self.subTest(note=note):
+                noted = {"command": "git status --short", "command_note": note}
+                self.assertEqual(self.key("Bash", noted), plain)
+
+    def test_listed_fields_change_bash_key(self) -> None:
+        base = self.key("Bash", {"command": "a", "timeout": 120000})
+        self.assertNotEqual(base, self.key("Bash", {"command": "b", "timeout": 120000}))
+        self.assertNotEqual(base, self.key("Bash", {"command": "a", "timeout": 600000}))
+        self.assertNotEqual(self.key("Bash", {"command": "a"}),
+                            self.key("Bash", {"command": "a", "run_in_background": True}))
+
+    def test_bash_without_listed_fields_keys_whole_input(self) -> None:
+        self.assertNotEqual(self.key("Bash", {"description": "a"}),
+                            self.key("Bash", {"description": "b"}))
+        self.assertNotEqual(self.key("Bash", {}), self.key("Bash", {"description": "a"}))
+
+    def test_unlisted_tool_keeps_whole_input(self) -> None:
+        self.assertNotEqual(self.key("Read", {"file_path": "a.py", "note": "x"}),
+                            self.key("Read", {"file_path": "a.py", "note": "y"}))
+        self.assertNotEqual(self.key(*edit("1")), self.key(*edit(EDIT_NEW)))
+
+    def test_bash_fields_do_not_apply_to_other_tools(self) -> None:
+        self.assertNotEqual(self.key("Read", {"command": "x", "file_path": "a"}),
+                            self.key("Read", {"command": "y", "file_path": "a"}))
+
+    def test_no_key_fields_keeps_whole_input(self) -> None:
+        for fields in (None, {}):
+            with self.subTest(fields=fields):
+                first = sw.call_key("Bash", {"command": "x", "description": "a"}, fields)
+                second = sw.call_key("Bash", {"command": "x", "description": "b"}, fields)
+                self.assertNotEqual(first, second)
+
+    def test_non_dict_input_keys_like_plain_call(self) -> None:
+        for value in ("git status", None, ["a"], 5):
+            with self.subTest(value=value):
+                self.assertEqual(self.key("Bash", value), sw.call_key("Bash", value))
+
+    def test_key_shape_and_plain_call_compatibility(self) -> None:
+        key = self.key("Bash", {"command": "x"})
+        self.assertIsNotNone(HEX16.fullmatch(key))
+        self.assertEqual(key, sw.call_key("Bash", {"command": "x"}))
+
+    def test_two_arguments_keep_whole_input(self) -> None:
+        self.assertNotEqual(sw.call_key("Bash", {"command": "x", "description": "a"}),
+                            sw.call_key("Bash", {"command": "x", "description": "b"}))
+
+
+def described(i: int, total: int = 5) -> tuple:
+    return ("Bash", {"command": "git status --short",
+                     "description": f"call {i} of {total}"})
+
+
+class RepeatWithDescriptionTest(unittest.TestCase):
+    def test_fourth_call_with_new_description_nudges(self) -> None:
+        _, verdicts = fold([described(i) for i in range(1, 6)])
+        self.assertEqual(verdicts[:3], [None] * 3)
+        self.assertEqual(verdicts[3].kind, "nudge")
+        self.assertTrue(verdicts[3].message.startswith(
+            PREFIX + " you made this exact Bash call 4 times"), verdicts[3].message)
+        self.assertIsNone(verdicts[4])
+
+    def test_edit_between_described_calls_resets_history(self) -> None:
+        calls = [described(1), described(2), described(3), edit(EDIT_NEW), described(4)]
+        _, verdicts = fold(calls)
+        self.assertEqual(verdicts, [None] * 5)
+
+    def test_alternating_commands_count_separately(self) -> None:
+        commands = ("git status --short", "git log -1")
+        calls = [("Bash", {"command": commands[i % 2], "description": f"call {i + 1} of 8"})
+                 for i in range(8)]
+        _, verdicts = fold(calls)
+        self.assertEqual(verdicts[:6], [None] * 6)
+        self.assertEqual(verdicts[6].kind, "nudge")
+        self.assertIsNone(verdicts[7])
+
+    def test_reworded_command_is_not_a_repeat(self) -> None:
+        commands = ("git status --short", "git status -s")
+        calls = [("Bash", {"command": commands[i % 2], "description": f"call {i}"})
+                 for i in range(6)]
+        _, verdicts = fold(calls)
+        self.assertEqual(verdicts, [None] * 6)
+
+
 if __name__ == "__main__":
     unittest.main()

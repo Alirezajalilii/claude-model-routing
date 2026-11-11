@@ -10,7 +10,7 @@ This project follows the workspace standard in ~/Work/AGENTS.md. Read that first
 ## Stack
 - Claude Code plugin (manifest in `.claude-plugin/plugin.json`, version 0.4.1 per CHANGELOG.md).
 - Python 3.9+ standard library only; no third-party packages (CONTRIBUTING.md). Tests use `unittest`.
-- Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task|Skill` runs the dispatch guard, SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
+- Plugin parts: hooks (`hooks/hooks.json`: SessionStart runs `session_context.py --part 1` to `--part 5`, PreToolUse on `Agent|Task|Skill` runs the dispatch guard, PreToolUse on the executor tools runs the stall watch (`scripts/stall_watch.py`), SessionEnd runs the audit), generated subagents (`agents/`), skills (`skills/`), launchers (`bin/`).
 - Single source of truth for tiers, roles and tunables: `config/routing.json`. Policy text: `policy/`.
 - No database, no queue, no containers, no CI (CONTRIBUTING.md: "There is no CI").
 
@@ -65,3 +65,4 @@ All routine work goes through the Makefile: make setup, make dev, make test, mak
 - Settings the dispatch guard and session policy check (warnings, not errors): `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` should be `1`; `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be unset. See `.env.example`.
 - `data/` and `.agent/` are gitignored. Audit output goes to `$CLAUDE_PLUGIN_DATA/audits/`, outside the repository.
 - The dispatch guard denies every agent type outside the tiers and dispatch.allow_agents in config/routing.json, including general-purpose and fork, so built-in commands that spawn them (/code-review, /simplify) stop unless allowlisted.
+- The stall watch (`scripts/stall_watch.py`) keeps per-agent state in `$CLAUDE_PLUGIN_DATA/stall-watch/<agent_id>.json`, removes state files older than `stall_watch.state_max_age_hours`, and fails open: its own errors never block a tool call. Its deny messages start with `mr stall watch:`.

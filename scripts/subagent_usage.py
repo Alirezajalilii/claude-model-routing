@@ -20,8 +20,9 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
+import cost_estimate as ce
 import routing_config as rc
 import transcripts as tr
 
@@ -144,15 +145,15 @@ def _read_meta(transcript: Path) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _row(transcript: Path, acc: _Acc, meta: dict, requests: tuple) -> dict:
+def _row(transcript: Path, acc: _Acc, meta: dict, agent_type: Optional[str], requests: tuple) -> dict:
     totals = {key: sum(u.get(key, 0) for u in acc.usage_by_message.values()) for key in USAGE_KEYS}
     first = acc.usage_by_message.get(acc.first_message_id, {})
     head = acc.final_text.splitlines()[0][:REPORT_HEAD_CHARS] if acc.final_text else ""
     return {
         "transcript": str(transcript),
-        "agent_type": meta.get("agentType") or "?",
+        "agent_type": agent_type or "?",
         "model_alias": meta.get("model", "?"),
-        "resolved_models": sorted(acc.resolved_models),
+        "resolved_models": ce.real_models(sorted(acc.resolved_models)),
         "request_models": sorted(acc.request_models),
         "request_effort": sorted(acc.request_efforts) or ["<no api-request entries>"],
         "recorded_effort": sorted(acc.recorded_efforts),
@@ -171,20 +172,25 @@ def _row(transcript: Path, acc: _Acc, meta: dict, requests: tuple) -> dict:
     }
 
 
-def summarize(transcript: Path) -> dict:
-    """Fold one agent-*.jsonl transcript into a report row."""
+def summarize(transcript: Path, dispatched: Optional[Mapping] = None) -> dict:
+    """Fold one agent-*.jsonl transcript into a report row.
+
+    dispatched maps agent ids to the subagent_type of their Agent call in the main transcript.
+    """
     acc = _Acc()
     events = tr.read_jsonl(transcript)
     for entry in events:
         _note_entry(acc, entry)
-    return _row(transcript, acc, _read_meta(transcript), tr.request_usage(events))
+    agent_type = tr.agent_type_of(transcript, dispatched or {})
+    return _row(transcript, acc, _read_meta(transcript), agent_type, tr.request_usage(events))
 
 
 def _collect(targets: list, claude_dir: Path) -> list:
     rows = []
     for target in targets:
         files = tr.resolve_session(os.path.expanduser(target), claude_dir)
-        rows.extend(summarize(path) for path in files.subagents)
+        dispatched = tr.dispatch_types_of(files)
+        rows.extend(summarize(path, dispatched) for path in files.subagents)
     return rows
 
 

@@ -95,25 +95,53 @@ class ReadmeCopyTest(unittest.TestCase):
             n["transcript_projects"] + " projects with",
         ):
             self.assertTrue(text in readme, "missing: " + text)
-        # The four stat callouts: the number, then its meaning.
+        # The four stat tiles: a big number in a heading element, then a short caption.
         stats = (
-            (
-                n["projects"] + " projects, " + n["tier_agents"] + " agents",
-                "Kotlin, TypeScript, Rust, Python, Swift, C#",
-            ),
+            (n["projects"], "real projects, " + n["tier_agents"] + " agents"),
             (
                 n["haiku_heavy_saving_vs_sonnet_percent"] + "%",
                 "below all-Sonnet when Haiku scouts and builds\u00b9",
             ),
             (
                 n["haiku_scout_saving_vs_sonnet_percent"] + "%",
-                "cheaper evidence gathering with Haiku scouts than with Sonnet\u00b9",
+                "cheaper scouting on Haiku than on Sonnet\u00b9",
             ),
-            (n["context_ratio"] + "x", "smaller median context per agent than the main session"),
+            (n["context_ratio"] + "x", "smaller median context than the main session"),
         )
-        for number, meaning in stats:
-            self.assertTrue(">" + number + "<" in readme, "missing callout number: " + number)
-            self.assertTrue(meaning in readme, "missing: " + meaning)
+        for number, caption in stats:
+            self.assertTrue(
+                re.search(r"<h[23][^>]*>" + re.escape(number) + r"</h[23]>", readme),
+                "missing tile number in a heading element: " + number,
+            )
+            self.assertTrue(">" + caption in readme, "missing tile caption: " + caption)
+
+    def test_note_under_tiles(self):
+        # TC2: one short note directly under the tiles, and nothing else there.
+        readme = read("README.md")
+        n = headline_numbers()
+        lines = readme.splitlines()
+        end = lines.index("</table>")
+        following = [line for line in lines[end + 1:] if line.strip()]
+        note = following[0]
+        for text in (
+            n["sessions"] + " sessions",
+            n["first_day"],
+            n["last_day"],
+            n["transcript_projects"] + " projects with transcripts",
+            "Kotlin, TypeScript, Rust, Python, Swift, C#",
+            "](docs/case-study.md)",
+        ):
+            self.assertTrue(text in note, "missing in the note under the tiles: " + text)
+        self.assertLess(len(note), 420, "note under the tiles is too long")
+
+    def test_bold_leads(self):
+        # TC2: the bold lead sentences of points 4 and 5, each once.
+        readme = read("README.md")
+        for lead in (
+            "**Every model does the work it is best at.**",
+            "**Each stage starts with a fresh context.**",
+        ):
+            self.assertEqual(readme.count(lead), 1, "bold lead must appear once: " + lead)
 
     def test_roles_and_model_split(self):
         # TC2: the roles section names all four roles, scouting on Haiku as an agent count, and

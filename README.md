@@ -16,10 +16,10 @@ mr is a Claude Code plugin that sends each task to the cheapest model that can p
 
 <table>
   <tr>
-    <td align="center" width="25%"><h2>40%</h2>less than running every agent on Opus¹ (a 278-agent production run)</td>
-    <td align="center" width="25%"><h2>1.7x</h2>the work from the same usage limit¹</td>
-    <td align="center" width="25%"><h2>385,920</h2>lines of production code and tests added in 5 active days</td>
-    <td align="center" width="25%"><h2>79</h2>times reviewers sent work back before merge</td>
+    <td align="center" width="25%"><strong>40%</strong><br>less than running every agent on Opus¹ (a production run of 278 subagents plus the main session)</td>
+    <td align="center" width="25%"><strong>1.7x</strong><br>the work from the same usage limit¹</td>
+    <td align="center" width="25%"><strong>385,920</strong><br>lines of production code and tests added in 5 active days</td>
+    <td align="center" width="25%"><strong>79</strong><br>times reviewers sent work back before merge</td>
   </tr>
 </table>
 
@@ -75,7 +75,7 @@ Writing code is where the tokens go. In the production run above, executors used
 | Gate | `mr-gate`, a script | Checks that the commits stay inside the task's files, that the new tests failed before the change, and that the green commands pass. |
 | Review | Opus or Sonnet verifiers | Run when the plan marks a risk (authentication, payments, data integrity, migrations, security), when a task ran below its planned tier, or after a failed check. |
 
-In the production run, reviewers sent work back 79 times before anything merged.
+In the production run, reviewers sent work back 79 times before merge (70 FIX and 9 REPLAN verdicts, counting re-verification rounds).
 
 ## How a session runs
 
@@ -100,7 +100,7 @@ The policy lives in `config/routing.json` and `policy/`. A session-start hook lo
 ## What it costs
 
 <p align="center">
-  <img src="docs/assets/cost-chart.svg" alt="Bar chart of one 278-agent production run at API list prices: $2,105.04 as routed, $1,766.48 if every agent ran on Sonnet 5.5, $3,532.96 if every agent ran on Opus 5.5." width="720">
+  <img src="docs/assets/cost-chart.svg" alt="Bar chart of one production run (278 subagents plus the main session) at API list prices: $2,105.04 as routed, $1,766.48 if every agent ran on Sonnet 5.5, $3,532.96 if every agent ran on Opus 5.5." width="720">
 </p>
 
 Against all-Opus, the routed run cost 40% less, which is where the 1.7x comes from: $3,532.96 divided by $2,105.04. Against all-Sonnet it cost 19% more. That is mostly the price of Opus review on the risky tasks: the 89 Opus verifiers cost $298.75 more than the same tokens at Sonnet prices. The [case study](docs/case-study.md) has the full table, the output the run produced and what did not go well.

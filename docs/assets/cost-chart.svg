@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 330" width="900" height="330" role="img" aria-labelledby="cost-title cost-desc">
-  <title id="cost-title">Cost of a 278-agent production run at API list prices</title>
+  <title id="cost-title">Cost of a production run of 278 subagents plus the main session, at API list prices</title>
   <desc id="cost-desc">Horizontal bars. As routed: $2,105.04. All Sonnet 5.5: $1,766.48. All Opus 5.5: $3,532.96. The same tokens, priced at Anthropic API list prices with 5-minute cache writes.</desc>
   <rect width="900" height="330" rx="18" fill="#0f172a"/>
   <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-    <text x="32" y="48" font-size="24" font-weight="700" fill="#f8fafc">What one 278-agent production run costs</text>
-    <text x="32" y="74" font-size="16" fill="#94a3b8">The same tokens at API list prices</text>
+    <text x="32" y="48" font-size="24" font-weight="700" fill="#f8fafc">What one production run costs</text>
+    <text x="32" y="74" font-size="16" fill="#94a3b8">278 subagents plus the main session, at API list prices</text>
 
     <text x="32" y="130" font-size="19" font-weight="600" fill="#e2e8f0">As routed</text>
     <rect id="bar-routed" x="180" y="106" width="334" height="40" rx="6" fill="#f59e0b"/>

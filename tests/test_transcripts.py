@@ -64,6 +64,36 @@ class ResolveSessionTest(unittest.TestCase):
             tr.resolve_session("", self.claude)
 
 
+class BareIdWithoutSubagentFolderTest(unittest.TestCase):
+    """A session with a main transcript and no subagent folder must resolve by bare id."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.claude = Path(tmp.name) / "claude"
+        self.transcript = self.claude / "projects" / "p" / (SID + ".jsonl")
+        self.transcript.parent.mkdir(parents=True)
+        self.transcript.write_text("", encoding="utf-8")
+
+    def test_bare_id_resolves_to_main_transcript(self):
+        # TC1: only projects/p/<id>.jsonl exists; the bare id resolves to it.
+        files = tr.resolve_session(SID, self.claude)
+        self.assertEqual(files.session_id, SID)
+        self.assertEqual(files.main, self.transcript)
+        self.assertEqual(files.subagents, ())
+
+    def test_bare_id_matches_the_main_transcript_path(self):
+        # TC1: the bare id and the .jsonl path give the same answer.
+        by_id = tr.resolve_session(SID, self.claude)
+        by_path = tr.resolve_session(str(self.transcript), self.claude)
+        self.assertEqual(by_id, by_path)
+
+    def test_id_with_neither_directory_nor_transcript_raises(self):
+        # TC2: no directory and no .jsonl for the id, so SessionNotFound.
+        with self.assertRaises(tr.SessionNotFound):
+            tr.resolve_session("00000000-0000-4000-8000-0000000000ff", self.claude)
+
+
 class ReadJsonlTest(unittest.TestCase):
     def test_keeps_only_dict_records(self):
         tmp = tempfile.TemporaryDirectory()

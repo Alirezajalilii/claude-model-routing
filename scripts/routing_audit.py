@@ -24,7 +24,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Mapping, Optional, Sequence
 
 import dispatch_guard as dg
 import routing_config as rc
@@ -123,11 +123,15 @@ def _instruction_files(events: Sequence[dict]) -> tuple:
     return tuple(paths)
 
 
-def summarize(subagents: Sequence[Path], want: Optional[str] = None) -> tuple:
-    """Read every subagent transcript into rows sorted by time."""
+def summarize(subagents: Sequence[Path], want: Optional[str] = None,
+              dispatched: Optional[Mapping] = None) -> tuple:
+    """Read every subagent transcript into rows sorted by time.
+
+    dispatched maps agent ids to the subagent_type of their Agent call in the main transcript.
+    """
     rows = []
     for jsonl in subagents:
-        agent_type = tr.read_agent_type(tr.meta_path_for(jsonl))
+        agent_type = tr.agent_type_of(jsonl, dispatched or {})
         if want and not re.search(want, agent_type or ""):
             continue
         events = list(tr.read_jsonl(jsonl))
@@ -440,7 +444,7 @@ def run_hook(raw: str, claude_dir: Path) -> Optional[Path]:
         raise ValueError("SessionEnd event has no transcript_path or session_id")
     files = tr.resolve_session(str(ref), claude_dir)
     config = rc.load_config()
-    rows = summarize(files.subagents)
+    rows = summarize(files.subagents, dispatched=tr.dispatch_types_of(files))
     if not dispatched_tier(rows, config) and not _off_policy_types(rows, config):
         return None
     sid = str(event.get("session_id") or files.session_id)
@@ -486,7 +490,7 @@ def main(argv: Optional[list] = None) -> int:
     except (tr.SessionNotFound, rc.ConfigError) as exc:
         print(f"routing_audit: {exc}", file=sys.stderr)
         return 2
-    rows = summarize(files.subagents, args.agent_type)
+    rows = summarize(files.subagents, args.agent_type, tr.dispatch_types_of(files))
     report = render(files.session_id, rows, args.verbose, config,
                     main_flags(files.main, config), main_info(files.main, config))
     if args.out:

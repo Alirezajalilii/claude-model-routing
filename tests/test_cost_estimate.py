@@ -152,6 +152,47 @@ class EstimateTest(unittest.TestCase):
         self.assertEqual(result["unpriced_models"], ["gpt-5"])
         self.assertEqual(result["groups"], {})
 
+    def test_tc1_synthetic_placeholder_is_ignored_when_pricing(self) -> None:
+        # Claude Code writes "<synthetic>" on messages it generates itself; the row ran on one model.
+        row = {
+            "agent_type": "mr:verify-sonnet-med",
+            "resolved_models": ["<synthetic>", "claude-sonnet-5-5"],
+            "output_tokens": 1000000,
+        }
+        result = estimate([row])
+        self.assertEqual(result["unpriced"], 0)
+        self.assertEqual(result["unpriced_models"], [])
+        self.assertEqual(result["groups"]["verify"]["agents"], 1)
+        self.assertAlmostEqual(result["groups"]["verify"]["actual"], 10.00, places=6)
+        self.assertAlmostEqual(result["total"]["sonnet"], 10.00, places=6)
+
+    def test_tc2_only_placeholder_stays_unpriced(self) -> None:
+        row = {"agent_type": "mr:exec-haiku-low", "resolved_models": ["<synthetic>"], "output_tokens": 5}
+        result = estimate([row])
+        self.assertEqual(result["unpriced"], 1)
+        self.assertEqual(result["unpriced_models"], ["<synthetic>"])
+        self.assertEqual(result["groups"], {})
+
+    def test_tc3_placeholder_is_left_out_of_unpriced_models_when_real_models_exist(self) -> None:
+        row = {
+            "agent_type": "mr:plan-opus-high",
+            "resolved_models": ["<synthetic>", "claude-sonnet-5-5", "claude-haiku-5-5"],
+            "output_tokens": 5,
+        }
+        result = estimate([row])
+        self.assertEqual(result["unpriced"], 1)
+        self.assertEqual(result["unpriced_models"], ["claude-haiku-5-5", "claude-sonnet-5-5"])
+
+    def test_other_angle_bracket_placeholder_is_ignored_too(self) -> None:
+        row = {
+            "agent_type": "mr:exec-haiku-high",
+            "resolved_models": ["<unknown>", "claude-haiku-5-5"],
+            "output_tokens": 1000000,
+        }
+        result = estimate([row])
+        self.assertEqual(result["unpriced"], 0)
+        self.assertAlmostEqual(result["groups"]["exec"]["actual"], 0.50, places=6)
+
     def test_no_recorded_model_reports_none_recorded(self) -> None:
         row = {"agent_type": "mr:exec-haiku-high", "resolved_models": [], "output_tokens": 1}
         report = format_report(estimate([row]), "5m")

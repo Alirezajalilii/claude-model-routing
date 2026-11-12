@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">mr: model routing for Claude Code</title>
+  <desc id="hero-desc">Banner with the headline Opus plans and reviews. Cheaper models write the code. Below it, four steps: Opus plans each task, Haiku or Sonnet writes it test first, a script gates the commits, Opus reviews the risky tasks.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="360" rx="18" fill="url(#bg)"/>
+  <rect x="0" y="0" width="8" height="360" fill="#f59e0b"/>
+
+  <text x="64" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="46" font-weight="700" fill="#f59e0b">mr</text>
+  <text x="130" y="78" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#94a3b8">model routing for Claude Code</text>
+
+  <text x="64" y="158" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="60" font-weight="800" fill="#f8fafc">Opus plans and reviews.</text>
+  <text x="64" y="222" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="60" font-weight="800" fill="#f8fafc">Cheaper models <tspan fill="#f59e0b">write the code.</tspan></text>
+
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <rect x="64" y="256" width="262" height="80" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
+    <text x="82" y="290" font-size="27" font-weight="700" fill="#c4b5fd">Plan</text>
+    <text x="82" y="318" font-size="19" fill="#cbd5e1">Opus writes the plan</text>
+    <rect x="360" y="256" width="262" height="80" rx="12" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+    <text x="378" y="290" font-size="27" font-weight="700" fill="#93c5fd">Write</text>
+    <text x="378" y="318" font-size="19" fill="#cbd5e1">Haiku or Sonnet</text>
+    <rect x="656" y="256" width="262" height="80" rx="12" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+    <text x="674" y="290" font-size="27" font-weight="700" fill="#fbbf24">Gate</text>
+    <text x="674" y="318" font-size="19" fill="#cbd5e1">A script checks it</text>
+    <rect x="952" y="256" width="262" height="80" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
+    <text x="970" y="290" font-size="27" font-weight="700" fill="#c4b5fd">Review</text>
+    <text x="970" y="318" font-size="19" fill="#cbd5e1">Opus, on risky tasks</text>
+  </g>
+
+  <g fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M334 296 H352 M345 289 L352 296 L345 303"/>
+    <path d="M630 296 H648 M641 289 L648 296 L641 303"/>
+    <path d="M926 296 H944 M937 289 L944 296 L937 303"/>
+  </g>
+</svg>

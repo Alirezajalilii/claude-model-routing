@@ -1,16 +1,35 @@
 # mr: model routing for Claude Code
 
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="Banner for mr. Four steps: Opus writes the plan, Haiku or Sonnet writes the code, a script checks the commits, Opus reviews the risky tasks." width="100%">
+</p>
+
+### Opus plans and reviews. Cheaper models write the code.
+
+mr is a Claude Code plugin that sends each task to the cheapest model that can pass its tests, and sends the risky ones to Opus for review.
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://code.claude.com/docs/en/discover-plugins)
 [![Python 3.9+, standard library only](https://img.shields.io/badge/python-3.9%2B%20stdlib%20only-3776ab.svg)](#requirements)
 
-mr is a Claude Code plugin that keeps your strongest model on planning and review and sends the hands-on coding to cheaper subagents. A planner writes each task with the files it may touch and the tests it must pass. A Haiku executor implements it test-first, and a script checks the commits before the task merges.
+[Install](#install-the-plugin) · [How it works](#how-a-session-runs) · [What it costs](#what-it-costs) · [What runs on your machine](#what-runs-on-your-machine) · [Commands](#commands)
 
-In one logged run on this repository, Haiku executors finished 15 tasks. Priced at Anthropic's API list prices, their tokens come to about $0.80. The same tokens would cost about $14.08 at Sonnet 5.5 prices and about $28.16 at Opus 5.5 prices. [How this was measured, and what it leaves out](docs/cost.md).
+<table>
+  <tr>
+    <td align="center" width="25%"><h2>40%</h2>less than running every agent on Opus¹ (a 278-agent production run)</td>
+    <td align="center" width="25%"><h2>1.7x</h2>the work from the same usage limit¹</td>
+    <td align="center" width="25%"><h2>385,920</h2>lines of production code and tests added in 5 active days</td>
+    <td align="center" width="25%"><h2>79</h2>times reviewers sent work back before merge</td>
+  </tr>
+</table>
+
+¹ Re-priced estimates. The assumptions behind them are in the [footnote under What it costs](#what-it-costs).
+
+All four numbers come from one production run. The [case study](docs/case-study.md) has the data, the method and what went wrong. On this plugin's own repository, Haiku executors ran at **6%** of the Sonnet price for the same tokens ([cost breakdown](docs/cost.md)).
 
 ## Install the plugin
 
-You need Claude Code and `python3` 3.9 or later. [Requirements](#requirements) has the versions and platforms.
+Two commands, then a restart. You need Claude Code and `python3` 3.9 or later; [Requirements](#requirements) has the versions and platforms.
 
 ```sh
 claude plugin marketplace add Alirezajalilii/claude-model-routing
@@ -19,7 +38,10 @@ claude plugin install mr@claude-model-routing
 
 This installs at user scope, so the routing policy and the dispatch guard apply to every Claude Code session in every project, including the `/code-review` and `/simplify` limits described under [What runs on your machine](#what-runs-on-your-machine). To try it on one repository first, run the install from that repository with `claude plugin install mr@claude-model-routing --scope local`.
 
-Claude Code 2.1.292 and later can do both in one command:
+<details>
+<summary>Other ways to install, and what to do if it fails</summary>
+
+Claude Code 2.1.292 and later can do both steps in one command:
 
 ```sh
 claude plugin install mr --marketplace Alirezajalilii/claude-model-routing
@@ -28,6 +50,8 @@ claude plugin install mr --marketplace Alirezajalilii/claude-model-routing
 Inside a session, `/plugin install mr --marketplace Alirezajalilii/claude-model-routing` opens the plugin panel, so you can read what the plugin runs before you confirm (Claude Code 2.1.275 and later).
 
 If `marketplace add` fails with an SSH error, Claude Code found an SSH key for github.com and tried SSH. Run the command again with `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` in front of it, or pass the full URL `https://github.com/Alirezajalilii/claude-model-routing`.
+
+</details>
 
 Then restart Claude Code and set up each project you want to route:
 
@@ -40,17 +64,27 @@ Then restart Claude Code and set up each project you want to route:
 
 3. Ask Claude to run `mr-doctor`. It checks the setup above and prints a fix for anything that is off.
 
+## Why route models in Claude Code
+
+Writing code is where the tokens go. In the production run above, executors used 80% of all subagent tokens. mr keeps your strongest model on planning and review and runs the executor work on cheaper ones:
+
+| Step | Who | What happens |
+| --- | --- | --- |
+| Plan | Opus (or Sonnet) | A plan file where every task names the files it may touch, its Test Cases, its executor tier and a Gate block. |
+| Write | Haiku or Sonnet executors | Each one commits the failing tests first, then the change that makes them pass. |
+| Gate | `mr-gate`, a script | Checks that the commits stay inside the task's files, that the new tests failed before the change, and that the green commands pass. |
+| Review | Opus or Sonnet verifiers | Run when the plan marks a risk (authentication, payments, data integrity, migrations, security), when a task ran below its planned tier, or after a failed check. |
+
+In the production run, reviewers sent work back 79 times before anything merged.
+
 ## How a session runs
 
-Small, clear changes take the fast lane: one executor, no planner. Work that needs a design decision takes the full lane:
-
-1. Read-only scouts on Haiku or Sonnet gather the evidence the planner asks for.
-2. A planner on Sonnet or Opus writes a plan file. Every task names the files it may touch, its Test Cases, its executor tier and a Gate block. The planner consults Claude Code's advisor once per plan.
-3. Executors start on Haiku. Each one commits the failing tests first, then the change that makes them pass.
-4. `mr-gate` checks each task against its Gate block: the commits stay inside the task's files, the new tests failed before the change, and the green commands pass.
-5. Verifiers on Sonnet or Opus run when the plan marks a risk (authentication, payments, data integrity, migrations, security), when a task ran below its planned tier, or after a failed check. A Haiku executor that cannot finish hands the task to its planned Sonnet tier.
+Small, clear changes take the fast lane: one executor, no planner. Work that needs a design decision takes the full lane, which runs the four steps above and adds read-only scouts on Haiku or Sonnet that gather the evidence the planner asks for. The planner consults Claude Code's advisor once per plan. Executors start on Haiku, and a Haiku executor that cannot finish hands the task to its planned Sonnet tier.
 
 Tier agents are named `<role>-<model>-<effort>` with the roles `scout`, `plan`, `exec`, `verify`, and the main session dispatches them as `mr:<tier>`, for example `mr:exec-haiku-med`.
+
+<details>
+<summary>All tiers</summary>
 
 | Role | Tiers |
 | --- | --- |
@@ -59,11 +93,24 @@ Tier agents are named `<role>-<model>-<effort>` with the roles `scout`, `plan`, 
 | exec | `exec-haiku-low`, `exec-haiku-med`, `exec-haiku-high`, `exec-sonnet-med`, `exec-sonnet-high`, `exec-sonnet-xhigh` |
 | verify | `verify-sonnet-med`, `verify-sonnet-high`, `verify-opus-high` |
 
+</details>
+
 The policy lives in `config/routing.json` and `policy/`. A session-start hook loads it into the main session, and the `mr:routing-policy` skill holds the full text.
 
 ## What it costs
 
-One run on this repository (2026-11-11, 15 tasks), priced with `mr-cost` at API list prices as of 2026-11-12, with 5-minute cache writes. Details in [docs/cost.md](docs/cost.md).
+<p align="center">
+  <img src="docs/assets/cost-chart.svg" alt="Bar chart of one 278-agent production run at API list prices: $2,105.04 as routed, $1,766.48 if every agent ran on Sonnet 5.5, $3,532.96 if every agent ran on Opus 5.5." width="720">
+</p>
+
+Against all-Opus, the routed run cost 40% less, which is where the 1.7x comes from: $3,532.96 divided by $2,105.04. Against all-Sonnet it cost 19% more. That is mostly the price of Opus review on the risky tasks: the 89 Opus verifiers cost $298.75 more than the same tokens at Sonnet prices. The [case study](docs/case-study.md) has the full table, the output the run produced and what did not go well.
+
+**What the same usage limit covers.** The routed run priced at 1/1.7 of the all-Opus run, so the same limit covers about 1.7x the work. Two assumptions sit behind that: the same work takes the same tokens on another model, and your plan meters usage in proportion to list price. The footnote below says how the figures were priced.
+
+<details>
+<summary>This repository's own run: 15 tasks, all on Haiku executors</summary>
+
+One run on this repository (2026-11-11), priced with `mr-cost` at API list prices as of 2026-11-12, with 5-minute cache writes. Details in [docs/cost.md](docs/cost.md).
 
 | Group | Agents | At the models that ran | Same tokens at Sonnet 5.5 | Same tokens at Opus 5.5 |
 |---|---|---|---|---|
@@ -80,19 +127,26 @@ Read these numbers with their limits:
 - Every subagent starts with fixed context, roughly 15K tokens of skill listing when several hundred skills are installed. Routing pays off on multi-step work and costs more than it saves on a one-line edit.
 - Haiku 5.5 bills prompts over 100K tokens at five times its base rate. This run's Haiku executors stayed under that (peak 91,105 tokens); `mr-cost` prices longer prompts at the higher rate.
 
+</details>
+
+¹ Re-priced estimate: the same tokens at Anthropic API list prices with 5-minute cache writes. Reading it as usage-limit headroom assumes your plan meters usage in proportion to list price; Anthropic does not publish how it meters.
+
 To price one of your own sessions, ask Claude to run:
 
 ```sh
 mr-usage <session-id> --json | mr-cost -
 ```
 
-The session id is in the mr section of the session context, and `/mr:routing-report` collects it for you.
+The session id is in the mr section of the session context, and `/mr:routing-report` collects it for you. If `ANTHROPIC_API_KEY` is set in your environment, Claude Code bills that key at API rates instead of using your plan, and `mr-doctor` tells you when it is set.
 
-## Usage limits on Pro and Max
+## When mr is not worth it
 
-On a subscription, Claude Code draws on the same usage limits as claude.ai: a five-hour session limit and a weekly limit. Anthropic lists the model you use among the factors that affect usage, but it does not publish how much each model counts. mr moves the token-heavy executor work to Haiku, so the same work should use less of your limit. I have not measured how much longer a session lasts with it. If you measure it, please open an issue with your numbers.
+- Single edits and quick questions. Each subagent starts with fixed context, so the main session does small work for less.
+- Work you do not want to plan. The full lane writes a plan file, red and green commits and a gate file for every task.
+- Sessions that need `/code-review`, `/simplify` or other commands that start `general-purpose` agents.
+- Windows machines (see [Requirements](#requirements)).
 
-If `ANTHROPIC_API_KEY` is set in your environment, Claude Code bills that key at API rates instead of using your plan. `mr-doctor` tells you when it is set.
+If your work is multi-step and testable, [install mr](#install-the-plugin) and run your next feature through it.
 
 ## What runs on your machine
 
@@ -151,13 +205,6 @@ claude plugin uninstall mr@claude-model-routing --keep-data
 ```
 
 If you reinstall later, copy the audits back with `cp -Rpn <backup>/. ~/.claude/plugins/data/<plugin>-<marketplace>/`.
-
-## When mr is not worth it
-
-- Single edits and quick questions. Each subagent starts with fixed context, so the main session does small work for less.
-- Work you do not want to plan. The full lane writes a plan file, red and green commits and a gate file for every task.
-- Sessions that need `/code-review`, `/simplify` or other commands that start `general-purpose` agents.
-- Windows machines (see [Requirements](#requirements)).
 
 ## Contributing
 

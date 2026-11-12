@@ -1,116 +1,158 @@
-# Case study: model routing on a 530,000-line production monorepo
+# mr in practice: 18 projects, 1,785 agents
 
-Over about eight days, one developer directing Claude Code used mr routing to add 385,920 lines of production code and tests to a production TypeScript monorepo, in 5 active days. The run's 278 subagents plus its main session cost $2,105.04 at Anthropic API list prices. The same tokens on Opus for every agent would have cost $3,532.96, which is 40% less under routing, or 1.7x the work for the same spend. Against an all-Sonnet run the routed run cost 19% more, and the Opus verifiers account for about 88% of that difference. Reviewers sent work back 79 times before merge.
+mr is a Claude Code plugin that gives each step of a coding session to a different model: Haiku scouts the code and builds the well-specified parts, Sonnet takes the harder code, and Opus plans and reviews. This is a study of how it ran across 18 projects between 2026-10-27 and 2026-11-12: 42 sessions and 1,785 agents. In the 24 sessions where Haiku did both the scouting and most of the building, subagent spend was 37% below an all-Sonnet run. Across all 42 sessions, including those where I kept executors on Sonnet, it was 5% below. Every figure below is recomputed from the data files in `docs/case-study/`.
 
 ## Headline numbers
 
 | Key | Value |
 | --- | --- |
-| routed_usd | 2,105.04 |
-| all_sonnet_usd | 1,766.48 |
-| all_opus_usd | 3,532.96 |
-| saving_vs_opus_percent | 40 |
-| work_per_limit_ratio | 1.7 |
-| extra_vs_sonnet_percent | 19 |
-| subagents | 278 |
-| executor_token_share_percent | 80 |
-| haiku_exec_percent_of_sonnet | 6 |
-| lines_added | 420,377 |
-| production_lines_added | 124,812 |
-| test_lines_added | 261,108 |
-| code_and_test_lines_added | 385,920 |
-| commits | 221 |
-| active_days | 5 |
-| test_calls_before | 811 |
-| test_calls_after | 8,025 |
-| lines_at_head | 530,977 |
-| verdicts | 179 |
-| sent_back_verdicts | 79 |
-| first_verdict_pass_groups | 45 |
-| task_groups | 116 |
+| projects | 18 |
+| transcript_projects | 11 |
+| repos_with_logs | 16 |
+| sessions | 42 |
+| tier_agents | 1,785 |
+| first_day | 2026-10-27 |
+| last_day | 2026-11-12 |
+| haiku_agents | 730 |
+| haiku_scouts | 139 |
+| scouts | 237 |
+| haiku_scout_token_share_percent | 24 |
+| haiku_executors | 591 |
+| executors | 958 |
+| opus_verifiers | 236 |
+| opus_planners | 57 |
+| all_routed_usd | 3,272.02 |
+| all_sonnet_usd | 3,454.92 |
+| all_opus_usd | 6,909.83 |
+| all_saving_vs_sonnet_percent | 5 |
+| all_saving_vs_opus_percent | 53 |
+| haiku_heavy_sessions | 24 |
+| haiku_heavy_agents | 1,055 |
+| haiku_heavy_routed_usd | 835.47 |
+| haiku_heavy_sonnet_usd | 1,329.17 |
+| haiku_heavy_opus_usd | 2,658.34 |
+| haiku_heavy_saving_vs_sonnet_percent | 37 |
+| haiku_heavy_saving_vs_opus_percent | 69 |
+| haiku_heavy_work_per_limit_vs_sonnet | 1.6 |
+| haiku_heavy_with_main_saving_vs_sonnet_percent | 14 |
+| haiku_scout_saving_vs_sonnet_percent | 92 |
+| haiku_exec_saving_vs_sonnet_percent | 92 |
+| repo_run_routed_usd | 11.27 |
+| repo_run_sonnet_usd | 29.73 |
+| repo_run_saving_vs_sonnet_percent | 62 |
+| agent_median_peak | 89,877 |
+| main_median_peak | 374,470 |
+| context_ratio | 4.2 |
+| compacted_sessions | 11 |
 
-Cost values are USD. Percentages are rounded half up, the ratio to one decimal. `haiku_exec_percent_of_sonnet` comes from this plugin's own repository (see [docs/cost.md](cost.md)), not from the monorepo. `code_and_test_lines_added` is production plus test lines (124,812 + 261,108); `lines_added` also counts documentation, configuration and tooling.
+Cost values are USD at Anthropic API list prices. Percentages are rounded half up, ratios to one decimal. Spend figures count subagents only, except `haiku_heavy_with_main_saving_vs_sonnet_percent`, which adds the main sessions of the same sessions. `repo_run_*` come from this repository's own run in [docs/cost.md](cost.md).
 
-## The project
+## Where it ran
 
-The project is a production TypeScript monorepo: 10 apps and 12 packages. At the snapshot it held 2,834 files and 530,977 lines, excluding generated files, lockfiles, vendored code and snapshots. One developer directed Claude Code. The routed work ran from 2026-11-05 to 2026-11-12, about 8 days, with commits on 5 of them. The history has one author identity and no reverts. Nothing else about the project is published here.
+18 projects, 42 sessions that used mr, 2026-10-27 to 2026-11-12. Labels replace names: `P` labels are projects with session transcripts (11 of them), `T` labels are test runs of the plugin, and `L` labels are repositories that kept a routing log but left no transcripts. The 18 projects are the 20 labels minus the 2 test runs. This plugin's own repository is one of them. A multi-repo folder is a parent working folder that held several repositories.
 
-## How the work was routed
+| Label | Kind | Sessions | Agents |
+| --- | --- | --- | --- |
+| P01 | repo | 9 | 176 |
+| P02 | multi-repo folder | 8 | 155 |
+| P03 | multi-repo folder | 6 | 174 |
+| P04 | repo | 5 | 163 |
+| P05 | repo | 2 | 183 |
+| P06 | repo | 2 | 22 |
+| P07 | repo | 2 | 365 |
+| P08 | repo | 1 | 281 |
+| P09 | repo | 1 | 105 |
+| P10 | repo | 1 | 32 |
+| P11 | repo | 1 | 111 |
+| T01 | test run | 2 | 16 |
+| T02 | test run | 2 | 2 |
+| L01 | log-only repo | 0 | 0 |
+| L02 | log-only repo | 0 | 0 |
+| L03 | log-only repo | 0 | 0 |
+| L04 | log-only repo | 0 | 0 |
+| L05 | log-only repo | 0 | 0 |
+| L06 | log-only repo | 0 | 0 |
+| L07 | log-only repo | 0 | 0 |
 
-The main session wrote the specs: first on Opus, then on Sonnet 5.5 at high effort from 2026-11-05 21:43 UTC. Executors were mostly Sonnet at high and xhigh effort. Risky tasks went to Opus verifiers, and one Opus planner ran once.
+Sessions counts the sessions that used mr; agents counts the mr tier agents in them. The work across all projects spanned Kotlin, TypeScript, Rust, Python, Swift, C#, SQL. I publish no per-project stack, because a stack can point to a project.
 
-| Tier | Agents | Role |
-| --- | --- | --- |
-| exec-sonnet-xhigh | 59 | executor |
-| exec-sonnet-high | 67 | executor |
-| exec-sonnet-med | 26 | executor |
-| exec-haiku-high | 2 | executor |
-| exec-haiku-med | 3 | executor |
-| verify-opus-high | 89 | verifier |
-| verify-sonnet-high | 30 | verifier |
-| plan-opus-high | 1 | planner |
-| scout-sonnet-high | 1 | scout |
+## Which model did what
 
-That is 157 executors, 119 verifiers, 1 planner and 1 scout. Executors used 80% of all subagent tokens (7,496,188,746 of 9,324,000,943).
+mr has four agent roles. Scouts gather evidence: they read code and docs and report back. Planners write the task plan. Executors write the code. Verifiers review a finished task before it merges. Each role has tiers on one or more of Haiku, Sonnet and Opus, and each tier fits a different kind of work. These are the agents that ran, by the model of their tier:
+
+| Role | Agents | Haiku | Sonnet | Opus |
+| --- | --- | --- | --- | --- |
+| Scout | 237 | 139 | 98 | 0 |
+| Plan | 66 | 0 | 9 | 57 |
+| Exec | 958 | 591 | 367 | 0 |
+| Verify | 524 | 0 | 288 | 236 |
+| Total | 1,785 | 730 | 762 | 293 |
+
+Scouting goes to Haiku by default, so reading code and docs stops costing Sonnet or Opus rates: 139 of 237 scouts ran on Haiku. By tokens the share is smaller. Haiku scouts carried 24% of scout tokens, and Haiku executors carried 14% of executor tokens. The long reads and the big builds went to Sonnet more often, so I do not claim that Haiku did most of the reading. What the counts show is that Haiku took 730 of 1,785 agents.
+
+Each role runs where it does for a reason. Haiku suits evidence gathering and well-specified code, where the task says what to do and a test says whether it worked. Sonnet suits harder code and mid-risk review. Opus suits planning and high-risk review, where a wrong call costs more than the tokens.
+
+That is the case against both single-model setups. A Sonnet-only session gives up top-tier planning and review. An Opus-only session spends its most expensive model on file edits and routine reads. mr puts each model where it is strongest: 57 Opus planners and 236 Opus verifiers on the steps that decide whether the work is right, against 591 Haiku executors on code a plan had already specified. This is a design argument. The data shows where the work went; it does not measure the quality of the output.
 
 ## Cost
 
-I priced the committed dataset with `python3 -B bin/mr-cost docs/case-study/2026-11-production-run.json`. The main session counts as one agent in the Agents column.
+I priced the rows with `mr-cost`: the same tokens at list prices on the models that ran, on Sonnet 5.5 and on Opus 5.5, with 5-minute cache writes. A run on another model would use a different number of tokens, so these are estimates, not a comparison of two runs. Across all 42 sessions, including those where executors stayed on Sonnet, subagent spend was 5% below all-Sonnet and 53% below all-Opus.
 
-| Group | Agents | At the models that ran | All Sonnet 5.5 | All Opus 5.5 |
-| --- | --- | --- | --- | --- |
-| scout | 1 | $2.88 | $2.88 | $5.75 |
-| plan | 1 | $2.40 | $1.20 | $2.40 |
-| exec | 157 | $1,230.49 | $1,236.80 | $2,473.60 |
-| verify | 119 | $654.55 | $355.80 | $711.61 |
-| main | 1 | $214.73 | $169.80 | $339.61 |
-| total | 279 | $2,105.04 | $1,766.48 | $3,532.96 |
+| Scope | Agents | Routed | All Sonnet | All Opus | Saving vs Sonnet | Saving vs Opus |
+| --- | --- | --- | --- | --- | --- | --- |
+| All sessions | 1,785 | $3,272.02 | $3,454.92 | $6,909.83 | 5% | 53% |
+| Haiku-heavy sessions | 1,055 | $835.47 | $1,329.17 | $2,658.34 | 37% | 69% |
+| This repository's run | 34 | $11.27 | $29.73 | $59.45 | 62% | 81% |
 
-Against all-Opus, the routed run cost 40% less. Against all-Sonnet it cost 19% more. The cause is the Opus verifier tier: its 89 agents cost $597.50 at Opus prices and the same tokens would cost $298.75 at Sonnet prices. That $298.75 premium is the price of Opus review on the risky tasks, and it makes up about 88% of the $338.56 gap between routed and all-Sonnet. The all-Sonnet run is cheaper in dollars; what the extra spend bought is review by a stronger model, and the next sections show what review sent back.
+Rows one and two count subagent spend only. Row three is the plugin's own 2026-11-11 run with Haiku scouts and Haiku executors, priced in [docs/cost.md](cost.md).
+
+**The Haiku-heavy condition.** I call a session Haiku-heavy when more than half of its executors ran on Haiku and, if it had scouts, more than half of its scouts did too: 24 of 42 sessions, 1,055 agents. There, with scouting and building both on Haiku, subagent spend was 37% below all-Sonnet and 69% below all-Opus. By role, the same tokens cost 92% less on Haiku scouts than on Sonnet, and 92% less on Haiku executors.
+
+**Sonnet-heavy sessions cost more.** In 7 sessions more than half of the executors ran on Sonnet, and subagent spend there was about 16% above all-Sonnet. Two things drive that. Those sessions used Opus for review, which costs more than the same review on Sonnet, and the executors stayed on Sonnet because I ordered it. Across all 42 sessions the saving shrinks to 5% for that reason, even though the Haiku-heavy sessions save 37%.
+
+**The main session.** The main session's model is the user's choice and runs with or without mr, so the tables leave it out. Adding it changes the picture: with the main sessions, Haiku-heavy sessions came out 14% below all-Sonnet, and all 42 sessions together came out about 6% above it. In 20 of 42 sessions the main session used Opus for at least part of the work. mr does not change that choice.
+
+The large run's figures here (281 agents, $1,932.68) differ from the deep dive's (278 agents, $1,890.98) because they come from different snapshots that handle `<synthetic>` rows differently. Agent, cost and context figures come from the 11 projects with transcripts, plus 18 agents in two test runs. The other 7 projects contribute routing logs only.
 
 ## What the same usage limit covers
 
-The routed run cost 1/1.7 of the all-Opus run for the same tokens, so the same usage limit covers about 1.7x the work, if two assumptions hold. First, the same work would use the same token counts on another model, which is not guaranteed. Second, your plan meters usage in proportion to API list price, which Anthropic does not publish. Cache reads are 98% of the tokens, so a meter that weights them differently moves the ratio.
+In Haiku-heavy sessions the same tokens cost $835.47 as routed and $1,329.17 on Sonnet, which is 1.6x the subagent work per usage limit compared with all-Sonnet. That holds under two assumptions. First, the same work would use the same token counts on another model, which is not guaranteed. Second, your plan meters usage in proportion to API list price. Anthropic does not publish how it meters, so read 1.6x as a list-price ratio, not a promise about your plan.
 
-## Output
+## Separate agents, smaller contexts
 
-Counts below are from git history, excluding generated files, lockfiles, vendored code and snapshots, for the 221 commits made under mr routing.
+One session that scouts, plans and builds in a single context carries the leftovers of every stage into the next. mr gives each stage its own agent, so a scout reads a repository without a half-built plan in its context, and an executor starts from the task, not from the reading that preceded it. This is the design reason for splitting the work. I did not measure output quality, so I make no claim about it.
 
-| Category | Lines added |
-| --- | --- |
-| Production code | 124,812 |
-| Tests | 261,108 |
-| Documentation, plans and specs | 15,780 |
-| Configuration and ops | 13,581 |
-| Tooling scripts | 5,096 |
-| Total | 420,377 |
+What I did measure is how much context each side carried. The median agent peaked at 89,877 prompt tokens. The median main session peaked at 374,470, which is 4.2x larger. 11 of 42 sessions had at least one context compaction.
 
-TypeScript test calls grew from 811 at the last commit before routing to 8,025 at the snapshot (counted as `it(` and `test(` call lines).
-
-Counting added plus deleted lines in the same categories, the earlier setup produced 60,138 lines per active day (3 days) and routing produced 86,101 (5 days). The comparison has a caveat: the earlier setup used an external non-Claude model without per-task verification, so this compares two setups, not a controlled experiment. The shared day 2026-11-05 counts in both.
+The limits matter. About one agent in ten peaked above roughly 300,000 tokens, and 70 of the 730 Haiku agents passed 100,000. Planners are the exception to the small-context picture: their median peak was 374,604 tokens, about the same as the main session's.
 
 ## Review and quality
 
-Verifiers wrote 179 verdict files: 98 PASS, 70 FIX, 9 REPLAN and 2 that were not final verdicts. Reviewers sent work back 79 times (70 FIX plus 9 REPLAN), counting re-verification rounds. Grouped by task, the first verdict was PASS in 45 of 116 task groups.
+The routing logs record one row per task or batch, so the counts below are approximate. A row can cover several tasks, and I parsed the tables with a script. 14 repos had a parsed task table, and 16 had a routing log; the other two kept an aggregate only or a different format. Of 497 rows, 352 (71%) had no FIX, no REPLAN and no escalation. 101 rows had a FIX, 45 a REPLAN and 19 an escalation to a stronger tier. Treat these as orders of magnitude.
 
-The project owner classified the defects that verifiers found after the gate had passed: 25 touched security, money, data or authorization, and 50 were wrong behavior, a broken gate or a test that did not test. This is the owner's classification. I did not re-derive it.
+For verifier verdicts I have one project where I counted the verdict files: the large run in [the deep dive](case-study-monorepo.md). Its verifiers sent work back 79 times, and the first verdict was PASS in 45 of 116 task groups.
 
-Not measured: how many defects reached the merge. The data shows what was caught before merge, not what was missed.
+One defect is known to have escaped. In this plugin's own repository, a stall-watch defect reached a release and was found by a release smoke test, not by a gate or a verifier ([docs/cost.md](cost.md)). The logs show what was caught before merge. They do not show what slipped through, and I have no quality figure beyond these counts.
 
 ## What did not go well
 
-- Haiku executors: 3 of 5 ended BLOCKED, and 2 of the 3 had compacted their context first. Five agents is a small sample.
-- Xhigh executors: on feature tasks in one phase, the first-pass gate passed 6 of 26 times, and the owner found their first-verdict defect rate no lower than at high effort.
-- Usage limit: the weekly limit error appeared on 2026-11-07. Five subagent transcripts show it, and each kept working and ended with a report. Some verifications stayed open afterwards.
-- Opus verifiers carried a $298.75 premium over the same tokens at Sonnet prices.
-- Main-session prompts: the largest single prompt was 966,778 tokens.
+- Non-tier subagents ran inside mr sessions: 53 of them, outside the tier totals above, costing $88.24 as run. The dispatch guard denies agent types outside the tiers unless they are allowlisted.
+- The main session used Opus in 20 of 42 sessions, so some of the spend sits outside what mr controls.
+- In two projects I ordered no Haiku executors partway through the run. Those sessions are in the Sonnet-heavy group.
+- 67 mr dispatches in three sessions of one project left no subagent transcript, so they are unpriced. The totals understate that work.
+- Two counts of long-prompt Haiku agents disagreed, 70 and 103. They agree once the 33 non-tier subagents are included (70 + 33 = 103). `mr-cost` now counts agents, not rows, and prints 103.
+- In the large Sonnet-heavy run, 3 of 5 Haiku executors ended BLOCKED, and 2 of the 3 had compacted their context first. Five agents is a small sample.
+
+## The large production run
+
+One of the 18 projects is a large production run that I wrote up separately. Executors there were mostly Sonnet and Opus reviewed the risky tasks, so it sits in the Sonnet-heavy group: routed, it cost 40% less than all-Opus and 19% more than all-Sonnet. Its [deep dive](case-study-monorepo.md) has the cost table, the output, and what review sent back.
 
 ## Method
 
-Subagent tokens come from session transcripts read with `mr-usage`. Verdict counts come from the verdict files the verifiers wrote, and code counts come from git history. The snapshot was taken on 2026-11-12 at 15:52 UTC while the run was still live, so later totals differ slightly.
+Data files, all in `docs/case-study/`: `cross-project-usage.json` (aggregated rows by project, session, agent type and model, with token counts and peak prompt size), `context-peaks.json` (peak prompt per agent and per main session), `projects.json` (reach, sessions and segment counts per label) and `routing-logs.json` (parsed routing-log counts). Labels `P01` to `P11`, `T01`, `T02` and `L01` to `L07` replace project names, and sessions are numbered `S01` to `S42`. The files hold no paths, transcript text or identifiers.
 
-The dataset holds 11 aggregated rows: nine subagent tiers and the main session split by model. The main session rows cover the routed period only, from 2026-11-05 10:40 UTC. Excluded: the main session before the switch, all phase-verification sessions (their tokens are not split per session), and the earlier non-Claude worker, which left no transcripts. The total therefore understates what the project spent.
+To reproduce the cost lines, run `python3 -B bin/mr-cost docs/case-study/cross-project-usage.json`. Its scout, plan, exec and verify lines add up to the all-sessions row. The main and other lines are the main sessions and the non-tier subagents. The report prints 103 Haiku agents priced at the higher rate for prompts over 100,000 tokens: 70 tier agents and 33 non-tier subagents. For this repository's run, use `python3 -B bin/mr-cost docs/cost/2026-11-11-run.json`. Add `--cache-ttl 1h` for 1-hour cache writes.
 
-Prices are those in [docs/cost.md](cost.md), with 5-minute cache writes. The aggregated `exec-haiku-med` row prices all its tokens at the up-to-100K-token Haiku rate, so the routed total is about $0.67 below the per-agent total of $2,105.71, where at least one prompt passed 100K tokens. The headline percentages do not change. Sonnet and Opus prices are flat, so their rows aggregate exactly.
+Segments are per session, from the mr tier agents in it. A: more than half of the executors on Haiku and, if the session had scouts, more than half of them on Haiku too (24 sessions). B: more than half of the executors on Sonnet (7 sessions). C: other sessions with executors (3). The remaining 8 sessions had no executors. `tests/test_cross_project_study.py` recomputes every Headline value from the data files, including the segment rule.
 
-To reproduce the cost table, run `python3 -B bin/mr-cost docs/case-study/2026-11-production-run.json`. For the 1-hour cache write variant, add `--cache-ttl 1h`.
+Rows come from `mr-usage` over each session's transcripts. Rows whose first model was a `<synthetic>` placeholder use the real model listed after it. Main-session usage is the last usage entry per message. Prices are those in [docs/cost.md](cost.md).

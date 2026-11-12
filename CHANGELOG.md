@@ -11,11 +11,11 @@ All notable changes to this project are documented here. The format follows Keep
 - `mr-doctor` checks Python, the Claude Code version, the settings the policy relies on, `ANTHROPIC_API_KEY` and whether the project is initialized, and prints a fix for each problem.
 - `docs/cost.md` and `docs/cost/2026-11-11-run.json`: one logged run priced with `mr-cost`, with the method and its limits.
 - The sensitive-data scan (`scripts/scan_sensitive.py`) is back on the main branch, and `make lint` runs it on the full history.
-- `docs/case-study.md` and `docs/case-study/2026-11-production-run.json`: an anonymized 278-agent production run priced with `mr-cost`, with its code volume, review outcomes and what did not go well.
+- `docs/case-study.md`: mr across 18 projects and 1,785 agents, with anonymized, aggregated data in `docs/case-study/` that `mr-cost` and the tests recompute, and a deep dive on one large production run in `docs/case-study-monorepo.md`.
 - `mr-cost` accepts an `agent_count` per row for aggregated data, reports the main session as its own group, and no longer skips agents whose recorded models include `<synthetic>`.
 
 ### Changed
-- README redesigned as a landing page: a hero banner, headline numbers from the case study, a cost chart, and the full install, safety and command reference.
+- README redesigned as a landing page around the cross-project results: the agent roles, the model each step runs on, isolated contexts, a cost chart, and the full install, safety and command reference.
 - The policy's cost reference states prices as of 2026-11-12 with cache-read rates and no longer cites an unlogged 2026-10-29 result.
 - AGENTS.md, CONTRIBUTING.md and docs/architecture.md describe this repository on its own.
 

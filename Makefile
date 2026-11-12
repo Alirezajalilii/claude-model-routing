@@ -1,4 +1,4 @@
-# Standard command interface (see ~/Work/AGENTS.md section 7).
+# Standard command interface: every routine task is a make target (see AGENTS.md).
 # mr is a Claude Code plugin with no runtime dependencies: Python 3.9+ standard library only.
 # A target that does not apply prints why and exits 0.
 
@@ -40,11 +40,7 @@ lint:
 	else \
 		echo "make lint: claude CLI not on PATH; plugin validation skipped"; \
 	fi
-	@if [ -f scripts/scan_sensitive.py ]; then \
-		$(PY) $(PYFLAGS) scripts/scan_sensitive.py --history; \
-	else \
-		echo "make lint: scripts/scan_sensitive.py is not on this branch (it exists on agent/T09); sensitive-data scan skipped"; \
-	fi
+	$(PY) $(PYFLAGS) scripts/scan_sensitive.py --history
 
 fmt:
 	@echo "make fmt: not applicable; no formatter is configured"

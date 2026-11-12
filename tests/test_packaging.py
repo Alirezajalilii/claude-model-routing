@@ -24,6 +24,8 @@ LAUNCHERS = (
     "mr-init",
     "mr-plan",
     "mr-gate",
+    "mr-cost",
+    "mr-doctor",  # TC10
 )
 
 
@@ -69,13 +71,32 @@ class PluginManifestTest(unittest.TestCase):
         self.assertTrue(data["author"]["name"])
         self.assertFalse(find_key(data, "email"))
 
-    def test_version_matches_changelog(self) -> None:
+    def test_version_matches_changelog(self) -> None:  # TC1
         data = load_json(".claude-plugin/plugin.json")
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
         self.assertIsNotNone(match)
         self.assertEqual(data["version"], match.group(1))
-        self.assertEqual(data["version"], "0.6.0")
+        self.assertEqual(data["version"], "0.7.0")
+
+    def test_keywords(self) -> None:  # TC3
+        data = load_json(".claude-plugin/plugin.json")
+        self.assertEqual(
+            data["keywords"],
+            [
+                "claude-code",
+                "subagents",
+                "model-routing",
+                "cost",
+                "haiku",
+                "sonnet",
+                "opus",
+                "hooks",
+                "tdd",
+                "agents",
+                "token-usage",
+            ],
+        )
 
     def test_marketplace_json_fields(self) -> None:
         data = load_json(".claude-plugin/marketplace.json")
@@ -142,7 +163,7 @@ class SkillsTest(unittest.TestCase):
 class AbsentFilesTest(unittest.TestCase):
     def test_forbidden_paths_absent(self) -> None:
         # The plugin is installed from git, so only tracked paths ship. A local, git-ignored
-        # CLAUDE.md (the ~/Work workspace pointer "@AGENTS.md") is allowed on disk.
+        # CLAUDE.md (the workspace pointer "@AGENTS.md") is allowed on disk.
         tracked = subprocess.run(
             ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
         ).stdout.decode("utf-8").split("\0")
@@ -181,12 +202,12 @@ RESERVED_PREFIXES = ("claude-", "anthropic-", "anthropics-", "cc-plugin-")
 
 
 class RevisionTwoTest(unittest.TestCase):
-    def test_plugin_display_name_and_unreserved_id(self) -> None:
+    def test_plugin_display_name_and_unreserved_id(self) -> None:  # TC4
         data = load_json(".claude-plugin/plugin.json")
         self.assertEqual(data["displayName"], "Model Routing (mr)")
         self.assertFalse(data["name"].startswith(RESERVED_PREFIXES), data["name"])
 
-    def test_marketplace_description_and_names(self) -> None:
+    def test_marketplace_description_and_names(self) -> None:  # TC2
         data = load_json(".claude-plugin/marketplace.json")
         self.assertIsInstance(data.get("description"), str)
         self.assertTrue(data["description"].strip())

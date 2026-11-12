@@ -265,5 +265,72 @@ class AdvisorCountTest(SessionFixture):
         self.assertEqual(rows[0]["advisor_results"], ["?"])
 
 
+def dispatch_records(agent_id, subagent_type):
+    """Main-transcript records of one Agent call: its tool_use, then the tool_result with toolUseResult.agentId."""
+    tool_id = f"toolu_{agent_id}"
+    call = {"type": "tool_use", "id": tool_id, "name": "Agent",
+            "input": {"subagent_type": subagent_type, "prompt": "Do it."}}
+    result = {"type": "tool_result", "tool_use_id": tool_id, "content": "done"}
+    return [
+        {"type": "assistant", "message": {"role": "assistant", "content": [call]}},
+        {"type": "user", "message": {"role": "user", "content": [result]},
+         "toolUseResult": {"agentId": agent_id}},
+    ]
+
+
+class AgentTypeFallbackTest(SessionFixture):
+    AGENT_ID = "a1b2c3d4e5f60718"
+    UNMATCHED_ID = "ffff0000ffff0000"
+
+    def setUp(self):
+        super().setUp()
+        self.add_agent_without_meta(self.AGENT_ID, [api_request()])
+        write_jsonl(self.session.with_name(SID + ".jsonl"), dispatch_records(self.AGENT_ID, PLUGIN_TYPE))
+
+    def add_agent_without_meta(self, name, records):
+        path = self.session / "subagents" / f"agent-{name}.jsonl"
+        write_jsonl(path, records)
+        return path
+
+    def test_tc1_missing_meta_takes_type_from_the_parent_dispatch(self):
+        # TC1: no meta file; the main transcript's Agent call and its toolUseResult.agentId name the type.
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["agent_type"], PLUGIN_TYPE)
+
+    def test_tc1_agent_type_filter_matches_the_recovered_type(self):
+        # TC1: --agent-type sees the recovered type, not "?".
+        _, rows, _ = self.run_json(SID, "--agent-type", BARE_TYPE)
+        self.assertEqual([row["agent_type"] for row in rows], [PLUGIN_TYPE])
+
+    def test_tc2_no_meta_and_no_matching_dispatch_stays_question_mark(self):
+        # TC2: an agent with no meta file and no dispatch record keeps "?".
+        self.add_agent_without_meta(self.UNMATCHED_ID, [api_request()])
+        _, rows, _ = self.run_json(SID)
+        self.assertCountEqual([row["agent_type"] for row in rows], [PLUGIN_TYPE, "?"])
+
+    def test_tc3_single_agent_path_target_reads_the_parent_dispatch(self):
+        # TC3: an agent-*.jsonl target still reads the parent session's main transcript.
+        path = self.session / "subagents" / f"agent-{self.AGENT_ID}.jsonl"
+        _, rows, _ = self.run_json(str(path))
+        self.assertEqual(rows[0]["agent_type"], PLUGIN_TYPE)
+
+
+class PlaceholderModelTest(SessionFixture):
+    def test_tc4_placeholder_is_dropped_when_a_real_model_is_recorded(self):
+        # TC4: <synthetic> next to a real model is not listed.
+        self.add_agent("a", PLUGIN_TYPE, [
+            assistant("msg_1", model="<synthetic>", tokens=usage(1, 1)),
+            assistant("msg_2", model="claude-haiku-5-5", tokens=usage(1, 1)),
+        ])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["resolved_models"], ["claude-haiku-5-5"])
+
+    def test_tc5_placeholder_only_row_keeps_the_placeholder(self):
+        # TC5: when nothing else is recorded, the placeholder stays.
+        self.add_agent("a", PLUGIN_TYPE, [assistant("msg_1", model="<synthetic>", tokens=usage(1, 1))])
+        _, rows, _ = self.run_json(SID)
+        self.assertEqual(rows[0]["resolved_models"], ["<synthetic>"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-12
+
+### Added
+- `mr-cost` prices `mr-usage --json` rows at Anthropic API list prices (as of 2026-11-12) and re-prices the same tokens at Sonnet 5.5 and Opus 5.5 rates; `--cache-ttl 1h` uses 1-hour cache-write prices.
+- `mr-doctor` checks Python, the Claude Code version, the settings the policy relies on, `ANTHROPIC_API_KEY` and whether the project is initialized, and prints a fix for each problem.
+- `docs/cost.md` and `docs/cost/2026-11-11-run.json`: one logged run priced with `mr-cost`, with the method and its limits.
+- The sensitive-data scan (`scripts/scan_sensitive.py`) is back on the main branch, and `make lint` runs it on the full history.
+- `docs/case-study.md`: mr across 18 projects and 1,785 agents, with anonymized, aggregated data in `docs/case-study/` that `mr-cost` and the tests recompute, and a deep dive on one large production run in `docs/case-study-monorepo.md`.
+- `mr-cost` accepts an `agent_count` per row for aggregated data, reports the main session as its own group, and no longer skips agents whose recorded models include `<synthetic>`.
+
+### Changed
+- README redesigned as a landing page around the cross-project results: the agent roles, the model each step runs on, isolated contexts, a cost chart, and the full install, safety and command reference.
+- The policy's cost reference states prices as of 2026-11-12 with cache-read rates and no longer cites an unlogged 2026-10-29 result.
+- AGENTS.md, CONTRIBUTING.md and docs/architecture.md describe this repository on its own.
+
+### Fixed
+- `mr-usage <session-id>` resolves a session that has no subagent folder through its main transcript instead of failing with "no session".
+- `mr-usage` and `mr-audit` recover a subagent's type from the parent session's dispatch when its meta file is missing, so `--agent-type` filters find it and the audit no longer reports it as unknown; `mr-usage` also leaves `<synthetic>` placeholder models out of `resolved_models` when a real model is recorded.
+
+### Removed
+- Empty workspace folders (`apps/`, `packages/`, `infra/`, `data/`, `docs/api/`, `docs/runbooks/`, `docs/specs/`, `docs/decisions/`) and the private `docs/wiki/`.
+
 ## [0.6.0] - 2026-11-12
 
 ### Added

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">mr: model routing for Claude Code</title>
+  <desc id="hero-desc">Banner with the headline The right Claude for every step. On the right, the four agent roles and the model each runs on by default: Scout on Haiku, Plan on Opus, Exec on Haiku or Sonnet, Verify on Sonnet or Opus.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="360" rx="18" fill="url(#bg)"/>
+  <rect x="0" y="0" width="8" height="360" fill="#f59e0b"/>
+
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="64" y="76" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="44" font-weight="700" fill="#f59e0b">mr</text>
+    <text x="128" y="74" font-size="24" fill="#94a3b8">model routing for Claude Code</text>
+
+    <text x="64" y="166" font-size="72" font-weight="800" fill="#f8fafc">The right <tspan fill="#f59e0b">Claude</tspan></text>
+    <text x="64" y="244" font-size="72" font-weight="800" fill="#f8fafc">for every step.</text>
+
+    <text x="64" y="298" font-size="21" fill="#cbd5e1">Haiku scouts and builds, Sonnet takes the harder code,</text>
+    <text x="64" y="328" font-size="21" fill="#cbd5e1">Opus plans and reviews.</text>
+  </g>
+
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <rect x="736" y="34" width="480" height="62" rx="12" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+    <text x="758" y="64" font-size="25" font-weight="700" fill="#f8fafc">Scout</text>
+    <text x="758" y="86" font-size="16" fill="#94a3b8">Reads code, logs and docs</text>
+    <text x="1194" y="73" font-size="24" font-weight="700" text-anchor="end"><tspan fill="#34d399">Haiku</tspan></text>
+    <rect x="736" y="108" width="480" height="62" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
+    <text x="758" y="138" font-size="25" font-weight="700" fill="#f8fafc">Plan</text>
+    <text x="758" y="160" font-size="16" fill="#94a3b8">Writes the task plan</text>
+    <text x="1194" y="147" font-size="24" font-weight="700" text-anchor="end"><tspan fill="#a78bfa">Opus</tspan></text>
+    <rect x="736" y="182" width="480" height="62" rx="12" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+    <text x="758" y="212" font-size="25" font-weight="700" fill="#f8fafc">Exec</text>
+    <text x="758" y="234" font-size="16" fill="#94a3b8">Writes the code, tests first</text>
+    <text x="1194" y="221" font-size="24" font-weight="700" text-anchor="end"><tspan fill="#34d399">Haiku</tspan><tspan fill="#64748b"> / </tspan><tspan fill="#60a5fa">Sonnet</tspan></text>
+    <rect x="736" y="256" width="480" height="62" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
+    <text x="758" y="286" font-size="25" font-weight="700" fill="#f8fafc">Verify</text>
+    <text x="758" y="308" font-size="16" fill="#94a3b8">Reviews before merge</text>
+    <text x="1194" y="295" font-size="24" font-weight="700" text-anchor="end"><tspan fill="#60a5fa">Sonnet</tspan><tspan fill="#64748b"> / </tspan><tspan fill="#a78bfa">Opus</tspan></text>
+  </g>
+</svg>

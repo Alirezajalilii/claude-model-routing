@@ -116,9 +116,10 @@ class NamingTest(unittest.TestCase):
         self.assertNotIn(OLD, text)
 
     def test_no_bare_old_plugin_id_in_prose(self):
-        # Allowed: the repository URL (github.com/Alirezajalilii/<old>), an install id (@<old>),
-        # and the marketplace "name" entry in .claude-plugin/marketplace.json.
-        bare = re.compile(r"(?<!@)(?<!github\.com/Alirezajalilii/)" + re.escape(OLD))
+        # TC10: allowed are the owner/repo shorthand (Alirezajalilii/<old>, which also covers the
+        # github.com URL), an install id (@<old>), and the marketplace "name" entry in
+        # .claude-plugin/marketplace.json.
+        bare = re.compile(r"(?<!@)(?<!Alirezajalilii/)" + re.escape(OLD))
         marketplace = ROOT / ".claude-plugin" / "marketplace.json"
         name_entry = re.compile(r'"name"\s*:')
         hits = []

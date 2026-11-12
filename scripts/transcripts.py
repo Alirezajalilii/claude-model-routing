@@ -91,6 +91,15 @@ def _find_session_dir(ref: str, claude_dir: Path) -> Optional[Path]:
     return None
 
 
+def _find_main_transcript(ref: str, claude_dir: Path) -> Optional[Path]:
+    """Return <claude>/projects/*/<ref>.jsonl when it exists (no subagent folder needed)."""
+    root = os.path.join(str(claude_dir), "projects")
+    for hit in sorted(glob.glob(os.path.join(root, "*", ref + ".jsonl"))):
+        if os.path.isfile(hit):
+            return Path(os.path.abspath(hit))
+    return None
+
+
 def resolve_session(ref: str, claude_dir: Path) -> SessionFiles:
     """Resolve a session id, session directory, main .jsonl or agent-*.jsonl."""
     if not ref:
@@ -102,8 +111,11 @@ def resolve_session(ref: str, claude_dir: Path) -> SessionFiles:
         return _session_from_dir(Path(os.path.abspath(ref[: -len(".jsonl")])))
     session_dir = _find_session_dir(ref, claude_dir)
     if session_dir is None:
-        root = Path(claude_dir) / "projects"
-        raise SessionNotFound(f"no session for {ref} under {root}")
+        transcript = _find_main_transcript(ref, claude_dir)
+        if transcript is None:
+            root = Path(claude_dir) / "projects"
+            raise SessionNotFound(f"no session for {ref} under {root}")
+        return _session_from_dir(Path(os.path.abspath(str(transcript)[: -len(".jsonl")])))
     return _session_from_dir(session_dir)
 
 

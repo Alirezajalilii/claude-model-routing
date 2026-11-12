@@ -40,11 +40,7 @@ lint:
 	else \
 		echo "make lint: claude CLI not on PATH; plugin validation skipped"; \
 	fi
-	@if [ -f scripts/scan_sensitive.py ]; then \
-		$(PY) $(PYFLAGS) scripts/scan_sensitive.py --history; \
-	else \
-		echo "make lint: scripts/scan_sensitive.py is not on this branch (it exists on agent/T09); sensitive-data scan skipped"; \
-	fi
+	$(PY) $(PYFLAGS) scripts/scan_sensitive.py --history
 
 fmt:
 	@echo "make fmt: not applicable; no formatter is configured"

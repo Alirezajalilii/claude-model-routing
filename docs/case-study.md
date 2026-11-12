@@ -91,7 +91,7 @@ Counting added plus deleted lines in the same categories, the earlier setup prod
 
 ## Review and quality
 
-Verifiers wrote 179 verdict files: 98 PASS, 70 FIX and 9 REPLAN. Reviewers sent work back 79 times (70 FIX plus 9 REPLAN), counting re-verification rounds. Grouped by task, the first verdict was PASS in 45 of 116 task groups.
+Verifiers wrote 179 verdict files: 98 PASS, 70 FIX, 9 REPLAN and 2 that were not final verdicts. Reviewers sent work back 79 times (70 FIX plus 9 REPLAN), counting re-verification rounds. Grouped by task, the first verdict was PASS in 45 of 116 task groups.
 
 The project owner classified the defects that verifiers found after the gate had passed: 25 touched security, money, data or authorization, and 50 were wrong behavior, a broken gate or a test that did not test. This is the owner's classification. I did not re-derive it.
 

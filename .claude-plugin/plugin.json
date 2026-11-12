@@ -1,11 +1,11 @@
 {
   "name": "mr",
   "displayName": "Model Routing (mr)",
-  "version": "0.6.0",
-  "description": "Cost-aware model routing for Claude Code: tiered subagents (scouts, planners, executors, verifiers), a dispatcher policy injected at session start, a dispatch guard and a session audit.",
+  "version": "0.7.0",
+  "description": "Cost-aware model routing for Claude Code: a planner writes test-first tasks, Haiku and Sonnet subagents implement them, a scripted gate and risk-based verifiers check them, and hooks enforce the policy and audit each session.",
   "author": {"name": "Alireza Jalili", "url": "https://github.com/Alirezajalilii"},
   "homepage": "https://github.com/Alirezajalilii/claude-model-routing",
   "repository": "https://github.com/Alirezajalilii/claude-model-routing",
   "license": "MIT",
-  "keywords": ["subagents", "model-routing", "cost", "hooks", "tdd", "agents"]
+  "keywords": ["claude-code", "subagents", "model-routing", "cost", "haiku", "sonnet", "opus", "hooks", "tdd", "agents", "token-usage"]
 }

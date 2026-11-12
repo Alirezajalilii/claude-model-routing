@@ -1,7 +1,7 @@
 """Estimate what subagent tokens would cost at Anthropic API list prices.
 
 Reads the JSON rows of `mr-usage --json` (a file, or `-` for stdin) and prints,
-per agent group (scout, plan, exec, verify, other), the estimated cost at the
+per agent group (scout, plan, exec, verify, main, other), the estimated cost at the
 models that ran and the same tokens re-priced at claude-sonnet-5-5 and
 claude-opus-5-5 rates.
 
@@ -47,7 +47,9 @@ SONNET_REF = "claude-sonnet-5-5"
 OPUS_REF = "claude-opus-5-5"
 
 GROUPS = ("scout", "plan", "exec", "verify")
-GROUP_ORDER = GROUPS + ("other",)
+MAIN_GROUP = "main"
+GROUP_ORDER = GROUPS + (MAIN_GROUP, "other")
+AGENT_COUNT_KEY = "agent_count"
 TOKEN_KEYS = (
     "input_tokens",
     "output_tokens",
@@ -82,7 +84,9 @@ def row_cost(row: Mapping, price: Price, cache_ttl: str) -> float:
 
 
 def group_of(agent_type: str) -> str:
-    """Tier group of an agent type: `mr:exec-haiku-high` gives `exec`."""
+    """Tier group of an agent type: `mr:exec-haiku-high` gives `exec`, the main session gives `main`."""
+    if agent_type == MAIN_GROUP:
+        return MAIN_GROUP
     name = agent_type.rsplit(":", 1)[-1]
     group = name.split("-", 1)[0]
     return group if group in GROUPS else "other"
@@ -98,11 +102,17 @@ def checked_rows(data: object) -> list:
         for key in COUNT_KEYS:
             if key in row and not _is_count(row[key]):
                 raise ValueError(f"row {index}: {key} is not an integer")
+        if AGENT_COUNT_KEY in row and not _is_agent_count(row[AGENT_COUNT_KEY]):
+            raise ValueError(f"row {index}: {AGENT_COUNT_KEY} is not a non-negative integer")
     return data
 
 
 def _is_count(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_agent_count(value: object) -> bool:
+    return _is_count(value) and value >= 0
 
 
 def _empty_sums() -> Dict[str, float]:
@@ -125,6 +135,12 @@ def _real_models(names: Sequence[str]) -> List[str]:
     return real or list(names)
 
 
+def usable_models(row: Mapping) -> list:
+    """Model names a row ran on, without any placeholder such as `<synthetic>`."""
+    names = [str(model) for model in (row.get("resolved_models") or [])]
+    return [name for name in names if not is_placeholder_model(name)]
+
+
 def _row_price(row: Mapping, models: Sequence[str]) -> Optional[Price]:
     if len(models) != 1:
         return None
@@ -133,7 +149,7 @@ def _row_price(row: Mapping, models: Sequence[str]) -> Optional[Price]:
 
 def _row_sums(row: Mapping, price: Price, cache_ttl: str) -> Dict[str, float]:
     return {
-        "agents": 1,
+        "agents": row.get(AGENT_COUNT_KEY, 1),
         "actual": row_cost(row, price, cache_ttl),
         "sonnet": row_cost(row, PRICES[SONNET_REF], cache_ttl),
         "opus": row_cost(row, PRICES[OPUS_REF], cache_ttl),

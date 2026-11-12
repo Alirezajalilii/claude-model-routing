@@ -66,7 +66,7 @@ I priced the committed dataset with `python3 -B bin/mr-cost docs/case-study/2026
 | main | 1 | $214.73 | $169.80 | $339.61 |
 | total | 279 | $2,105.04 | $1,766.48 | $3,532.96 |
 
-Against all-Opus, the routed run cost 40% less. Against all-Sonnet it cost 19% more. The cause is the Opus verifier tier: its 89 agents cost $597.50 at Opus prices and the same tokens would cost $298.75 at Sonnet prices. That $298.75 premium is the price of Opus review on the risky tasks, and it is larger than the whole gap between routed and all-Sonnet. The all-Sonnet run is cheaper in dollars; what the extra spend bought is review by a stronger model, and the next sections show what review sent back.
+Against all-Opus, the routed run cost 40% less. Against all-Sonnet it cost 19% more. The cause is the Opus verifier tier: its 89 agents cost $597.50 at Opus prices and the same tokens would cost $298.75 at Sonnet prices. That $298.75 premium is the price of Opus review on the risky tasks, and it makes up about 88% of the $338.56 gap between routed and all-Sonnet. The all-Sonnet run is cheaper in dollars; what the extra spend bought is review by a stronger model, and the next sections show what review sent back.
 
 ## What the same usage limit covers
 

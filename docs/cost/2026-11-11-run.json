@@ -1,0 +1,398 @@
+[
+  {
+    "label": "scout-1",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 22,
+    "output_tokens": 13383,
+    "cache_creation_input_tokens": 142825,
+    "cache_read_input_tokens": 463410,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "scout-2",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 46,
+    "output_tokens": 57852,
+    "cache_creation_input_tokens": 340169,
+    "cache_read_input_tokens": 1130350,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "scout-3",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 38,
+    "output_tokens": 14240,
+    "cache_creation_input_tokens": 137639,
+    "cache_read_input_tokens": 1060705,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "scout-4",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 60,
+    "output_tokens": 28330,
+    "cache_creation_input_tokens": 362986,
+    "cache_read_input_tokens": 1671376,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "scout-5",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 28,
+    "output_tokens": 33386,
+    "cache_creation_input_tokens": 77840,
+    "cache_read_input_tokens": 786707,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "plan-A",
+    "agent_type": "mr:plan-opus-high",
+    "resolved_models": [
+      "claude-opus-5-5"
+    ],
+    "input_tokens": 40,
+    "output_tokens": 73751,
+    "cache_creation_input_tokens": 166024,
+    "cache_read_input_tokens": 2176672
+  },
+  {
+    "label": "plan-B",
+    "agent_type": "mr:plan-opus-xhigh",
+    "resolved_models": [
+      "claude-opus-5-5"
+    ],
+    "input_tokens": 48,
+    "output_tokens": 98125,
+    "cache_creation_input_tokens": 208709,
+    "cache_read_input_tokens": 3220204
+  },
+  {
+    "label": "plan-C",
+    "agent_type": "mr:plan-sonnet-high",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 44,
+    "output_tokens": 47193,
+    "cache_creation_input_tokens": 214570,
+    "cache_read_input_tokens": 1867196
+  },
+  {
+    "label": "scout-C1",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 22,
+    "output_tokens": 17996,
+    "cache_creation_input_tokens": 60340,
+    "cache_read_input_tokens": 473010,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "scout-C2",
+    "agent_type": "mr:scout-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 92,
+    "output_tokens": 191330,
+    "cache_creation_input_tokens": 680554,
+    "cache_read_input_tokens": 2300436,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T1",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 42,
+    "output_tokens": 76888,
+    "cache_creation_input_tokens": 253994,
+    "cache_read_input_tokens": 1055477,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T2",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 40,
+    "output_tokens": 17727,
+    "cache_creation_input_tokens": 143480,
+    "cache_read_input_tokens": 1121019,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T3",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 38,
+    "output_tokens": 35474,
+    "cache_creation_input_tokens": 153789,
+    "cache_read_input_tokens": 1161300,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T4",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 52,
+    "output_tokens": 32812,
+    "cache_creation_input_tokens": 213183,
+    "cache_read_input_tokens": 1605970,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T5",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 60,
+    "output_tokens": 28905,
+    "cache_creation_input_tokens": 211183,
+    "cache_read_input_tokens": 1793272,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "B-T1",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 54,
+    "output_tokens": 24978,
+    "cache_creation_input_tokens": 203428,
+    "cache_read_input_tokens": 1685821,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "B-T2",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 50,
+    "output_tokens": 57999,
+    "cache_creation_input_tokens": 221876,
+    "cache_read_input_tokens": 1513061,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "B-T3",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 70,
+    "output_tokens": 97161,
+    "cache_creation_input_tokens": 470815,
+    "cache_read_input_tokens": 2006231,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "B-T4",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 52,
+    "output_tokens": 22037,
+    "cache_creation_input_tokens": 203912,
+    "cache_read_input_tokens": 1553738,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "R1",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 28,
+    "output_tokens": 10249,
+    "cache_creation_input_tokens": 40639,
+    "cache_read_input_tokens": 553817,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "C1",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 46,
+    "output_tokens": 15119,
+    "cache_creation_input_tokens": 140898,
+    "cache_read_input_tokens": 1348266,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "C2",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 78,
+    "output_tokens": 54740,
+    "cache_creation_input_tokens": 373398,
+    "cache_read_input_tokens": 2368743,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "C3",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 40,
+    "output_tokens": 16076,
+    "cache_creation_input_tokens": 127331,
+    "cache_read_input_tokens": 1242314,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "R2",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 36,
+    "output_tokens": 9749,
+    "cache_creation_input_tokens": 40234,
+    "cache_read_input_tokens": 727604,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "R3",
+    "agent_type": "mr:exec-haiku-low",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "input_tokens": 10,
+    "output_tokens": 2228,
+    "cache_creation_input_tokens": 28610,
+    "cache_read_input_tokens": 149442,
+    "peak_prompt_tokens": 91105
+  },
+  {
+    "label": "A-T3",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 14,
+    "output_tokens": 4270,
+    "cache_creation_input_tokens": 85389,
+    "cache_read_input_tokens": 433031
+  },
+  {
+    "label": "A-T5",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 14,
+    "output_tokens": 3179,
+    "cache_creation_input_tokens": 74719,
+    "cache_read_input_tokens": 356370
+  },
+  {
+    "label": "B-T1",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 18,
+    "output_tokens": 4894,
+    "cache_creation_input_tokens": 80939,
+    "cache_read_input_tokens": 508074
+  },
+  {
+    "label": "B-T2",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 14,
+    "output_tokens": 3365,
+    "cache_creation_input_tokens": 68233,
+    "cache_read_input_tokens": 348169
+  },
+  {
+    "label": "B-T3",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 22,
+    "output_tokens": 7663,
+    "cache_creation_input_tokens": 111408,
+    "cache_read_input_tokens": 697153
+  },
+  {
+    "label": "B-T4",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 12,
+    "output_tokens": 4041,
+    "cache_creation_input_tokens": 58343,
+    "cache_read_input_tokens": 274824
+  },
+  {
+    "label": "C1",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 10,
+    "output_tokens": 2712,
+    "cache_creation_input_tokens": 67977,
+    "cache_read_input_tokens": 219712
+  },
+  {
+    "label": "C2",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 12,
+    "output_tokens": 3619,
+    "cache_creation_input_tokens": 76971,
+    "cache_read_input_tokens": 296952
+  },
+  {
+    "label": "C3",
+    "agent_type": "mr:verify-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "input_tokens": 10,
+    "output_tokens": 2232,
+    "cache_creation_input_tokens": 56585,
+    "cache_read_input_tokens": 223563
+  }
+]

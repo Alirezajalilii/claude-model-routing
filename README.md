@@ -120,7 +120,7 @@ The plugin puts these commands on the PATH of Claude Code's Bash tool. Ask Claud
 | `mr-audit <session-id>` | Policy compliance flags for a session. |
 | `mr-skills` | The skills inventory the planner uses to assign skills to tasks. |
 | `mr-plan waves <plan>`, `mr-plan check` | Validates a plan's task contracts and prints the order the tasks can run in. |
-| `mr-gate <plan> <task-id> <worktree>` | Runs one task's gate and writes the gate file. |
+| `mr-gate <plan> <task-id> <worktree> --commits <shas> --report <file> --out <file> [--base <rev>]` | Runs one task's gate and writes the gate file. |
 
 Skills: `/mr:init-project` sets up a project, `/mr:routing-report` collects a session's routing evidence for `docs/model-routing-log.md`, and `mr:routing-policy` holds the full policy text.
 

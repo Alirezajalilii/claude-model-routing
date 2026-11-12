@@ -84,7 +84,7 @@ class ReadmeCopyTest(unittest.TestCase):
 
     def test_no_dashes(self):
         # TC7: README.md contains no em dash (U+2014) and no en dash (U+2013).
-        self.assertEqual(re.findall("[–—]", read("README.md")), [])
+        self.assertEqual(re.findall("[\u2013\u2014]", read("README.md")), [])
 
     def test_sections(self):
         # TC8: README.md has the required sections and mentions all four hook scripts.

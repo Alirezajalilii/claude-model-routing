@@ -191,7 +191,7 @@ class ReadmeCopyTest(unittest.TestCase):
         # TC7: the cost chart's alt text states the three Haiku-heavy dollar values.
         readme = read("README.md")
         n = headline_numbers()
-        alt = re.search(r'<img[^>]*cost-chart\.svg[^>]*>', readme)
+        alt = re.search(r'<img[^>]*chart-cost\.svg[^>]*>', readme)
         self.assertIsNotNone(alt)
         for key in ("haiku_heavy_routed_usd", "haiku_heavy_sonnet_usd", "haiku_heavy_opus_usd"):
             self.assertTrue("$" + n[key] in alt.group(0), "missing in alt: $" + n[key])
@@ -235,7 +235,7 @@ class ReadmeCopyTest(unittest.TestCase):
     def test_assets_referenced(self):
         # TC8 (guard): the README references both SVG assets, and both files exist.
         readme = read("README.md")
-        for asset in ("docs/assets/hero.svg", "docs/assets/cost-chart.svg"):
+        for asset in ("docs/assets/hero.svg", "docs/assets/chart-cost.svg"):
             self.assertTrue(asset in readme, "missing: " + asset)
             self.assertTrue((ROOT / asset).is_file(), asset)
 

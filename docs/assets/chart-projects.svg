@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1262" width="640" height="1262" role="img" aria-labelledby="chart-title chart-desc">
+  <title id="chart-title">Saving per project against all-Opus and all-Sonnet</title>
+  <desc id="chart-desc">Saving per project, two bars each, drawn from a zero line; a bar left of the line costs more than that baseline. P01 57.1% against all-Opus, 14.1% against all-Sonnet. P02 70.2% against all-Opus, 40.4% against all-Sonnet. P03 56.1% against all-Opus, 12.3% against all-Sonnet. P04 60.3% against all-Opus, 20.6% against all-Sonnet. P05 51.9% against all-Opus, 3.8% against all-Sonnet. P06 61.5% against all-Opus, 22.9% against all-Sonnet. P07 73.3% against all-Opus, 46.6% against all-Sonnet. P08 41.0% against all-Opus, -18.0% against all-Sonnet. P09 41.6% against all-Opus, -16.9% against all-Sonnet. P10 60.8% against all-Opus, 21.5% against all-Sonnet. P11 66.6% against all-Opus, 33.3% against all-Sonnet. 73.3% most saved against all-Opus (P07). 41.0% least saved against all-Opus (P08). -18.0% lowest against all-Sonnet (P08). Savings are subagent spend at list prices. Bars left of the line cost more.</desc>
+  <rect id="bg" x="0" y="0" width="640" height="1262" rx="18" fill="#0f172a"/>
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="40" y="48" font-size="28" font-weight="800" fill="#f8fafc">Cheaper than all-Opus on every</text>
+    <text x="40" y="86" font-size="28" font-weight="800" fill="#f8fafc">project</text>
+    <text x="40" y="126" font-size="22" fill="#94a3b8">Savings are subagent spend at list</text>
+    <text x="40" y="156" font-size="22" fill="#94a3b8">prices. Bars left of the line cost more.</text>
+    <text x="40" y="200" font-size="22" fill="#fbbf24">73.3% most saved against all-Opus (P07)</text>
+    <text x="40" y="230" font-size="22" fill="#c4b5fd">41.0% least saved against all-Opus (P08)</text>
+    <text x="40" y="260" font-size="22" fill="#fda4af">-18.0% lowest against all-Sonnet (P08)</text>
+    <rect x="40" y="290" width="18" height="18" rx="3" fill="#a78bfa"/>
+    <text x="66" y="308" font-size="22" fill="#cbd5e1">Against all-Opus</text>
+    <rect x="312" y="290" width="18" height="18" rx="3" fill="#60a5fa"/>
+    <text x="338" y="308" font-size="22" fill="#cbd5e1">Against all-Sonnet</text>
+    <line x1="200" y1="342" x2="200" y2="1242" stroke="#94a3b8" stroke-width="2"/>
+    <text x="40" y="344" font-size="22" font-weight="700" fill="#f8fafc">P01</text>
+    <rect id="proj-P01-opus" x="200" y="350" width="206" height="22" rx="0" fill="#a78bfa"/>
+    <text x="414" y="369" font-size="22" fill="#c4b5fd">57.1%</text>
+    <rect id="proj-P01-sonnet" x="200" y="376" width="51" height="22" rx="0" fill="#60a5fa"/>
+    <text x="259" y="395" font-size="22" fill="#93c5fd">14.1%</text>
+    <text x="40" y="428" font-size="22" font-weight="700" fill="#f8fafc">P02</text>
+    <rect id="proj-P02-opus" x="200" y="434" width="253" height="22" rx="0" fill="#a78bfa"/>
+    <text x="461" y="453" font-size="22" fill="#c4b5fd">70.2%</text>
+    <rect id="proj-P02-sonnet" x="200" y="460" width="145" height="22" rx="0" fill="#60a5fa"/>
+    <text x="353" y="479" font-size="22" fill="#93c5fd">40.4%</text>
+    <text x="40" y="512" font-size="22" font-weight="700" fill="#f8fafc">P03</text>
+    <rect id="proj-P03-opus" x="200" y="518" width="202" height="22" rx="0" fill="#a78bfa"/>
+    <text x="410" y="537" font-size="22" fill="#c4b5fd">56.1%</text>
+    <rect id="proj-P03-sonnet" x="200" y="544" width="44" height="22" rx="0" fill="#60a5fa"/>
+    <text x="252" y="563" font-size="22" fill="#93c5fd">12.3%</text>
+    <text x="40" y="596" font-size="22" font-weight="700" fill="#f8fafc">P04</text>
+    <rect id="proj-P04-opus" x="200" y="602" width="217" height="22" rx="0" fill="#a78bfa"/>
+    <text x="425" y="621" font-size="22" fill="#c4b5fd">60.3%</text>
+    <rect id="proj-P04-sonnet" x="200" y="628" width="74" height="22" rx="0" fill="#60a5fa"/>
+    <text x="282" y="647" font-size="22" fill="#93c5fd">20.6%</text>
+    <text x="40" y="680" font-size="22" font-weight="700" fill="#f8fafc">P05</text>
+    <rect id="proj-P05-opus" x="200" y="686" width="187" height="22" rx="0" fill="#a78bfa"/>
+    <text x="395" y="705" font-size="22" fill="#c4b5fd">51.9%</text>
+    <rect id="proj-P05-sonnet" x="200" y="712" width="14" height="22" rx="0" fill="#60a5fa"/>
+    <text x="222" y="731" font-size="22" fill="#93c5fd">3.8%</text>
+    <text x="40" y="764" font-size="22" font-weight="700" fill="#f8fafc">P06</text>
+    <rect id="proj-P06-opus" x="200" y="770" width="221" height="22" rx="0" fill="#a78bfa"/>
+    <text x="429" y="789" font-size="22" fill="#c4b5fd">61.5%</text>
+    <rect id="proj-P06-sonnet" x="200" y="796" width="82" height="22" rx="0" fill="#60a5fa"/>
+    <text x="290" y="815" font-size="22" fill="#93c5fd">22.9%</text>
+    <text x="40" y="848" font-size="22" font-weight="700" fill="#f8fafc">P07</text>
+    <rect id="proj-P07-opus" x="200" y="854" width="264" height="22" rx="0" fill="#a78bfa"/>
+    <text x="472" y="873" font-size="22" fill="#c4b5fd">73.3%</text>
+    <rect id="proj-P07-sonnet" x="200" y="880" width="168" height="22" rx="0" fill="#60a5fa"/>
+    <text x="376" y="899" font-size="22" fill="#93c5fd">46.6%</text>
+    <text x="40" y="932" font-size="22" font-weight="700" fill="#f8fafc">P08</text>
+    <rect id="proj-P08-opus" x="200" y="938" width="148" height="22" rx="0" fill="#a78bfa"/>
+    <text x="356" y="957" font-size="22" fill="#c4b5fd">41.0%</text>
+    <rect id="proj-P08-sonnet" x="135" y="964" width="65" height="22" rx="0" fill="#fb7185"/>
+    <text x="127" y="983" font-size="22" text-anchor="end" fill="#fda4af">-18.0%</text>
+    <text x="40" y="1016" font-size="22" font-weight="700" fill="#f8fafc">P09</text>
+    <rect id="proj-P09-opus" x="200" y="1022" width="150" height="22" rx="0" fill="#a78bfa"/>
+    <text x="358" y="1041" font-size="22" fill="#c4b5fd">41.6%</text>
+    <rect id="proj-P09-sonnet" x="139" y="1048" width="61" height="22" rx="0" fill="#fb7185"/>
+    <text x="131" y="1067" font-size="22" text-anchor="end" fill="#fda4af">-16.9%</text>
+    <text x="40" y="1100" font-size="22" font-weight="700" fill="#f8fafc">P10</text>
+    <rect id="proj-P10-opus" x="200" y="1106" width="219" height="22" rx="0" fill="#a78bfa"/>
+    <text x="427" y="1125" font-size="22" fill="#c4b5fd">60.8%</text>
+    <rect id="proj-P10-sonnet" x="200" y="1132" width="77" height="22" rx="0" fill="#60a5fa"/>
+    <text x="285" y="1151" font-size="22" fill="#93c5fd">21.5%</text>
+    <text x="40" y="1184" font-size="22" font-weight="700" fill="#f8fafc">P11</text>
+    <rect id="proj-P11-opus" x="200" y="1190" width="240" height="22" rx="0" fill="#a78bfa"/>
+    <text x="448" y="1209" font-size="22" fill="#c4b5fd">66.6%</text>
+    <rect id="proj-P11-sonnet" x="200" y="1216" width="120" height="22" rx="0" fill="#60a5fa"/>
+    <text x="328" y="1235" font-size="22" fill="#93c5fd">33.3%</text>
+  </g>
+</svg>

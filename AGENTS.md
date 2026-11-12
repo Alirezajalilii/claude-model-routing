@@ -14,10 +14,11 @@ All routine work goes through the Makefile. Run `make help` for the list.
 - `make setup`: prints the Python version. Nothing to install.
 - `make dev`: not applicable; prints why and exits 0.
 - `make test`: `python3 -m unittest discover -s tests -v` with `PYTHONDONTWRITEBYTECODE=1`.
-- `make lint`: `scripts/generate.py --check` (fails if generated files are stale), then `claude plugin validate --strict` on a temporary copy of what git would ship (tracked plus untracked, not ignored) if the `claude` CLI is on PATH, then `scripts/scan_sensitive.py --history`.
+- `make lint`: `scripts/generate.py --check` (fails if generated files are stale), then `scripts/render_charts.py --check`, then `claude plugin validate --strict` on a temporary copy of what git would ship (tracked plus untracked, not ignored) if the `claude` CLI is on PATH, then `scripts/scan_sensitive.py --history`.
 - `make check-install`: fails if the installed plugin cache holds any file not committed at HEAD (run after install or update, from a clean checkout of the installed commit).
 - `make fmt`, `make typecheck`: not applicable; print why and exit 0.
 - `make build`: runs `scripts/generate.py` and rewrites the generated files `agents/*.md` and `skills/routing-policy/SKILL.md`.
+- `make charts`: runs `scripts/render_charts.py` and rewrites the data charts in `docs/assets/chart-*.svg` from `docs/case-study/` and `docs/cost/`; `make lint` fails when they are stale.
 - `make clean`: removes `__pycache__` directories outside `.git`.
 
 ## Conventions

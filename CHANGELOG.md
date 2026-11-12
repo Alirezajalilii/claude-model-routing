@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+### Added
+- `scripts/render_charts.py` and `make charts`: four README charts generated from the committed case-study and cost data; `make lint` fails when they are stale.
+
+### Changed
+- README leads with charts and a workflow diagram instead of long prose.
+
 ## [0.7.0] - 2026-11-12
 
 ### Added

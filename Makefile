@@ -5,17 +5,18 @@
 PY ?= python3
 PYFLAGS := -B
 
-.PHONY: help setup dev test lint fmt typecheck build clean check-install
+.PHONY: help setup dev test lint fmt typecheck build charts clean check-install
 
 help:
-	@echo "Targets: setup dev test lint fmt typecheck build clean check-install"
+	@echo "Targets: setup dev test lint fmt typecheck build charts clean check-install"
 	@echo "  setup      check the Python interpreter (nothing to install)"
 	@echo "  dev        not applicable (plugin is loaded by Claude Code)"
 	@echo "  test       unittest suite in tests/"
-	@echo "  lint       regenerate check, plugin validation, sensitive-data scan"
+	@echo "  lint       regenerate check, chart check, plugin validation, sensitive-data scan"
 	@echo "  fmt        not applicable (no formatter configured)"
 	@echo "  typecheck  not applicable (no type checker configured)"
 	@echo "  build      regenerate agents/ and skills/routing-policy/SKILL.md from config/ and policy/"
+	@echo "  charts     rewrite docs/assets/chart-*.svg from docs/case-study/ and docs/cost/"
 	@echo "  clean      remove Python bytecode caches"
 	@echo "  check-install  check the installed plugin holds only files committed at HEAD"
 
@@ -31,6 +32,7 @@ test:
 
 lint:
 	$(PY) $(PYFLAGS) scripts/generate.py --check
+	$(PY) $(PYFLAGS) scripts/render_charts.py --check
 	@# Validate what git would ship (tracked + untracked, not ignored): the workspace's
 	@# git-ignored CLAUDE.md pointer and .agent/ run state are not part of the plugin.
 	@if command -v claude >/dev/null 2>&1; then \
@@ -50,6 +52,9 @@ typecheck:
 
 build:
 	$(PY) $(PYFLAGS) scripts/generate.py
+
+charts:
+	$(PY) $(PYFLAGS) scripts/render_charts.py
 
 clean:
 	find . -name __pycache__ -type d -not -path './.git/*' -prune -exec rm -rf {} +

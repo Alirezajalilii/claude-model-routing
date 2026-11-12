@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1026" width="640" height="1026" role="img" aria-labelledby="chart-title chart-desc">
+  <title id="chart-title">Subagent cost as routed, at all Sonnet and at all Opus prices</title>
+  <desc id="chart-desc">Horizontal bars in three groups. All sessions: As routed $3,272.02, All Sonnet 5.5 $3,454.92, All Opus 5.5 $6,909.83, 5% below all Sonnet. Haiku-heavy sessions: As routed $835.47, All Sonnet 5.5 $1,329.17, All Opus 5.5 $2,658.34, 37% below all Sonnet. One logged run on this repository (15 tasks): As routed $11.27, All Sonnet 5.5 $29.73, All Opus 5.5 $59.45, 62% below all Sonnet. Each group is drawn against its own all-Opus cost. Values are subagent spend at list prices.</desc>
+  <rect id="bg" x="0" y="0" width="640" height="1026" rx="18" fill="#0f172a"/>
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="40" y="48" font-size="28" font-weight="800" fill="#f8fafc">Routing beats all-Sonnet and</text>
+    <text x="40" y="86" font-size="28" font-weight="800" fill="#f8fafc">all-Opus on cost</text>
+    <text x="40" y="126" font-size="22" fill="#94a3b8">Each group is drawn against its own</text>
+    <text x="40" y="156" font-size="22" fill="#94a3b8">all-Opus cost. Values are subagent spend</text>
+    <text x="40" y="186" font-size="22" fill="#94a3b8">at list prices.</text>
+    <rect x="40" y="212" width="560" height="1" rx="0" fill="#1e293b"/>
+    <text x="40" y="252" font-size="22" font-weight="700" fill="#f8fafc">All sessions</text>
+    <text x="600" y="252" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">5% below all Sonnet</text>
+    <text x="40" y="290" font-size="22" fill="#cbd5e1">As routed</text>
+    <text x="600" y="290" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">$3,272.02</text>
+    <rect id="cost-all-routed" x="40" y="300" width="265" height="24" rx="4" fill="#f59e0b"/>
+    <text x="40" y="354" font-size="22" fill="#cbd5e1">All Sonnet 5.5</text>
+    <text x="600" y="354" font-size="22" font-weight="700" text-anchor="end" fill="#93c5fd">$3,454.92</text>
+    <rect id="cost-all-sonnet" x="40" y="364" width="280" height="24" rx="4" fill="#60a5fa"/>
+    <text x="40" y="418" font-size="22" fill="#cbd5e1">All Opus 5.5</text>
+    <text x="600" y="418" font-size="22" font-weight="700" text-anchor="end" fill="#c4b5fd">$6,909.83</text>
+    <rect id="cost-all-opus" x="40" y="428" width="560" height="24" rx="4" fill="#a78bfa"/>
+    <rect x="40" y="472" width="560" height="1" rx="0" fill="#1e293b"/>
+    <text x="40" y="512" font-size="22" font-weight="700" fill="#f8fafc">Haiku-heavy sessions</text>
+    <text x="600" y="512" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">37% below all Sonnet</text>
+    <text x="40" y="550" font-size="22" fill="#cbd5e1">As routed</text>
+    <text x="600" y="550" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">$835.47</text>
+    <rect id="cost-haiku-routed" x="40" y="560" width="176" height="24" rx="4" fill="#f59e0b"/>
+    <text x="40" y="614" font-size="22" fill="#cbd5e1">All Sonnet 5.5</text>
+    <text x="600" y="614" font-size="22" font-weight="700" text-anchor="end" fill="#93c5fd">$1,329.17</text>
+    <rect id="cost-haiku-sonnet" x="40" y="624" width="280" height="24" rx="4" fill="#60a5fa"/>
+    <text x="40" y="678" font-size="22" fill="#cbd5e1">All Opus 5.5</text>
+    <text x="600" y="678" font-size="22" font-weight="700" text-anchor="end" fill="#c4b5fd">$2,658.34</text>
+    <rect id="cost-haiku-opus" x="40" y="688" width="560" height="24" rx="4" fill="#a78bfa"/>
+    <rect x="40" y="732" width="560" height="1" rx="0" fill="#1e293b"/>
+    <text x="40" y="772" font-size="22" font-weight="700" fill="#f8fafc">One logged run on this repository</text>
+    <text x="40" y="802" font-size="22" font-weight="700" fill="#f8fafc">(15 tasks)</text>
+    <text x="600" y="802" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">62% below all Sonnet</text>
+    <text x="40" y="840" font-size="22" fill="#cbd5e1">As routed</text>
+    <text x="600" y="840" font-size="22" font-weight="700" text-anchor="end" fill="#fbbf24">$11.27</text>
+    <rect id="cost-repo-routed" x="40" y="850" width="106" height="24" rx="4" fill="#f59e0b"/>
+    <text x="40" y="904" font-size="22" fill="#cbd5e1">All Sonnet 5.5</text>
+    <text x="600" y="904" font-size="22" font-weight="700" text-anchor="end" fill="#93c5fd">$29.73</text>
+    <rect id="cost-repo-sonnet" x="40" y="914" width="280" height="24" rx="4" fill="#60a5fa"/>
+    <text x="40" y="968" font-size="22" fill="#cbd5e1">All Opus 5.5</text>
+    <text x="600" y="968" font-size="22" font-weight="700" text-anchor="end" fill="#c4b5fd">$59.45</text>
+    <rect id="cost-repo-opus" x="40" y="978" width="560" height="24" rx="4" fill="#a78bfa"/>
+  </g>
+</svg>

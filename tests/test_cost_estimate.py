@@ -22,6 +22,7 @@ from cost_estimate import (  # noqa: E402
     price_for,
     row_cost,
 )
+import cost_estimate  # noqa: E402  (new symbols are read as attributes, so the module imports before they exist)
 
 HEADER = "mr-cost: estimate at Anthropic API list prices as of 2026-11-12, USD, 5m cache writes"
 EXEC_HAIKU_ROW = {
@@ -108,6 +109,52 @@ class GroupOfTest(unittest.TestCase):
         self.assertEqual(group_of("exec-haiku-low"), "exec")
         self.assertEqual(group_of("general-purpose"), "other")
         self.assertEqual(group_of("?"), "other")
+
+    def test_main_group_order(self) -> None:
+        # TC5: the main session is its own group, and the report orders exec, main, other.
+        self.assertEqual(group_of("main"), "main")
+        main_row = {"agent_type": "main", "resolved_models": ["claude-sonnet-5-5"], "output_tokens": 1000000}
+        other_row = {
+            "agent_type": "general-purpose",
+            "resolved_models": ["claude-sonnet-5-5"],
+            "output_tokens": 1000000,
+        }
+        result = estimate([other_row, main_row, EXEC_HAIKU_ROW])
+        self.assertEqual(list(result["groups"]), ["exec", "main", "other"])
+        report_lines = format_report(result, "5m").splitlines()
+        self.assertEqual([line.split()[0] for line in report_lines[2:5]], ["exec", "main", "other"])
+
+
+class UsableModelsTest(unittest.TestCase):
+    def test_usable_models(self) -> None:
+        # TC1: placeholders are left out; a row with only placeholders or no models has none usable.
+        usable = cost_estimate.usable_models
+        self.assertEqual(usable({"resolved_models": ["<synthetic>", "claude-sonnet-5-5"]}), ["claude-sonnet-5-5"])
+        self.assertEqual(usable({"resolved_models": ["<synthetic>"]}), [])
+        self.assertEqual(usable({}), [])
+
+
+class AgentCountTest(unittest.TestCase):
+    def test_agent_count_sums(self) -> None:
+        # TC3: agent_count counts in its group and in the total; the cost is the same as without it.
+        plain = estimate([EXEC_HAIKU_ROW])
+        aggregated = estimate([dict(EXEC_HAIKU_ROW, agent_count=59)])
+        self.assertEqual(aggregated["groups"]["exec"]["agents"], 59)
+        self.assertEqual(aggregated["total"]["agents"], 59)
+        for kind in ("actual", "sonnet", "opus"):
+            self.assertAlmostEqual(aggregated["total"][kind], plain["total"][kind], places=6)
+        zero = estimate([dict(EXEC_HAIKU_ROW, agent_count=0)])
+        self.assertEqual(zero["total"]["agents"], 0)
+        self.assertAlmostEqual(zero["total"]["actual"], 0.50, places=6)
+
+    def test_agent_count_invalid(self) -> None:
+        # TC4: a count that is not a non-negative integer is an input error (exit 2).
+        for value in (-1, "3", 2.5, True):
+            with self.subTest(value=value):
+                row = dict(VERIFY_SONNET_ROW, agent_count=value)
+                code, out, err = run_main(["-"], json.dumps([row]))
+                self.assertEqual(code, 2)
+                self.assertTrue(err.startswith("mr-cost: "), err)
 
 
 class EstimateTest(unittest.TestCase):

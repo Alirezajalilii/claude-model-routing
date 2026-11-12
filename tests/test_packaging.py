@@ -25,6 +25,7 @@ LAUNCHERS = (
     "mr-plan",
     "mr-gate",
     "mr-cost",
+    "mr-doctor",  # TC10
 )
 
 

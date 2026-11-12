@@ -4,7 +4,7 @@ The executors of the 2026-11-11 run cost $0.80 at the models that ran, $14.08 at
 
 ## The run
 
-Date: 2026-11-11. The run had 15 tasks across three plans of this repository's own development (task contracts and `mr-plan`, the stall watch, the stall watch's repeat key), plus two releases (0.5.0, 0.5.1) and one rename. Every executor ran on Haiku. There were 9 `verify-sonnet-med` runs, all PASS. Scouts ran as `scout-haiku-med`, and the planners as `plan-opus-high`, `plan-opus-xhigh` and `plan-sonnet-high`, as in the dataset.
+Date: 2026-11-11. The run had 15 executor tasks: 12 across three plans of this repository's own development (task contracts and `mr-plan`, the stall watch, the stall watch's repeat key), the releases 0.5.0 and 0.5.1, and one small fast-lane fix (a stale version in a test name). Every executor ran on Haiku. There were 9 `verify-sonnet-med` runs, all PASS. Scouts ran as `scout-haiku-med`, and the planners as `plan-opus-high`, `plan-opus-xhigh` and `plan-sonnet-high`, as in the dataset.
 
 ## Prices used
 

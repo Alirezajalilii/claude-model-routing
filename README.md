@@ -140,7 +140,7 @@ claude plugin update mr@claude-model-routing
 
 Then restart Claude Code. Third-party marketplaces do not update on their own until you turn it on: run `/plugin`, open the **Marketplaces** tab, select this marketplace and choose **Enable auto-update**.
 
-To pin a release, add the marketplace with a tag, for example `claude plugin marketplace add Alirezajalilii/claude-model-routing#v0.7.0`.
+To pin a release, add the marketplace with a tag, for example `claude plugin marketplace add Alirezajalilii/claude-model-routing#v<version>`, where `<version>` is a release tag such as the latest one on the Releases page.
 
 ## Uninstall
 

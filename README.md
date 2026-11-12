@@ -16,14 +16,14 @@ mr turns a Claude Code session into a team: Haiku scouts and builds, Sonnet take
 
 <table>
   <tr>
-    <td align="center" width="25%"><strong>18 projects, 1,785 agents</strong><br>pooled languages: Kotlin, TypeScript, Rust, Python, Swift, C#. The agent count comes from the 11 projects with transcripts.</td>
-    <td align="center" width="25%"><strong>37%</strong><br>below all-Sonnet when Haiku scouts and builds¹ (subagent spend, 24 sessions)</td>
-    <td align="center" width="25%"><strong>92%</strong><br>cheaper evidence gathering with Haiku scouts than with Sonnet¹</td>
-    <td align="center" width="25%"><strong>4.2x</strong><br>smaller median context per agent than the main session (89,877 against 374,470 prompt tokens)</td>
+    <td align="center" width="25%"><h2 align="center">18</h2>real projects, 1,785 agents</td>
+    <td align="center" width="25%"><h2 align="center">37%</h2>below all-Sonnet when Haiku scouts and builds¹</td>
+    <td align="center" width="25%"><h2 align="center">92%</h2>cheaper scouting on Haiku than on Sonnet¹</td>
+    <td align="center" width="25%"><h2 align="center">4.2x</h2>smaller median context than the main session</td>
   </tr>
 </table>
 
-¹ Re-priced estimates. The assumptions are in the [footnote under More work per usage limit](#more-work-per-usage-limit). All figures come from 42 Claude Code sessions between 2026-10-27 and 2026-11-12; the [study](docs/case-study.md) has the data, the method and what went wrong.
+¹ Re-priced estimates of subagent spend over 42 sessions from 2026-10-27 to 2026-11-12. Agent and cost figures come from the 11 projects with transcripts; languages: Kotlin, TypeScript, Rust, Python, Swift, C#. [Study, data and method](docs/case-study.md).
 
 ## Install the plugin
 
@@ -97,7 +97,7 @@ The policy lives in `config/routing.json` and `policy/`. A session-start hook lo
 
 ## The right model for each step
 
-Pick one model and you give something up. On Sonnet only, you lose Opus-level planning and review, the two steps where a wrong call costs the most. On Opus only, you pay Opus rates for file edits, routine reads and test runs. mr puts each model where it is strongest: Haiku on evidence gathering and well-specified code, Sonnet on harder code and mid-risk review, Opus on planning and high-risk review.
+**Every model does the work it is best at.** Pick one model and you give something up. On Sonnet only, you lose Opus-level planning and review, the two steps where a wrong call costs the most. On Opus only, you pay Opus rates for file edits, routine reads and test runs. mr puts each model where it is strongest: Haiku on evidence gathering and well-specified code, Sonnet on harder code and mid-risk review, Opus on planning and high-risk review.
 
 Across the 1,785 agents, that came out as 57 Opus planners and 236 Opus verifiers on the steps that decide whether the work is right, against 591 Haiku executors on code a plan had already specified:
 
@@ -113,7 +113,7 @@ This is a design argument. The counts show where the work went; they do not meas
 
 ## A fresh context for every stage
 
-One session that scouts, plans and builds in a single context carries the leftovers of every stage into the next: the reading is still there when the code gets written, and the half-built plan is still there when the next file gets read. mr gives each stage its own agent. A scout reads a repository without a plan in its context, and an executor starts from its task, not from the reading that came before it.
+**Each stage starts with a fresh context.** One session that scouts, plans and builds in a single context carries the leftovers of every stage into the next: the reading is still there when the code gets written, and the half-built plan is still there when the next file gets read. mr gives each stage its own agent. A scout reads a repository without a plan in its context, and an executor starts from its task, not from the reading that came before it.
 
 That is the design reason for splitting the work. I did not measure output quality, so I make no claim about it. What I measured is how much context each side carried: the median agent peaked at 89,877 prompt tokens, the median main session at 374,470, which is 4.2x larger. 11 of 42 sessions had at least one context compaction. Planners are the exception: their median peak, 374,604 tokens, is close to the main session's.
 

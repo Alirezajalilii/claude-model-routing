@@ -1,6 +1,6 @@
 # Case study: model routing on a 530,000-line production monorepo
 
-Over about eight days, one developer directing Claude Code used mr routing to add 385,920 lines of production code and tests to a production TypeScript monorepo, in 5 active days. The 278 subagents of that run cost $2,105.04 (main session included) at Anthropic API list prices. The same tokens on Opus for every agent would have cost $3,532.96, which is 40% less under routing, or 1.7x the work for the same spend. Against an all-Sonnet run the routed run cost 19% more, and the Opus verifiers explain all of it. Reviewers sent work back 79 times before merge.
+Over about eight days, one developer directing Claude Code used mr routing to add 385,920 lines of production code and tests to a production TypeScript monorepo, in 5 active days. The run's 278 subagents plus its main session cost $2,105.04 at Anthropic API list prices. The same tokens on Opus for every agent would have cost $3,532.96, which is 40% less under routing, or 1.7x the work for the same spend. Against an all-Sonnet run the routed run cost 19% more, and the Opus verifiers account for about 88% of that difference. Reviewers sent work back 79 times before merge.
 
 ## Headline numbers
 

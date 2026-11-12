@@ -12,22 +12,33 @@ def read(name):
 
 class InstallDocsTests(unittest.TestCase):
     def test_readme_sections_and_commands(self):
+        # TC1: the install, update and uninstall strings use the owner shorthand, with no <owner> placeholder.
         readme = read("README.md")
         lines = readme.splitlines()
         self.assertIn("## Install the plugin", lines)
         self.assertIn("## Update the plugin", lines)
         for text in (
-            "claude plugin marketplace add git@github.com:<owner>/model-routing.git",
-            "claude plugin install mr@" + MARKET + " --scope user",
+            "claude plugin marketplace add Alirezajalilii/" + MARKET,
+            "claude plugin install mr@" + MARKET,
+            "claude plugin install mr@" + MARKET + " --scope local",
+            "claude plugin install mr --marketplace Alirezajalilii/" + MARKET,
+            "/plugin install mr --marketplace Alirezajalilii/" + MARKET,
             "claude plugin marketplace update",
             "claude plugin update mr@" + MARKET,
-            "--keep-data",
+            "claude plugin uninstall mr@" + MARKET + " --keep-data",
             "cp -Rpn",
             "make check-install",
+            "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH",
+            "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1",
+            "mr-doctor",
+            "mr-cost",
+            "/mr:init-project",
         ):
             self.assertIn(text, readme)
+        self.assertNotIn("<owner>", readme)
+        self.assertNotIn("git@github.com:", readme)
         for line in lines:
-            self.assertIsNone(re.search("(?<!@)" + re.escape(MARKET), line), line)
+            self.assertIsNone(re.search("(?<!@)(?<!Alirezajalilii/)" + re.escape(MARKET), line), line)
 
     def test_readme_and_agents_teach_short_names(self):
         readme = read("README.md")

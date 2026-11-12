@@ -114,6 +114,17 @@ def _add_sums(target: Dict[str, float], sums: Mapping) -> None:
         target[key] += sums[key]
 
 
+def is_placeholder_model(name: str) -> bool:
+    """True for Claude Code placeholder names such as `<synthetic>`, which name no model."""
+    return name.startswith("<") and name.endswith(">")
+
+
+def _real_models(names: Sequence[str]) -> List[str]:
+    """Model names of a row without placeholders; placeholders are kept only when nothing else is recorded."""
+    real = [name for name in names if not is_placeholder_model(name)]
+    return real or list(names)
+
+
 def _row_price(row: Mapping, models: Sequence[str]) -> Optional[Price]:
     if len(models) != 1:
         return None
@@ -142,7 +153,7 @@ def estimate(rows: list, cache_ttl: str = "5m") -> dict:
     unpriced = 0
     haiku_long = 0
     for row in rows:
-        models = [str(model) for model in (row.get("resolved_models") or [])]
+        models = _real_models([str(model) for model in (row.get("resolved_models") or [])])
         price = _row_price(row, models)
         if price is None:
             unpriced += 1

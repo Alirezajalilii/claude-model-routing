@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CASE_STUDY = "docs/case-study.md"
+CASE_STUDY = "docs/case-study-monorepo.md"
 LINK = re.compile(r"\]\(([^)]+)\)")
 BANNED_WORDS = (
     "game-changing",

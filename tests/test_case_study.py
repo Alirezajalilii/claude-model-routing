@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 CASE_JSON = ROOT / "docs" / "case-study" / "2026-11-production-run.json"
-CASE_DOC = ROOT / "docs" / "case-study.md"
+CASE_DOC = ROOT / "docs" / "case-study-monorepo.md"
 COST_JSON = ROOT / "docs" / "cost" / "2026-11-11-run.json"
 
 ROW_KEYS = [
@@ -31,7 +31,7 @@ HEADINGS = [
     "## What did not go well",
     "## Method",
 ]
-TITLE = "# Case study: model routing on a 530,000-line production monorepo"
+TITLE = "# Deep dive: model routing on a 530,000-line production monorepo"
 HEADLINE_KEYS = [
     "routed_usd", "all_sonnet_usd", "all_opus_usd", "saving_vs_opus_percent",
     "work_per_limit_ratio", "extra_vs_sonnet_percent", "subagents",

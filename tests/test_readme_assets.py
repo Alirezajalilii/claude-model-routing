@@ -18,7 +18,7 @@ BARS = (
 
 
 def headline_numbers():
-    lines = (ROOT / "docs" / "case-study.md").read_text(encoding="utf-8").splitlines()
+    lines = (ROOT / "docs" / "case-study-monorepo.md").read_text(encoding="utf-8").splitlines()
     start = lines.index("## Headline numbers")
     table = {}
     for line in lines[start + 1:]:

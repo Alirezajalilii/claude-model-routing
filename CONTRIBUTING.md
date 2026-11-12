@@ -1,32 +1,33 @@
 # Contributing
 
-Thanks for helping. This plugin has no runtime dependencies: Python 3.9 or later and its standard library only.
+Thanks for helping. mr has no runtime dependencies: Python 3.9 or later and its standard library only.
 
 ## Layout
 
 - `config/routing.json` is the single source of truth for tiers, roles and tunables.
 - `policy/sections/` holds the policy text; `policy/agents/` holds the role body templates.
-- `agents/` and `skills/routing-policy/SKILL.md` are generated. Never edit them by hand.
+- `agents/` and `skills/routing-policy/SKILL.md` are generated. Never edit them by hand; run `make build`.
+- `scripts/` holds the hooks and commands; `bin/` holds their launchers.
 
 ## Workflow
 
-1. Change `config/routing.json`, `policy/` or `scripts/`, with tests first (`unittest`).
-2. Regenerate: `python3 -B scripts/generate.py`.
-3. Run every check:
+1. Open an issue before a behavior change so we can agree on the approach first.
+2. Change `config/routing.json`, `policy/` or `scripts/` with tests first (`unittest`).
+3. Regenerate: `make build`.
+4. Run the checks:
 
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 -B scripts/generate.py --check
-claude plugin validate . --strict
-python3 -B scripts/scan_sensitive.py --history
-```
+   ```
+   make test
+   make lint
+   ```
 
-4. Keep functions under 50 lines and files under 800 lines; `tests/test_code_limits.py` enforces both.
-5. Use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), one subject line, and no personal data in messages.
+   `make lint` checks that the generated files are current, runs `claude plugin validate --strict` on a copy of what git would ship when the `claude` CLI is on your PATH, and runs the sensitive-data scan on the full history (`python3 -B scripts/scan_sensitive.py --history`).
+5. Keep functions under 50 lines and files under 800 lines; `tests/test_code_limits.py` enforces both.
+6. Use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), one subject line, and no personal data in messages.
 
 ## Installing and updating
 
-See the README sections "Install the plugin" and "Update the plugin". Install only from the pushed repository through a git marketplace. Never add a working tree as a directory marketplace: Claude Code copies git-ignored files such as .agent/ and .claude/ into the plugin cache. Run make check-install after every install or update; it fails when the installed copy holds a file that is not committed at HEAD. Back up the plugin data directory before any uninstall or marketplace removal; see the README.
+Users install from the pushed repository; see the README sections "Install the plugin" and "Update the plugin". Never add a working tree as a directory marketplace: Claude Code copies git-ignored files such as .agent/ and .claude/ into the plugin cache. After installing a build from a pushed branch, run make check-install from a clean checkout of the same commit; it fails when the installed copy holds a file that is not committed at HEAD. Back up the plugin data directory before any uninstall or marketplace removal; see the README.
 
 ## Rules
 

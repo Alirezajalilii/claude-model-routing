@@ -598,5 +598,85 @@ def nested_memory(path):
     return {"type": "attachment", "attachment": {"type": "nested_memory", "path": path}}
 
 
+def dispatch_events(aid, subagent_type):
+    """Main-session records of one Agent call and its tool_result, which carries toolUseResult.agentId."""
+    tid = f"toolu_{aid}"
+    return [
+        {"type": "assistant", "timestamp": TS,
+         "message": {"role": "assistant",
+                     "content": [agent_call(tid, subagent_type, prompt="Do it.")]}},
+        {"type": "user", "timestamp": TS,
+         "message": {"role": "user",
+                     "content": [{"type": "tool_result", "tool_use_id": tid, "content": "done"}]},
+         "toolUseResult": {"agentId": aid}},
+    ]
+
+
+def drop_meta(base, aid):
+    """Remove an agent's meta file, as the Claude Code versions without one leave it."""
+    os.remove(os.path.join(base, "subagents", f"agent-{aid}.meta.json"))
+
+
+class AgentTypeFallbackAuditTest(unittest.TestCase):
+    AID = "hhhhhhhhhhhhhhh8"
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.claude = os.path.join(tmp.name, "claude")
+        self.root = os.path.join(self.claude, "projects")
+        os.makedirs(self.root)
+
+    def run_report(self, target, extra=()):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = ra.main([target, "--claude-dir", self.claude, *extra])
+        return code, out.getvalue()
+
+    def session_without_meta(self, n, main_events=()):
+        base = write_session(self.root, sid(n), [agent(self.AID, "exec-haiku-low", HAIKU_PROMPT)],
+                             main_events=main_events)
+        drop_meta(base, self.AID)
+        return base
+
+    def test_tc1_missing_meta_takes_type_from_the_parent_dispatch(self):
+        # TC1: the per-type count names the type recovered from the Agent call's toolUseResult.
+        base = self.session_without_meta(60, dispatch_events(self.AID, "mr:exec-haiku-low"))
+        code, out = self.run_report(base)
+        self.assertEqual(code, 0)
+        self.assertIn("- exec-haiku-low: 1", out)
+        self.assertNotIn("- unknown", out)
+
+    def test_tc2_agent_type_filter_matches_the_recovered_type(self):
+        # TC2: --agent-type keeps the agent whose type was recovered.
+        base = self.session_without_meta(61, dispatch_events(self.AID, "mr:exec-haiku-low"))
+        _, out = self.run_report(base, extra=["--agent-type", "exec-haiku-low"])
+        self.assertIn("Agents: 1", out)
+
+    def test_tc3_no_meta_and_no_matching_dispatch_stays_unknown(self):
+        # TC3: with no source for the type, the agent is counted as unknown.
+        base = self.session_without_meta(62)
+        _, out = self.run_report(base)
+        self.assertIn("- unknown: 1", out)
+
+    def test_tc4_hook_audits_a_tier_agent_recovered_from_its_dispatch(self):
+        # TC4: the SessionEnd audit sees a tier dispatched by a meta-less agent and writes its report.
+        base = self.session_without_meta(63, dispatch_events(self.AID, "mr:exec-haiku-low"))
+        plugin_data = os.path.join(self.claude, "plugin-data")
+        event = json.dumps({"session_id": sid(63), "transcript_path": base + ".jsonl"})
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+        env["CLAUDE_PLUGIN_DATA"] = plugin_data
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch("sys.stdin", io.StringIO(event)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            code = ra.main(["--hook", "--claude-dir", self.claude])
+        audits_dir = os.path.join(plugin_data, "audits")
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.isdir(audits_dir))
+        (name,) = os.listdir(audits_dir)
+        with open(os.path.join(audits_dir, name)) as f:
+            self.assertIn("- exec-haiku-low: 1", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # mr in practice: 18 projects, 1,785 agents
 
-mr is a Claude Code plugin that gives each step of a coding session to a different model: Haiku scouts the code and builds the well-specified parts, Sonnet takes the harder code, and Opus plans and reviews. This is a study of how it ran across 18 projects between 2026-10-27 and 2026-11-12: 42 sessions and 1,785 agents. In the 24 sessions where Haiku did both the scouting and most of the building, subagent spend was 37% below an all-Sonnet run. Across all 42 sessions, including those where I kept executors on Sonnet, it was 5% below. Every figure below is recomputed from the data files in `docs/case-study/`.
+mr is a Claude Code plugin that gives each step of a coding session to a different model: Haiku scouts the code and builds the well-specified parts, Sonnet takes the harder code, and Opus plans and reviews. This is a study of how it ran across 18 projects between 2026-10-27 and 2026-11-12: 42 sessions and 1,785 agents. In the 24 sessions where Haiku did both the scouting and most of the building, subagent spend was 37% below an all-Sonnet run. Across all 42 sessions, including those where executors ran mostly on Sonnet, it was 5% below. Every figure in the tables, and every cost, context and review-log figure, is recomputed from the data files in `docs/case-study/`. Items marked as from my routing logs or from the deep dive come from those sources instead.
 
 ## Headline numbers
 
@@ -108,7 +108,7 @@ Rows one and two count subagent spend only. Row three is the plugin's own 2026-1
 
 **The Haiku-heavy condition.** I call a session Haiku-heavy when more than half of its executors ran on Haiku and, if it had scouts, more than half of its scouts did too: 24 of 42 sessions, 1,055 agents. There, with scouting and building both on Haiku, subagent spend was 37% below all-Sonnet and 69% below all-Opus. By role, the same tokens cost 92% less on Haiku scouts than on Sonnet, and 92% less on Haiku executors.
 
-**Sonnet-heavy sessions cost more.** In 7 sessions more than half of the executors ran on Sonnet, and subagent spend there was about 16% above all-Sonnet. Two things drive that. Those sessions used Opus for review, which costs more than the same review on Sonnet, and the executors stayed on Sonnet because I ordered it. Across all 42 sessions the saving shrinks to 5% for that reason, even though the Haiku-heavy sessions save 37%.
+**Sonnet-heavy sessions cost more.** In 7 sessions more than half of the executors ran on Sonnet, and subagent spend there was about 16% above all-Sonnet. Two things drive that. Those sessions used Opus for review, which costs more than the same review on Sonnet, and the executors ran mostly on Sonnet, in two of those projects because I ordered no Haiku executors (from my routing logs). Across all 42 sessions the saving shrinks to 5% for that reason, even though the Haiku-heavy sessions save 37%.
 
 **The main session.** The main session's model is the user's choice and runs with or without mr, so the tables leave it out. Adding it changes the picture: with the main sessions, Haiku-heavy sessions came out 14% below all-Sonnet, and all 42 sessions together came out about 6% above it. In 20 of 42 sessions the main session used Opus for at least part of the work. mr does not change that choice.
 
@@ -128,9 +128,9 @@ The limits matter. About one agent in ten peaked above roughly 300,000 tokens, a
 
 ## Review and quality
 
-The routing logs record one row per task or batch, so the counts below are approximate. A row can cover several tasks, and I parsed the tables with a script. 14 repos had a parsed task table, and 16 had a routing log; the other two kept an aggregate only or a different format. Of 497 rows, 352 (71%) had no FIX, no REPLAN and no escalation. 101 rows had a FIX, 45 a REPLAN and 19 an escalation to a stronger tier. Treat these as orders of magnitude.
+The routing logs record one row per task or batch, so the counts below are approximate. A row can cover several tasks, and I parsed the tables with a script. 16 repos had a routing log and 14 are pooled. Of the other two, one kept an aggregate only, and the other has 2 rows with no verdict data (all counts 0), so I left it out of the pool. Of 497 rows, 352 (71%) had no FIX, no REPLAN and no escalation. 101 rows had a FIX, 45 a REPLAN and 19 an escalation to a stronger tier. Treat these as orders of magnitude.
 
-For verifier verdicts I have one project where I counted the verdict files: the large run in [the deep dive](case-study-monorepo.md). Its verifiers sent work back 79 times, and the first verdict was PASS in 45 of 116 task groups.
+For verifier verdicts I have one project where I counted the verdict files: the large run in [the deep dive](case-study-monorepo.md). Its verifiers sent work back 79 times, and the first verdict was PASS in 45 of 116 task groups (from the deep dive).
 
 One defect is known to have escaped. In this plugin's own repository, a stall-watch defect reached a release and was found by a release smoke test, not by a gate or a verifier ([docs/cost.md](cost.md)). The logs show what was caught before merge. They do not show what slipped through, and I have no quality figure beyond these counts.
 
@@ -138,14 +138,14 @@ One defect is known to have escaped. In this plugin's own repository, a stall-wa
 
 - Non-tier subagents ran inside mr sessions: 53 of them, outside the tier totals above, costing $88.24 as run. The dispatch guard denies agent types outside the tiers unless they are allowlisted.
 - The main session used Opus in 20 of 42 sessions, so some of the spend sits outside what mr controls.
-- In two projects I ordered no Haiku executors partway through the run. Those sessions are in the Sonnet-heavy group.
-- 67 mr dispatches in three sessions of one project left no subagent transcript, so they are unpriced. The totals understate that work.
+- In two projects I ordered no Haiku executors partway through the run (from my routing logs). Those sessions are in the Sonnet-heavy group; in others the logs show executors escalating from Haiku to Sonnet, or do not record why.
+- 67 mr dispatches in three sessions of one project left no subagent transcript, so they are unpriced (from my routing logs and transcripts). The totals understate that work.
 - Two counts of long-prompt Haiku agents disagreed, 70 and 103. They agree once the 33 non-tier subagents are included (70 + 33 = 103). `mr-cost` now counts agents, not rows, and prints 103.
-- In the large Sonnet-heavy run, 3 of 5 Haiku executors ended BLOCKED, and 2 of the 3 had compacted their context first. Five agents is a small sample.
+- In the large Sonnet-heavy run, 3 of 5 Haiku executors ended BLOCKED, and 2 of the 3 had compacted their context first (from the deep dive). Five agents is a small sample.
 
 ## The large production run
 
-One of the 18 projects is a large production run that I wrote up separately. Executors there were mostly Sonnet and Opus reviewed the risky tasks, so it sits in the Sonnet-heavy group: routed, it cost 40% less than all-Opus and 19% more than all-Sonnet. Its [deep dive](case-study-monorepo.md) has the cost table, the output, and what review sent back.
+One of the 18 projects is a large production run that I wrote up separately. Executors there were mostly Sonnet and Opus reviewed the risky tasks, so it sits in the Sonnet-heavy group: routed, it cost 40% less than all-Opus and 19% more than all-Sonnet, including its main session. Its [deep dive](case-study-monorepo.md) has the cost table, the output, and what review sent back.
 
 ## Method
 

@@ -144,7 +144,7 @@ class SkillsTest(unittest.TestCase):
 class AbsentFilesTest(unittest.TestCase):
     def test_forbidden_paths_absent(self) -> None:
         # The plugin is installed from git, so only tracked paths ship. A local, git-ignored
-        # CLAUDE.md (the ~/Work workspace pointer "@AGENTS.md") is allowed on disk.
+        # CLAUDE.md (the workspace pointer "@AGENTS.md") is allowed on disk.
         tracked = subprocess.run(
             ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
         ).stdout.decode("utf-8").split("\0")

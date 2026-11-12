@@ -38,12 +38,12 @@ flowchart LR
 
 ## Deployment
 - Not deployed as a service. Distributed as a Claude Code plugin: users add the marketplace at this repository (`.claude-plugin/marketplace.json`, source `.`) or load it from a checkout.
-- Built with `make build` (regenerates `agents/` and the reference skill). No container image (`infra/docker/` is empty).
-- Released by semver tag per ~/Work/AGENTS.md section 10. Changes are recorded in CHANGELOG.md. No tags exist yet.
-- No CI (`infra/ci/` is empty); checks run locally through `make lint` and `make test`.
+- Built with `make build` (regenerates `agents/` and the reference skill). No container image.
+- Released by semver tag. Changes are recorded in CHANGELOG.md. No tags exist yet.
+- No CI; checks run locally through `make lint` and `make test`.
 
 ## Key decisions
-No ADRs yet: `docs/decisions/` holds only `0000-adr-template.md`. Decisions visible in the code and changelog, pending ADRs:
+No ADRs yet. Decisions visible in the code and changelog, pending ADRs:
 - Tiers and roles are data in `config/routing.json`; agent files are generated from it.
 - The dispatch guard enforces policy at PreToolUse on `Agent|Task|Skill` rather than trusting the dispatcher prompt.
 - No third-party Python packages (CONTRIBUTING.md).

@@ -17,7 +17,7 @@ CLAUDE.local.md
 docs/plans/
 docs/model-routing-log.md
 
-# workspace standard (~/Work/AGENTS.md)
+# local files, never committed
 .env
 .env.*
 !.env.example

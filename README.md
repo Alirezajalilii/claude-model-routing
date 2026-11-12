@@ -26,9 +26,4 @@ The plugin installs from the pushed Git repository, never from a working tree: a
 
 ## Documentation
 - Architecture: docs/architecture.md
-- Decisions: docs/decisions/
-- Specs: docs/specs/
-- API: docs/api/
-- Runbooks: docs/runbooks/
-- Knowledge base: docs/wiki/index.md
 - Agent rules: AGENTS.md

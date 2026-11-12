@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format follows Keep
 - The policy's cost reference states prices as of 2026-11-12 with cache-read rates and no longer cites an unlogged 2026-10-29 result.
 - AGENTS.md, CONTRIBUTING.md and docs/architecture.md describe this repository on its own.
 
+### Fixed
+- `mr-usage <session-id>` resolves a session that has no subagent folder through its main transcript instead of failing with "no session".
+
 ### Removed
 - Empty workspace folders (`apps/`, `packages/`, `infra/`, `data/`, `docs/api/`, `docs/runbooks/`, `docs/specs/`, `docs/decisions/`) and the private `docs/wiki/`.
 

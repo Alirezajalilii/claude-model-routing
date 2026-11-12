@@ -21,6 +21,7 @@ All notable changes to this project are documented here. The format follows Keep
 
 ### Fixed
 - `mr-usage <session-id>` resolves a session that has no subagent folder through its main transcript instead of failing with "no session".
+- `mr-usage` and `mr-audit` recover a subagent's type from the parent session's dispatch when its meta file is missing, so `--agent-type` filters find it and the audit no longer reports it as unknown; `mr-usage` also leaves `<synthetic>` placeholder models out of `resolved_models` when a real model is recorded.
 
 ### Removed
 - Empty workspace folders (`apps/`, `packages/`, `infra/`, `data/`, `docs/api/`, `docs/runbooks/`, `docs/specs/`, `docs/decisions/`) and the private `docs/wiki/`.

@@ -114,7 +114,11 @@ class ReadmeCopyTest(unittest.TestCase):
                 "missing tile number in a heading element: " + number,
             )
             self.assertTrue(">" + caption in readme, "missing tile caption: " + caption)
-        # The note directly under the tiles: one short line, and nothing else there.
+
+    def test_note_under_tiles(self):
+        # TC2: one short note directly under the tiles, and nothing else there.
+        readme = read("README.md")
+        n = headline_numbers()
         lines = readme.splitlines()
         end = lines.index("</table>")
         following = [line for line in lines[end + 1:] if line.strip()]
@@ -129,7 +133,10 @@ class ReadmeCopyTest(unittest.TestCase):
         ):
             self.assertTrue(text in note, "missing in the note under the tiles: " + text)
         self.assertLess(len(note), 420, "note under the tiles is too long")
-        # The two bold lead sentences of points 4 and 5.
+
+    def test_bold_leads(self):
+        # TC2: the bold lead sentences of points 4 and 5, each once.
+        readme = read("README.md")
         for lead in (
             "**Every model does the work it is best at.**",
             "**Each stage starts with a fresh context.**",

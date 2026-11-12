@@ -252,9 +252,32 @@ class EstimateTest(unittest.TestCase):
         self.assertAlmostEqual(result["groups"]["exec"]["actual"], 2.50, places=6)
         report = format_report(result, "5m")
         self.assertIn(
-            "haiku rows over 100K prompt tokens, priced at the higher rate: 1",
+            "haiku agents over 100K prompt tokens, priced at the higher rate: 1",
             report.splitlines(),
         )
+
+    def test_long_rate_haiku_row_counts_its_agent_count(self) -> None:
+        # Aggregated row: 59 agents at the long rate add 59, not 1, to the long-rate count.
+        row = dict(EXEC_HAIKU_ROW, peak_prompt_tokens=150000, agent_count=59)
+        result = estimate([row])
+        self.assertEqual(result["haiku_long"], 59)
+        self.assertEqual(result["groups"]["exec"]["agents"], 59)
+        self.assertIn(
+            "haiku agents over 100K prompt tokens, priced at the higher rate: 59",
+            format_report(result, "5m").splitlines(),
+        )
+
+    def test_long_rate_haiku_row_without_agent_count_adds_one(self) -> None:
+        row = dict(EXEC_HAIKU_ROW, peak_prompt_tokens=150000)
+        self.assertEqual(estimate([row])["haiku_long"], 1)
+
+    def test_long_rate_count_sums_agent_counts_of_several_rows(self) -> None:
+        long_rows = [
+            dict(EXEC_HAIKU_ROW, peak_prompt_tokens=150000, agent_count=59),
+            dict(EXEC_HAIKU_ROW, peak_prompt_tokens=120000, agent_count=4),
+            dict(EXEC_HAIKU_ROW, peak_prompt_tokens=50000, agent_count=10),
+        ]
+        self.assertEqual(estimate(long_rows)["haiku_long"], 63)
 
     def test_report_without_long_rows_has_no_long_rate_line(self) -> None:
         report = format_report(estimate([EXEC_HAIKU_ROW]), "5m")

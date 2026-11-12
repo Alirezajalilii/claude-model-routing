@@ -162,6 +162,7 @@ def estimate(rows: list, cache_ttl: str = "5m") -> dict:
     Returns {"groups": {group: sums}, "total": sums, "unpriced": int,
     "unpriced_models": sorted list, "haiku_long": int}, where sums are
     {"agents", "actual", "sonnet", "opus"} and only groups with priced agents appear.
+    "haiku_long" counts the agents (agent_count, default 1) priced at the long Haiku rate.
     """
     groups: Dict[str, Dict[str, float]] = {}
     total = _empty_sums()
@@ -175,9 +176,9 @@ def estimate(rows: list, cache_ttl: str = "5m") -> dict:
             unpriced += 1
             unpriced_models.update(models)
             continue
-        if price is HAIKU_55_LONG:
-            haiku_long += 1
         sums = _row_sums(row, price, cache_ttl)
+        if price is HAIKU_55_LONG:
+            haiku_long += sums["agents"]
         group = group_of(str(row.get("agent_type", "")))
         _add_sums(groups.setdefault(group, _empty_sums()), sums)
         _add_sums(total, sums)
@@ -213,7 +214,7 @@ def format_report(result: dict, cache_ttl: str) -> str:
         lines.append(f"unpriced: {result['unpriced']} agent(s); models: {models}")
     if result["haiku_long"]:
         lines.append(
-            f"haiku rows over {HAIKU_LONG_PROMPT_TOKENS // 1000}K prompt tokens, "
+            f"haiku agents over {HAIKU_LONG_PROMPT_TOKENS // 1000}K prompt tokens, "
             f"priced at the higher rate: {result['haiku_long']}"
         )
     lines.append(

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Report model, effort and token usage for Claude Code subagent transcripts.
 
-Port of ~/.claude/scripts/subagent-usage.py onto transcripts.py. Used by the
-Model Routing Policy to check that a tier agent ran with the model and effort
-its definition declares, and to take input/output/cache token numbers for the
-routing log.
+Used by the Model Routing Policy to check that a tier agent ran with the model
+and effort its definition declares, and to take input/output/cache token numbers
+for the routing log.
 
 Usage:
   subagent_usage.py <session-id | session dir | session.jsonl | agent-*.jsonl> ...

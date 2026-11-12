@@ -1,4 +1,4 @@
-# Standard command interface (see ~/Work/AGENTS.md section 7).
+# Standard command interface: every routine task is a make target (see AGENTS.md).
 # mr is a Claude Code plugin with no runtime dependencies: Python 3.9+ standard library only.
 # A target that does not apply prints why and exits 0.
 

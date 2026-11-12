@@ -1,6 +1,6 @@
 # model-routing — agent guide
 
-This project follows the workspace standard in ~/Work/AGENTS.md. Read that first. This file holds only what is specific to this project.
+This file holds the rules for agents and contributors working on this repository.
 
 ## Identity
 - Purpose: Cost-aware model routing for Claude Code (tiered subagents, dispatch guard, audit)

@@ -1,12 +1,12 @@
 {
   "name": "claude-model-routing",
-  "description": "Marketplace for the mr Claude Code plugin: tiered subagents, a session-start dispatcher policy, a dispatch guard and a session audit.",
+  "description": "Marketplace for mr, a Claude Code plugin that routes planned, test-first tasks to Haiku, Sonnet and Opus subagents.",
   "owner": {"name": "Alireza Jalili"},
   "plugins": [
     {
       "name": "mr",
       "source": ".",
-      "description": "Tiered subagents, a session-start dispatcher policy, a dispatch guard and a session audit for cost-aware Claude Code work."
+      "description": "Cost-aware model routing: test-first tasks on Haiku and Sonnet subagents, a scripted gate per task, and hooks that enforce the policy and audit each session."
     }
   ]
 }

@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-12
+
+### Added
+- `mr-cost` prices `mr-usage --json` rows at Anthropic API list prices (as of 2026-11-12) and re-prices the same tokens at Sonnet 5.5 and Opus 5.5 rates; `--cache-ttl 1h` uses 1-hour cache-write prices.
+- `mr-doctor` checks Python, the Claude Code version, the settings the policy relies on, `ANTHROPIC_API_KEY` and whether the project is initialized, and prints a fix for each problem.
+- `docs/cost.md` and `docs/cost/2026-11-11-run.json`: one logged run priced with `mr-cost`, with the method and its limits.
+- The sensitive-data scan (`scripts/scan_sensitive.py`) is back on the main branch, and `make lint` runs it on the full history.
+
+### Changed
+- README rewritten for public installs from `Alirezajalilii/claude-model-routing`: one-command install, requirements, the hooks and what they run, costs and usage limits.
+- The policy's cost reference states prices as of 2026-11-12 with cache-read rates and no longer cites an unlogged 2026-10-29 result.
+- AGENTS.md, CONTRIBUTING.md and docs/architecture.md describe this repository on its own.
+
+### Removed
+- Empty workspace folders (`apps/`, `packages/`, `infra/`, `data/`, `docs/api/`, `docs/runbooks/`, `docs/specs/`, `docs/decisions/`) and the private `docs/wiki/`.
+
 ## [0.6.0] - 2026-11-12
 
 ### Added

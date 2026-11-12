@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 330" width="900" height="330" role="img" aria-labelledby="cost-title cost-desc">
-  <title id="cost-title">Cost of a production run of 278 subagents plus the main session, at API list prices</title>
-  <desc id="cost-desc">Horizontal bars. As routed: $2,105.04. All Sonnet 5.5: $1,766.48. All Opus 5.5: $3,532.96. The same tokens, priced at Anthropic API list prices with 5-minute cache writes.</desc>
+  <title id="cost-title">Subagent spend in 24 Haiku-heavy sessions, at API list prices</title>
+  <desc id="cost-desc">Horizontal bars. As routed: $835.47. All Sonnet 5.5: $1,329.17. All Opus 5.5: $2,658.34. The same tokens, priced at Anthropic API list prices with 5-minute cache writes.</desc>
   <rect width="900" height="330" rx="18" fill="#0f172a"/>
   <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-    <text x="32" y="48" font-size="24" font-weight="700" fill="#f8fafc">What one production run costs</text>
-    <text x="32" y="74" font-size="16" fill="#94a3b8">278 subagents plus the main session, at API list prices</text>
+    <text x="32" y="48" font-size="24" font-weight="700" fill="#f8fafc">What Haiku-heavy sessions cost</text>
+    <text x="32" y="74" font-size="16" fill="#94a3b8">24 sessions where Haiku scouted and built, subagent spend at API list prices</text>
 
     <text x="32" y="130" font-size="19" font-weight="600" fill="#e2e8f0">As routed</text>
-    <rect id="bar-routed" x="180" y="106" width="334" height="40" rx="6" fill="#f59e0b"/>
-    <text x="526" y="133" font-size="22" font-weight="700" fill="#fbbf24">$2,105.04</text>
+    <rect id="bar-routed" x="180" y="106" width="176" height="40" rx="6" fill="#f59e0b"/>
+    <text x="368" y="133" font-size="22" font-weight="700" fill="#fbbf24">$835.47</text>
 
     <text x="32" y="192" font-size="19" font-weight="600" fill="#e2e8f0">All Sonnet 5.5</text>
     <rect id="bar-sonnet" x="180" y="168" width="280" height="40" rx="6" fill="#60a5fa"/>
-    <text x="472" y="195" font-size="22" font-weight="700" fill="#93c5fd">$1,766.48</text>
+    <text x="472" y="195" font-size="22" font-weight="700" fill="#93c5fd">$1,329.17</text>
 
     <text x="32" y="254" font-size="19" font-weight="600" fill="#e2e8f0">All Opus 5.5</text>
     <rect id="bar-opus" x="180" y="230" width="560" height="40" rx="6" fill="#a78bfa"/>
-    <text x="752" y="257" font-size="22" font-weight="700" fill="#c4b5fd">$3,532.96</text>
+    <text x="752" y="257" font-size="22" font-weight="700" fill="#c4b5fd">$2,658.34</text>
 
-    <text x="32" y="306" font-size="16" fill="#94a3b8">Routed is 40% below all Opus and 19% above all Sonnet. The gap to Sonnet is mostly Opus review.</text>
+    <text x="32" y="306" font-size="16" fill="#94a3b8">Routed is 37% below all Sonnet and 69% below all Opus. Subagents only, main session left out.</text>
   </g>
 </svg>

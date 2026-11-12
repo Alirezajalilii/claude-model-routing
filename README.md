@@ -1,31 +1,29 @@
 # mr: model routing for Claude Code
 
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Banner for mr. Four steps: Opus writes the plan, Haiku or Sonnet writes the code, a script checks the commits, Opus reviews the risky tasks." width="100%">
+  <img src="docs/assets/hero.svg" alt="Banner for mr. Four agent roles and the model each runs on by default: scouts on Haiku, planners on Opus, executors on Haiku or Sonnet, verifiers on Sonnet or Opus." width="100%">
 </p>
 
-### Opus plans and reviews. Cheaper models write the code.
+### The right Claude for every step.
 
-mr is a Claude Code plugin that sends each task to the cheapest model that can pass its tests, and sends the risky ones to Opus for review.
+mr turns a Claude Code session into a team: Haiku scouts and builds, Sonnet takes the harder code, and Opus plans and reviews. Each agent starts with a fresh context, and a script checks every task before it merges.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://code.claude.com/docs/en/discover-plugins)
 [![Python 3.9+, standard library only](https://img.shields.io/badge/python-3.9%2B%20stdlib%20only-3776ab.svg)](#requirements)
 
-[Install](#install-the-plugin) · [How it works](#how-a-session-runs) · [What it costs](#what-it-costs) · [What runs on your machine](#what-runs-on-your-machine) · [Commands](#commands)
+[Install](#install-the-plugin) · [The agents](#four-agents-four-jobs) · [What it costs](#what-it-costs) · [What runs on your machine](#what-runs-on-your-machine) · [Commands](#commands)
 
 <table>
   <tr>
-    <td align="center" width="25%"><strong>40%</strong><br>less than running every agent on Opus¹ (a production run of 278 subagents plus the main session)</td>
-    <td align="center" width="25%"><strong>1.7x</strong><br>the work from the same usage limit¹</td>
-    <td align="center" width="25%"><strong>385,920</strong><br>lines of production code and tests added in 5 active days</td>
-    <td align="center" width="25%"><strong>79</strong><br>times reviewers sent work back before merge</td>
+    <td align="center" width="25%"><strong>18 projects, 1,785 agents</strong><br>pooled languages: Kotlin, TypeScript, Rust, Python, Swift, C#. The agent count comes from the 11 projects with transcripts.</td>
+    <td align="center" width="25%"><strong>37%</strong><br>below all-Sonnet when Haiku scouts and builds¹ (subagent spend, 24 sessions)</td>
+    <td align="center" width="25%"><strong>92%</strong><br>cheaper evidence gathering with Haiku scouts than with Sonnet¹</td>
+    <td align="center" width="25%"><strong>4.2x</strong><br>smaller median context per agent than the main session (89,877 against 374,470 prompt tokens)</td>
   </tr>
 </table>
 
-¹ Re-priced estimates. The assumptions behind them are in the [footnote under What it costs](#what-it-costs).
-
-All four numbers come from one production run. The [case study](docs/case-study.md) has the data, the method and what went wrong. On this plugin's own repository, Haiku executors ran at **6%** of the Sonnet price for the same tokens ([cost breakdown](docs/cost.md)).
+¹ Re-priced estimates. The assumptions are in the [footnote under More work per usage limit](#more-work-per-usage-limit). All figures come from 42 Claude Code sessions between 2026-10-27 and 2026-11-12; the [study](docs/case-study.md) has the data, the method and what went wrong.
 
 ## Install the plugin
 
@@ -64,22 +62,22 @@ Then restart Claude Code and set up each project you want to route:
 
 3. Ask Claude to run `mr-doctor`. It checks the setup above and prints a fix for anything that is off.
 
-## Why route models in Claude Code
+## Four agents, four jobs
 
-Writing code is where the tokens go. In the production run above, executors used 80% of all subagent tokens. mr keeps your strongest model on planning and review and runs the executor work on cheaper ones:
+A coding session does four kinds of work: reading code, planning, writing code and checking it. mr gives each its own agent, on the model that fits it by default.
 
-| Step | Who | What happens |
+| Agent | Runs on by default | What it does |
 | --- | --- | --- |
-| Plan | Opus (or Sonnet) | A plan file where every task names the files it may touch, its Test Cases, its executor tier and a Gate block. |
-| Write | Haiku or Sonnet executors | Each one commits the failing tests first, then the change that makes them pass. |
-| Gate | `mr-gate`, a script | Checks that the commits stay inside the task's files, that the new tests failed before the change, and that the green commands pass. |
-| Review | Opus or Sonnet verifiers | Run when the plan marks a risk (authentication, payments, data integrity, migrations, security), when a task ran below its planned tier, or after a failed check. |
+| **Scout** | Haiku (Sonnet for deep cross-module digs) | Reads code, logs and docs, and writes the evidence the planner asks for. Read-only. |
+| **Plan** | Opus (Sonnet for work in one module) | Writes the plan file: every task names the files it may touch, its Test Cases, its executor tier and a Gate block. |
+| **Exec** | Haiku (Sonnet for harder code) | Commits the failing tests first, then the change that makes them pass. |
+| **Verify** | Sonnet (Opus for high-risk work) | Reviews a finished task when the plan marks a risk such as authentication, payments, data integrity, migrations or security, when a task ran below its planned tier, or after a failed check. |
 
-In the production run, reviewers sent work back 79 times before merge (70 FIX and 9 REPLAN verdicts, counting re-verification rounds).
+Between exec and verify, `mr-gate`, a script, checks that the commits stay inside the task's files, that the new tests failed before the change, and that the green commands pass.
 
-## How a session runs
+**Scouting goes to Haiku by default.** Evidence gathering is where a session spends tokens on whole files, logs and search results. mr sends it to Haiku scouts, so reading stops costing Sonnet or Opus rates: 139 of 237 scouts ran on Haiku, and the same scout tokens cost 92% less on Haiku than on Sonnet¹. By tokens, Haiku scouts carried 24% of what scouts read, because the longest reads went to Sonnet more often.
 
-Small, clear changes take the fast lane: one executor, no planner. Work that needs a design decision takes the full lane, which runs the four steps above and adds read-only scouts on Haiku or Sonnet that gather the evidence the planner asks for. The planner consults Claude Code's advisor once per plan. Executors start on Haiku, and a Haiku executor that cannot finish hands the task to its planned Sonnet tier.
+Small, clear changes take the fast lane: one executor, no planner. Work that needs a design decision takes the full lane, which runs all four agents. The planner consults Claude Code's advisor once per plan. Executors start on Haiku, and a Haiku executor that cannot finish hands the task to its planned Sonnet tier.
 
 Tier agents are named `<role>-<model>-<effort>` with the roles `scout`, `plan`, `exec`, `verify`, and the main session dispatches them as `mr:<tier>`, for example `mr:exec-haiku-med`.
 
@@ -97,20 +95,56 @@ Tier agents are named `<role>-<model>-<effort>` with the roles `scout`, `plan`, 
 
 The policy lives in `config/routing.json` and `policy/`. A session-start hook loads it into the main session, and the `mr:routing-policy` skill holds the full text.
 
+## The right model for each step
+
+Pick one model and you give something up. On Sonnet only, you lose Opus-level planning and review, the two steps where a wrong call costs the most. On Opus only, you pay Opus rates for file edits, routine reads and test runs. mr puts each model where it is strongest: Haiku on evidence gathering and well-specified code, Sonnet on harder code and mid-risk review, Opus on planning and high-risk review.
+
+Across the 1,785 agents, that came out as 57 Opus planners and 236 Opus verifiers on the steps that decide whether the work is right, against 591 Haiku executors on code a plan had already specified:
+
+| Role | Agents | Haiku | Sonnet | Opus |
+| --- | --- | --- | --- | --- |
+| Scout | 237 | 139 | 98 | 0 |
+| Plan | 66 | 0 | 9 | 57 |
+| Exec | 958 | 591 | 367 | 0 |
+| Verify | 524 | 0 | 288 | 236 |
+| Total | 1,785 | 730 | 762 | 293 |
+
+This is a design argument. The counts show where the work went; they do not measure the quality of the output.
+
+## A fresh context for every stage
+
+One session that scouts, plans and builds in a single context carries the leftovers of every stage into the next: the reading is still there when the code gets written, and the half-built plan is still there when the next file gets read. mr gives each stage its own agent. A scout reads a repository without a plan in its context, and an executor starts from its task, not from the reading that came before it.
+
+That is the design reason for splitting the work. I did not measure output quality, so I make no claim about it. What I measured is how much context each side carried: the median agent peaked at 89,877 prompt tokens, the median main session at 374,470, which is 4.2x larger. 11 of 42 sessions had at least one context compaction. Planners are the exception: their median peak, 374,604 tokens, is close to the main session's.
+
 ## What it costs
 
 <p align="center">
-  <img src="docs/assets/cost-chart.svg" alt="Bar chart of one production run (278 subagents plus the main session) at API list prices: $2,105.04 as routed, $1,766.48 if every agent ran on Sonnet 5.5, $3,532.96 if every agent ran on Opus 5.5." width="720">
+  <img src="docs/assets/cost-chart.svg" alt="Bar chart of subagent spend in 24 Haiku-heavy sessions at API list prices: $835.47 as routed, $1,329.17 if every agent ran on Sonnet 5.5, $2,658.34 if every agent ran on Opus 5.5." width="720">
 </p>
 
-Against all-Opus, the routed run cost 40% less, which is where the 1.7x comes from: $3,532.96 divided by $2,105.04. Against all-Sonnet it cost 19% more. That is mostly the price of Opus review on the risky tasks: the 89 Opus verifiers cost $298.75 more than the same tokens at Sonnet prices. The [case study](docs/case-study.md) has the full table, the output the run produced and what did not go well.
+I priced the rows with `mr-cost`: the same tokens at list prices on the models that ran, on Sonnet 5.5 and on Opus 5.5. A session counts as Haiku-heavy when more than half of its executors, and more than half of its scouts if it had any, ran on Haiku: 24 of 42 sessions. There, subagent spend was 37% below all-Sonnet and 69% below all-Opus¹. Add the main sessions of those 24 sessions and it is still 14% below all-Sonnet.
 
-**What the same usage limit covers.** The routed run priced at 1/1.7 of the all-Opus run, so the same limit covers about 1.7x the work. Two assumptions sit behind that: the same work takes the same tokens on another model, and your plan meters usage in proportion to list price. The footnote below says how the figures were priced.
+| Scope | Agents | As routed | All Sonnet 5.5 | All Opus 5.5 | Below all-Sonnet | Below all-Opus |
+| --- | --- | --- | --- | --- | --- | --- |
+| All sessions | 1,785 | $3,272.02 | $3,454.92 | $6,909.83 | 5% | 53% |
+| Haiku-heavy sessions | 1,055 | $835.47 | $1,329.17 | $2,658.34 | 37% | 69% |
+| This repository's run | 34 | $11.27 | $29.73 | $59.45 | 62% | 81% |
+
+Across all 42 sessions, including those where executors stayed on Sonnet, subagent spend was 5% below all-Sonnet and 53% below all-Opus. The all-sessions saving is smaller because 7 sessions ran most of their executors on Sonnet with Opus reviewing the risky tasks. There subagent spend was about 16% above all-Sonnet, since Opus review costs more than the same review on Sonnet. The last row is this plugin's own run, with Haiku scouts and Haiku executors. The main session is left out of the first and last rows because its model is your choice, with or without mr.
+
+The [study](docs/case-study.md) has the full method and what did not go well. A [deep dive on a large production run](docs/case-study-monorepo.md) has the cost table, the output and what review sent back.
+
+## More work per usage limit
+
+In Haiku-heavy sessions the same tokens cost $835.47 as routed and $1,329.17 on Sonnet. That is **1.6x** the subagent work per usage limit compared with all-Sonnet in Haiku-heavy sessions¹. It assumes the same work takes the same tokens on another model and that your plan meters usage in proportion to list price.
+
+¹ Re-priced estimate of subagent spend: the same tokens at Anthropic API list prices with 5-minute cache writes. Reading it as usage-limit headroom assumes your plan meters usage in proportion to list price; Anthropic does not publish how it meters.
 
 <details>
 <summary>This repository's own run: 15 tasks, all on Haiku executors</summary>
 
-One run on this repository (2026-11-11), priced with `mr-cost` at API list prices as of 2026-11-12, with 5-minute cache writes. Details in [docs/cost.md](docs/cost.md).
+One run on this repository (2026-11-11), with Haiku scouts and Haiku executors, priced with `mr-cost` at API list prices as of 2026-11-12, with 5-minute cache writes. Details in [docs/cost.md](docs/cost.md).
 
 | Group | Agents | At the models that ran | Same tokens at Sonnet 5.5 | Same tokens at Opus 5.5 |
 |---|---|---|---|---|
@@ -128,8 +162,6 @@ Read these numbers with their limits:
 - Haiku 5.5 bills prompts over 100K tokens at five times its base rate. This run's Haiku executors stayed under that (peak 91,105 tokens); `mr-cost` prices longer prompts at the higher rate.
 
 </details>
-
-¹ Re-priced estimate: the same tokens at Anthropic API list prices with 5-minute cache writes. Reading it as usage-limit headroom assumes your plan meters usage in proportion to list price; Anthropic does not publish how it meters.
 
 To price one of your own sessions, ask Claude to run:
 

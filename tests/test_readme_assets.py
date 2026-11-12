@@ -9,16 +9,16 @@ SVG = "{http://www.w3.org/2000/svg}"
 MAX_BYTES = 20480
 MIN_FONT_PX = 14
 BAR_SCALE = 560
-HEADLINE = "Opus plans and reviews. Cheaper models write the code."
+HEADLINE = "The right Claude for every step."
 BARS = (
-    ("bar-routed", "routed_usd", "As routed"),
-    ("bar-sonnet", "all_sonnet_usd", "All Sonnet 5.5"),
-    ("bar-opus", "all_opus_usd", "All Opus 5.5"),
+    ("bar-routed", "haiku_heavy_routed_usd", "As routed"),
+    ("bar-sonnet", "haiku_heavy_sonnet_usd", "All Sonnet 5.5"),
+    ("bar-opus", "haiku_heavy_opus_usd", "All Opus 5.5"),
 )
 
 
 def headline_numbers():
-    lines = (ROOT / "docs" / "case-study-monorepo.md").read_text(encoding="utf-8").splitlines()
+    lines = (ROOT / "docs" / "case-study.md").read_text(encoding="utf-8").splitlines()
     start = lines.index("## Headline numbers")
     table = {}
     for line in lines[start + 1:]:
@@ -48,7 +48,7 @@ class SvgAssetTest(unittest.TestCase):
     names = ("hero.svg", "cost-chart.svg")
 
     def test_files_are_small_valid_and_titled(self):
-        # TC9: both SVGs exist, are under 20480 bytes, parse as XML, and have a title and a desc.
+        # TC7: both SVGs exist, are under 20480 bytes, parse as XML, and have a title and a desc.
         for name in self.names:
             path = ASSETS / name
             self.assertTrue(path.is_file(), name)
@@ -61,7 +61,7 @@ class SvgAssetTest(unittest.TestCase):
                 self.assertTrue((found.text or "").strip(), name + " has an empty <" + tag + ">")
 
     def test_no_script_and_no_external_references(self):
-        # TC9: no <script>, and no attribute value that starts with http (xmlns is not an attribute here).
+        # TC7: no <script>, and no attribute value that starts with http (xmlns is not an attribute here).
         for name in self.names:
             root = parse(name)
             tags = [el.tag for el in root.iter()]
@@ -74,7 +74,7 @@ class SvgAssetTest(unittest.TestCase):
             self.assertIsNone(re.search(r"""(href|src)\s*=\s*["']\s*https?:""", raw), name)
 
     def test_own_background_and_text_size(self):
-        # TC9: each SVG paints its own background (a rect as wide as the viewBox) and all text is
+        # TC7: each SVG paints its own background (a rect as wide as the viewBox) and all text is
         # at least 14 px.
         for name in self.names:
             root = parse(name)
@@ -86,11 +86,11 @@ class SvgAssetTest(unittest.TestCase):
             self.assertGreaterEqual(min(sizes), MIN_FONT_PX, name)
 
     def test_cost_chart_bars(self):
-        # TC10: three bars in order, widths round(value / all_opus_usd * 560), each with a $ label.
+        # TC7: three bars in order, widths round(value / haiku_heavy_opus_usd * 560), each with a $ label.
         n = headline_numbers()
         root = parse("cost-chart.svg")
         rects = {r.get("id"): r for r in root.iter(SVG + "rect") if r.get("id")}
-        top = number(n["all_opus_usd"])
+        top = number(n["haiku_heavy_opus_usd"])
         ys = []
         for bar_id, key, label in BARS:
             self.assertIn(bar_id, rects)
@@ -104,7 +104,7 @@ class SvgAssetTest(unittest.TestCase):
             self.assertIn(label, text)
 
     def test_hero_headline(self):
-        # TC11: hero.svg carries the headline text.
+        # TC7: hero.svg carries the headline text.
         root = parse("hero.svg")
         self.assertIn(HEADLINE, text_of(root))
         view = root.get("viewBox").split()

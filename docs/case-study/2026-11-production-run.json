@@ -1,0 +1,135 @@
+[
+  {
+    "label": "exec-sonnet-xhigh",
+    "agent_type": "mr:exec-sonnet-xhigh",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 59,
+    "input_tokens": 25746,
+    "output_tokens": 17259695,
+    "cache_creation_input_tokens": 67445944,
+    "cache_read_input_tokens": 5391777348
+  },
+  {
+    "label": "exec-sonnet-high",
+    "agent_type": "mr:exec-sonnet-high",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 67,
+    "input_tokens": 14066,
+    "output_tokens": 6127802,
+    "cache_creation_input_tokens": 29257297,
+    "cache_read_input_tokens": 1818571176
+  },
+  {
+    "label": "exec-sonnet-med",
+    "agent_type": "mr:exec-sonnet-med",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 26,
+    "input_tokens": 2218,
+    "output_tokens": 678001,
+    "cache_creation_input_tokens": 5077689,
+    "cache_read_input_tokens": 138202968
+  },
+  {
+    "label": "exec-haiku-high",
+    "agent_type": "mr:exec-haiku-high",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "agent_count": 2,
+    "input_tokens": 316,
+    "output_tokens": 142377,
+    "cache_creation_input_tokens": 528171,
+    "cache_read_input_tokens": 9017251,
+    "peak_prompt_tokens": 91582
+  },
+  {
+    "label": "exec-haiku-med",
+    "agent_type": "mr:exec-haiku-med",
+    "resolved_models": [
+      "claude-haiku-5-5"
+    ],
+    "agent_count": 3,
+    "input_tokens": 226,
+    "output_tokens": 81232,
+    "cache_creation_input_tokens": 456506,
+    "cache_read_input_tokens": 11522717
+  },
+  {
+    "label": "verify-opus-high",
+    "agent_type": "mr:verify-opus-high",
+    "resolved_models": [
+      "claude-opus-5-5"
+    ],
+    "agent_count": 89,
+    "input_tokens": 15520,
+    "output_tokens": 5062021,
+    "cache_creation_input_tokens": 39449887,
+    "cache_read_input_tokens": 1494727957
+  },
+  {
+    "label": "verify-sonnet-high",
+    "agent_type": "mr:verify-sonnet-high",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 30,
+    "input_tokens": 3220,
+    "output_tokens": 1000357,
+    "cache_creation_input_tokens": 8408326,
+    "cache_read_input_tokens": 260230516
+  },
+  {
+    "label": "plan-opus-high",
+    "agent_type": "mr:plan-opus-high",
+    "resolved_models": [
+      "claude-opus-5-5"
+    ],
+    "agent_count": 1,
+    "input_tokens": 46,
+    "output_tokens": 46257,
+    "cache_creation_input_tokens": 187280,
+    "cache_read_input_tokens": 2687892
+  },
+  {
+    "label": "scout-sonnet-high",
+    "agent_type": "mr:scout-sonnet-high",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 1,
+    "input_tokens": 186,
+    "output_tokens": 62254,
+    "cache_creation_input_tokens": 274894,
+    "cache_read_input_tokens": 15655584
+  },
+  {
+    "label": "main session, Opus part",
+    "agent_type": "main",
+    "resolved_models": [
+      "claude-opus-5-5"
+    ],
+    "agent_count": 1,
+    "input_tokens": 1606,
+    "output_tokens": 558350,
+    "cache_creation_input_tokens": 1118491,
+    "cache_read_input_tokens": 365415907
+  },
+  {
+    "label": "main session, Sonnet part",
+    "agent_type": "main",
+    "resolved_models": [
+      "claude-sonnet-5-5"
+    ],
+    "agent_count": 0,
+    "input_tokens": 4362,
+    "output_tokens": 1293906,
+    "cache_creation_input_tokens": 4614947,
+    "cache_read_input_tokens": 1003941761
+  }
+]

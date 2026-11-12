@@ -24,6 +24,7 @@ LAUNCHERS = (
     "mr-init",
     "mr-plan",
     "mr-gate",
+    "mr-cost",
 )
 
 

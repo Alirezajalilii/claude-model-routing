@@ -255,8 +255,13 @@ def _skills_block(report: str) -> Optional[str]:
     for index, line in enumerate(lines):
         if "skills loaded" not in line.lower():
             continue
+        start = index + 1
+        if re.search(r"skills loaded\W*$", line, re.IGNORECASE):
+            # A bare heading may have its list after blank lines.
+            while start < len(lines) and not lines[start].strip():
+                start += 1
         block = [line]
-        for following in lines[index + 1:]:
+        for following in lines[start:]:
             if not following.strip() or following.lstrip().startswith("#"):
                 break
             block.append(following)

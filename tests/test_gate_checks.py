@@ -338,6 +338,23 @@ class ReportCheckTest(unittest.TestCase):
         result = self._skill_check("Skills loaded: none\n\n/s/tdd-workflow/SKILL.md\n")
         self.assertEqual(result.status, gc.FAIL)
 
+    def test_skills_list_after_blank_line_under_heading_passes(self):
+        # TC1: heading, blank line, then a bullet naming the skill path
+        result = self._skill_check("## Skills loaded\n\n- /s/tdd-workflow/SKILL.md\n")
+        self.assertEqual(result.status, gc.PASS)
+
+    def test_skill_named_on_heading_line_passes(self):
+        # TC2: the skill is named on the heading line itself
+        result = self._skill_check("## Skills loaded: tdd-workflow\n\n- other\n")
+        self.assertEqual(result.status, gc.PASS)
+
+    def test_heading_blank_then_other_section_still_fails(self):
+        # TC3: heading, blank line, then another section; the skill is only outside the block
+        result = self._skill_check(
+            "## Skills loaded\n\n## Next\n- /s/tdd-workflow/SKILL.md\n")
+        self.assertEqual(result.status, gc.FAIL)
+        self.assertIn("Skills loaded line lacks: tdd-workflow", result.detail)
+
 
 class FailedNamesTest(unittest.TestCase):
     def test_tc12_keeps_order_of_failures(self):

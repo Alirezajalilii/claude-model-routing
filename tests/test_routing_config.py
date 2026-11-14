@@ -183,9 +183,10 @@ class LeanSchemaTest(unittest.TestCase):
         self.assertEqual(
             roles["executor"].tools,
             ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"))
+        # TC6: the verifier tools tuple includes Edit
         self.assertEqual(
             roles["verifier"].tools,
-            ("Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"))
+            ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"))
 
     def test_skill_required_in_tools(self):
         messages = with_tools(

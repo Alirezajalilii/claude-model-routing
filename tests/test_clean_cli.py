@@ -27,6 +27,7 @@ PLAN_NAME = "2026-01-01-s.md"
 PLAN_TEXT = "### Task T1: one\n### Task T2: two\n"
 ALL_BRANCHES = ["agent/other-T1", "agent/s-T1", "agent/s-T2",
                 "agent/s-integration", "main"]
+LS = chr(0x2028)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -434,6 +435,145 @@ class CleanCliTest(unittest.TestCase):
         text = " ".join(help_text.split())
         self.assertIn("run directory to remove: named <YYYY-MM-DD>-<topic-slug>, "
                       "git-ignored, inside the repository, holding no tracked file", text)
+
+    # TC32
+    def test_tc32_ignored_file_in_task_worktree_keeps_it(self) -> None:
+        ignored = self.wt_path / "docs" / "handoffs" / "2026-01-01-run1" / "exec-T1.md"
+        ignored.parent.mkdir(parents=True)
+        ignored.write_text("x\n")
+        code, out, _ = self._run("--plan", str(self.plan), "--apply")
+        self.assertEqual(code, 0)
+        self.assertIn(f"keep branch agent/s-T1: worktree {self.wt_listed} "
+                      "holds git-ignored files", out)
+        self.assertTrue(ignored.exists())
+        self.assertIn("agent/s-T1", self._branches())
+
+    # TC33
+    def test_tc33_worktree_with_ignored_file_is_rechecked_before_removal(self) -> None:
+        ignored = self.wt_path / "docs" / "handoffs" / "2026-01-01-run1" / "exec-T1.md"
+        ignored.parent.mkdir(parents=True)
+        ignored.write_text("x\n")
+        text = f"remove worktree {self.wt_listed} (branch agent/s-T1)"
+        failures = cli.run_actions(self.repo, [cli.Action("worktree", self.wt_listed, text)])
+        self.assertEqual(failures[text],
+                         f"since the check, worktree {self.wt_listed} holds git-ignored files")
+        self.assertTrue(ignored.exists())
+        self.assertTrue(self.wt_path.is_dir())
+
+    # TC34
+    def test_tc34_worktree_and_repository_paths_with_line_separator_are_removed(self) -> None:
+        base = self._tempdir() / ("r" + LS + "x")
+        base.mkdir()
+        _git(base, "init", "-q")
+        _git(base, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(base, "config", "user.email", "test@example.com")
+        _git(base, "config", "user.name", "Test")
+        _git(base, "config", "commit.gpgsign", "false")
+        _commit(base, {"a.txt": "a\n"}, "A")
+        _git(base, "branch", "agent/s-T1")
+        wt = self._tempdir() / ("w" + LS + "t")
+        _git(base, "worktree", "add", "-q", str(wt), "agent/s-T1")
+        code, out, _ = self._run("--branch", "agent/s-T1", "--apply", cwd=base)
+        self.assertEqual(code, 0)
+        self.assertFalse(wt.exists())
+        self.assertEqual(_git(base, "branch", "--list", "agent/s-T1"), "")
+        self.assertEqual(out.splitlines()[-1], "mr-clean: 2 removed, 0 kept, 0 failed")
+
+    # TC35
+    def test_tc35_scratch_holding_a_kept_worktree_is_refused(self) -> None:
+        scratch = self.tempdir / "a" / "b" / "c"
+        scratch.mkdir(parents=True)
+        _git(self.repo, "worktree", "add", "-q", str(scratch / "wt2"), "agent/s-T2")
+        (scratch / "wt2" / "u.txt").write_text("x\n")
+        before = self._branches()
+        code, out, err = self._run("--plan", str(self.plan), "--scratch", str(scratch),
+                                   "--apply")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("mr-clean: refused --scratch:"), err)
+        self.assertIn("overlaps the worktree", err)
+        self.assertTrue((scratch / "wt2" / "u.txt").exists())
+        self.assertEqual(self._branches(), before)
+
+    # TC36
+    def test_tc36_scratch_equal_to_a_repository_is_refused(self) -> None:
+        r = self.tempdir / "x" / "y" / "r"
+        r.mkdir(parents=True)
+        _git(r, "init", "-q")
+        _git(r, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(r, "config", "user.email", "test@example.com")
+        _git(r, "config", "user.name", "Test")
+        _git(r, "config", "commit.gpgsign", "false")
+        _commit(r, {"a.txt": "a\n"}, "A")
+        code, _, err = self._run("--repo", str(r), "--scratch", str(r), "--apply")
+        self.assertEqual(code, 2)
+        self.assertTrue(err.startswith("mr-clean: refused --scratch:"), err)
+        self.assertIn("overlaps the worktree", err)
+        self.assertTrue((r / ".git").is_dir())
+        self.assertTrue((r / "a.txt").exists())
+
+    # TC37
+    def test_tc37_scratch_holding_the_current_directory_is_refused(self) -> None:
+        scratch = self.tempdir / "a" / "b" / "c"
+        sub = scratch / "sub"
+        sub.mkdir(parents=True)
+        code, _, err = self._run("--repo", str(self.repo), "--scratch", str(scratch),
+                                 "--apply", cwd=sub)
+        self.assertEqual(code, 2)
+        self.assertIn("holds the current directory", err)
+        self.assertTrue(sub.is_dir())
+
+    # TC38
+    def test_tc38_handoff_holding_the_current_directory_is_refused(self) -> None:
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        sub = run / "sub"
+        sub.mkdir(parents=True)
+        code, _, err = self._run("--repo", str(self.repo), "--handoff", str(run),
+                                 "--apply", cwd=sub)
+        self.assertEqual(code, 2)
+        self.assertTrue(err.startswith("mr-clean: refused --handoff:"), err)
+        self.assertIn(" holds ", err)
+        self.assertTrue(sub.is_dir())
+
+    # TC39
+    def test_tc39_worktree_holding_a_nested_worktree_is_kept(self) -> None:
+        _git(self.repo, "worktree", "add", "-q", str(self.wt_path / "nested"), "agent/s-T2")
+        (self.wt_path / "nested" / "n.txt").write_text("x\n")
+        code, out, _ = self._run("--plan", str(self.plan), "--apply")
+        self.assertEqual(code, 0)
+        self.assertIn("keep branch agent/s-T1: worktree ", out)
+        self.assertTrue((self.wt_path / "nested" / "n.txt").exists())
+        self.assertIn("agent/s-T1", self._branches())
+        self.assertIn("agent/s-T2", self._branches())
+
+    # TC40
+    def test_tc40_later_actions_are_blocked_after_a_failed_worktree_action(self) -> None:
+        scratch = self.tempdir / "a" / "b" / "c"
+        scratch.mkdir(parents=True)
+        (scratch / "f.txt").write_text("x\n")
+        ghost = scratch / "wt"
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        run.mkdir(parents=True)
+        (run / "out.md").write_text("x\n")
+        actions = [
+            cli.Action("worktree", str(ghost),
+                       f"remove worktree {ghost} (branch agent/other-T1)"),
+            cli.Action("branch", "agent/other-T1",
+                       "delete branch agent/other-T1 (merged into main)",
+                       needs=str(ghost)),
+            cli.Action("directory", str(run.resolve()), f"remove directory {run.resolve()}"),
+            cli.Action("scratch", str(scratch.resolve()),
+                       f"empty directory {scratch.resolve()}"),
+        ]
+        failures = cli.run_actions(self.repo, actions)
+        self.assertIn(actions[0].text, failures)
+        self.assertEqual(failures[actions[1].text], "its worktree was not removed")
+        self.assertEqual(failures[actions[2].text], "a branch of the run was not removed")
+        self.assertEqual(failures[actions[3].text],
+                         f"it holds the worktree {ghost}, which was not removed")
+        self.assertTrue((run / "out.md").exists())
+        self.assertTrue((scratch / "f.txt").exists())
+        self.assertIn("agent/other-T1", self._branches())
 
     def test_run_actions_skips_branch_whose_worktree_failed(self) -> None:
         missing = str(self.tempdir / "not-a-worktree")

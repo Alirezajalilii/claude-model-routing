@@ -196,3 +196,45 @@ def delete_branch_at(repo: Path, name: str, sha: str) -> Optional[str]:
     if failure is None:
         git(repo, "config", "--remove-section", f"branch.{name}")
     return failure
+
+
+def _state_text(path: Path) -> str:
+    """A git state file's text, or "" when it does not exist."""
+    try:
+        return path.read_text(encoding="utf-8", errors="surrogateescape")
+    except FileNotFoundError:
+        return ""
+    except OSError as error:
+        raise CleanError(f"cannot read {path}") from error
+
+
+def _worktree_git_dirs(repo: Path) -> List[Path]:
+    """The git directory of every registered worktree, the main one first."""
+    proc = git(repo, "rev-parse", "--git-common-dir")
+    if proc.returncode != 0:
+        raise CleanError(f"not a git repository: {repo}")
+    common = repo / proc.stdout.rstrip("\n")
+    try:
+        linked = sorted((common / "worktrees").iterdir())
+    except FileNotFoundError:
+        linked = []
+    except OSError as error:
+        raise CleanError(f"cannot list the worktrees of {repo}") from error
+    return [common] + linked
+
+
+def branches_in_use(repo: Path) -> List[str]:
+    """Branches that a rebase or bisect in progress holds in any worktree.
+    git worktree list shows such a worktree as detached, but git branch -D
+    refuses these branches, and so must every delete that replaces it."""
+    names: List[str] = []
+    for git_dir in _worktree_git_dirs(repo):
+        refs = [_state_text(git_dir / "rebase-merge" / "head-name").strip(),
+                _state_text(git_dir / "rebase-apply" / "head-name").strip()]
+        refs += _state_text(git_dir / "rebase-merge" / "update-refs").splitlines()
+        bisect = _state_text(git_dir / "BISECT_START").strip()
+        if bisect:
+            refs.append(f"refs/heads/{bisect}")
+        names += [ref.removeprefix("refs/heads/") for ref in refs
+                  if ref.startswith("refs/heads/")]
+    return names

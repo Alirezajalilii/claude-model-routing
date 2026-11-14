@@ -275,7 +275,8 @@ def _blocked(action: Action, failed: Sequence[Action]) -> Optional[str]:
 
 def _branch_change(repo: Path, action: Action) -> Optional[str]:
     """Re-check a branch right before deleting it: no case twin, same commit,
-    still merged into the base, checked out in no worktree."""
+    still merged into the base, checked out in no worktree and held by no rebase
+    or bisect (git branch -D refused those; update-ref -d does not)."""
     name = action.target
     names = cg.local_branches(repo) + [wt.branch for wt in cg.list_worktrees(repo)
                                        if wt.branch]
@@ -290,6 +291,8 @@ def _branch_change(repo: Path, action: Action) -> Optional[str]:
     for wt in cg.list_worktrees(repo):
         if wt.branch == name:
             return f"since the check, branch {name} is checked out in {wt.path}"
+    if any(_fold(held) == _fold(name) for held in cg.branches_in_use(repo)):
+        return f"branch {name} is being rebased or bisected in a worktree"
     return None
 
 

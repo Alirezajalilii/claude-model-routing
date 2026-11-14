@@ -33,7 +33,7 @@ import transcripts as tr
 PLANNER_CALL_NAMES = frozenset({"Read", "Grep", "Glob"})
 PLANNER_EXEMPT_SUFFIXES = ("/SKILL.md", "/CLAUDE.md", "/AGENTS.md")
 STATUS_RE = re.compile(
-    r"^(DONE|BLOCKED|PASS|FIX|REPLAN|READY|NEED_EVIDENCE|OUT_OF_TOPIC|NO_PLAN_NEEDED)\b")
+    r"^(DONE|BLOCKED|PASS|FIXED|FIX|REPLAN|READY|NEED_EVIDENCE|OUT_OF_TOPIC|NO_PLAN_NEEDED)\b")
 SKILLS_RE = re.compile(r"\bSkills:[ \t]*\S")
 ADVISOR_RE = re.compile(r"never consult the advisor", re.IGNORECASE)
 TASK_ID_RE = re.compile(r"\b[Tt]ask(?: ID)?[:\s]+([A-Z][\w.-]*\d[\w.-]*)")

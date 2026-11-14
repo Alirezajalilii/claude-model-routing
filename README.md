@@ -228,6 +228,7 @@ The plugin puts these commands on the PATH of Claude Code's Bash tool. Ask Claud
 | --- | --- |
 | `mr-init [--claude-md]` | Creates `docs/plans/README.md` and `docs/model-routing-log.md` in the project; `--claude-md` also adds the policy pointer to `CLAUDE.md`. |
 | `mr-doctor` | Checks Python, the Claude Code version, the settings the policy relies on, `ANTHROPIC_API_KEY` and the project setup. |
+| `mr-clean` | Ends a run: removes the run's local branches merged into `main` (or `--base`), their clean worktrees, its git-ignored handoff directory and the session scratchpad's contents. Never touches unmerged or remote branches. A dry run unless given `--apply`. |
 | `mr-usage <session-id>` | Model, effort and tokens for each subagent of a session; `--json` prints machine-readable rows. |
 | `mr-cost <file>` or `mr-cost -` | Prices `mr-usage --json` rows at API list prices and re-prices the same tokens at Sonnet 5.5 and Opus 5.5 rates. |
 | `mr-audit <session-id>` | Policy compliance flags for a session. |

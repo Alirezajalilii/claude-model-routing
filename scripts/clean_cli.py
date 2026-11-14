@@ -206,7 +206,13 @@ def plan_cleanup(repo: Path, owned: Sequence[str], missing: Sequence[str],
     linked = registered[1:]
     current = cg.current_branch(repo)
     out = Cleanup()
+    branches = cg.local_branches(repo) + [wt.branch for wt in registered if wt.branch]
     for name in owned:
+        twin = _case_twin(name, branches)
+        if twin is not None:
+            _keep_branch(out, f"keep branch {name}: branch {twin} "
+                              "differs only in letter case or Unicode form")
+            continue
         plan_branch(repo, name, base, current, linked, cwd, out, registered)
     for name in missing:
         out.kept.append(f"keep branch {name}: no such local branch")

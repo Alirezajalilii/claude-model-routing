@@ -395,6 +395,27 @@ class CleanGitTest(unittest.TestCase):
             self.assertEqual(cg.unignored_files(self.repo, "free/2026-01-01-q"),
                              ["free/2026-01-01-q/u.txt"])
 
+    # TC77
+    def test_tc77_branch_tip_is_the_commit_or_none(self) -> None:
+        self.assertEqual(cg.branch_tip(self.repo, "main"), self.first)
+        self.assertIsNone(cg.branch_tip(self.repo, "nope"))
+
+    # TC78
+    def test_tc78_delete_branch_at_compares_before_deleting(self) -> None:
+        _git(self.repo, "branch", "free")
+        other = _commit(self.repo, {"o.txt": "o\n"}, "O")
+        self.assertIsNotNone(cg.delete_branch_at(self.repo, "free", other))
+        self.assertTrue(cg.branch_exists(self.repo, "free"))
+        _git(self.repo, "config", "branch.free.remote", "origin")
+        self.assertIsNone(cg.delete_branch_at(self.repo, "free", self.first))
+        self.assertFalse(cg.branch_exists(self.repo, "free"))
+        config = subprocess.run(["git", "-C", str(self.repo), "config", "--get",
+                                 "branch.free.remote"], capture_output=True)
+        self.assertEqual(config.returncode, 1)
+        _git(self.repo, "symbolic-ref", "refs/heads/alias", "refs/heads/main")
+        cg.delete_branch_at(self.repo, "alias", other)
+        self.assertEqual(_sha(self.repo, "refs/heads/main"), other)
+
 
 if __name__ == "__main__":
     unittest.main()

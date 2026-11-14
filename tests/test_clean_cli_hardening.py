@@ -4,6 +4,7 @@ Reuses the fixture of CleanCliTest in tests/test_clean_cli.py without
 inheriting its tests, so they do not run twice.
 """
 
+import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -202,6 +203,79 @@ class CleanCliHardeningTest(unittest.TestCase):
         self.assertEqual(out.kept, ["keep branch agent/other-T1: branch Agent/other-T1 "
                                     "differs only in letter case or Unicode form"])
         self.assertEqual(out.actions, [])
+
+    # TC79
+    def test_tc79_commit_after_planning_keeps_branch(self) -> None:
+        args = cli.build_parser().parse_args(["--branch", "agent/s-T1"])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        _commit(self.wt_path, {"late.txt": "late\n"}, "late")
+        late = _git(self.wt_path, "rev-parse", "HEAD")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures["delete branch agent/s-T1 (merged into main)"],
+                         "since the check, branch agent/s-T1 moved or was deleted")
+        self.assertEqual(_git(self.repo, "rev-parse", "refs/heads/agent/s-T1"), late)
+
+    # TC80
+    def test_tc80_base_moving_back_keeps_branch(self) -> None:
+        args = cli.build_parser().parse_args(["--branch", "agent/other-T1"])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        _git(self.repo, "reset", "-q", "--hard", "HEAD~1")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures["delete branch agent/other-T1 (merged into main)"],
+                         "since the check, branch agent/other-T1 "
+                         "is no longer merged into main")
+        self.assertIn("agent/other-T1", self._branches())
+
+    # TC81
+    def test_tc81_checkout_after_planning_keeps_branch(self) -> None:
+        args = cli.build_parser().parse_args(["--branch", "agent/other-T1"])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        late = self._tempdir() / "late"
+        _git(self.repo, "worktree", "add", "-q", str(late), "agent/other-T1")
+        failures = cli.run_actions(repo, cleanup.actions)
+        reason = failures["delete branch agent/other-T1 (merged into main)"]
+        self.assertTrue(reason.startswith(
+            "since the check, branch agent/other-T1 is checked out in "), reason)
+        self.assertIn("agent/other-T1", self._branches())
+        self.assertTrue(late.is_dir())
+
+    # TC82
+    def test_tc82_deleted_branch_drops_its_config_section(self) -> None:
+        _git(self.repo, "config", "branch.agent/other-T1.remote", "origin")
+        code, _, err = self._run("--branch", "agent/other-T1", "--apply")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("agent/other-T1", self._branches())
+        config = subprocess.run(["git", "-C", str(self.repo), "config", "--get",
+                                 "branch.agent/other-T1.remote"], capture_output=True)
+        self.assertEqual(config.returncode, 1)
+
+    # TC88
+    def test_tc88_case_twin_created_after_planning_keeps_both(self) -> None:
+        _git(self.repo, "branch", "late", "main")
+        args = cli.build_parser().parse_args(["--branch", "late"])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        _git(self.repo, "pack-refs", "--all")
+        _git(self.repo, "branch", "Late", "main")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures["delete branch late (merged into main)"],
+                         "since the check, branch Late differs only in letter case "
+                         "or Unicode form from late")
+        refs = _git(self.repo, "for-each-ref", "--format=%(refname)",
+                    "refs/heads").splitlines()
+        self.assertIn("refs/heads/late", refs)
+        self.assertIn("refs/heads/Late", refs)
+
+    # TC90
+    def test_tc90_checkout_under_twin_spelling_keeps_branch(self) -> None:
+        args = cli.build_parser().parse_args(["--branch", "agent/other-T1"])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        listed = [W(str(self.repo), "Agent/other-T1", False, False)]
+        with mock.patch.object(cli.cg, "list_worktrees", return_value=listed):
+            failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures["delete branch agent/other-T1 (merged into main)"],
+                         "since the check, branch Agent/other-T1 differs only in letter "
+                         "case or Unicode form from agent/other-T1")
+        self.assertIn("agent/other-T1", self._branches())
 
 
 if __name__ == "__main__":

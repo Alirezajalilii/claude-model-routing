@@ -71,5 +71,22 @@ class CleanSafetyPolicyGuardTest(unittest.TestCase):
         self.assertNotIn("Cleanup", handoffs)
 
 
+class CleanTimingPolicyTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.config = rc.load_config()
+        cls.parts = render_parts(cls.config)
+
+    # TC43
+    def test_tc43_cleanup_runs_only_when_no_agent_is_running(self):
+        self.assertIn(
+            "instead of `--plan`). Run it only when no agent of the run is still running. Leave out `--handoff` when",
+            self.parts[1],
+        )
+        self.assertLess(len(self.parts[1]), MAX_PART_CHARS)
+        skill = SKILL.read_text(encoding="utf-8")
+        self.assertIn("Run it only when no agent of the run is still running.", skill)
+
+
 if __name__ == "__main__":
     unittest.main()

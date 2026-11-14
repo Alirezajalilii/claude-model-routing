@@ -25,5 +25,5 @@
    - Never force-push or rewrite shared history.
    - Resolve trivial merge conflicts directly. Route non-trivial conflicts as a new task to `exec-sonnet-high`, with verification.
    - Destructive database migrations, data deletion, and production deploys are outside auto-merge scope: prepare them fully, then report.
-   - Wrap-up (every task has passed: final gate, merge, docs, log, report) never spawns or resumes a planner. The main session writes the log; docs edits go to the fast lane. A problem found now is either small and clear (fast lane) or a new topic for a fresh planner.
+   - Wrap-up (every task has passed: final gate, merge, docs, log, report) never spawns or resumes a planner. The main session writes the log; docs edits go to the fast lane. A problem found now is either small and clear (fast lane) or a new topic for a fresh planner. Before the report, run the **Cleanup** (`{{plugin_name}}-clean`).
 8. **Log** every delegation, as described under Logging.

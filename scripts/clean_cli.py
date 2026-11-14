@@ -210,9 +210,8 @@ def plan_cleanup(repo: Path, owned: Sequence[str], missing: Sequence[str],
         plan_branch(repo, name, base, current, linked, cwd, out, registered)
     for name in missing:
         out.kept.append(f"keep branch {name}: no such local branch")
-    owned_set = set(owned)
     for ref in cg.remote_branches(repo):
-        if ref.partition("/")[2] in owned_set:
+        if any(ref.endswith("/" + name) for name in owned):
             out.notes.append(f"note remote branch {ref} left as is")
     return out
 

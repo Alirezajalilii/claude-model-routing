@@ -17,6 +17,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import clean_scope as cs  # noqa: E402
 
+LS = chr(0x2028)  # Unicode LINE SEPARATOR
+FS = chr(0x1c)  # file separator control character
+
 
 def _dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
@@ -150,6 +153,27 @@ class ParseWorktreesTest(unittest.TestCase):
     def test_bare_repository_has_no_branch(self) -> None:
         self.assertEqual(cs.parse_worktrees("worktree /r/b\nbare\n"),
                          [cs.Worktree("/r/b", None, False, False)])
+
+
+class ParseWorktreesSepTest(unittest.TestCase):
+    """parse_worktrees with a separator splits fields on that separator only."""
+
+    # TC16
+    def test_tc16_nul_separated_entries_keep_newline_and_separator_in_paths(self) -> None:
+        text = ("worktree /r/a\nb\0HEAD aaa\0branch refs/heads/main\0\0"
+                "worktree /r/w" + LS + "1\0HEAD bbb\0branch refs/heads/agent/s-T1"
+                "\0locked\0\0")
+        self.assertEqual(cs.parse_worktrees(text, "\0"), [
+            cs.Worktree("/r/a\nb", "main", False, False),
+            cs.Worktree("/r/w" + LS + "1", "agent/s-T1", True, False),
+        ])
+
+    # TC17
+    def test_tc17_newline_form_keeps_control_characters_in_paths(self) -> None:
+        path = "/r/a" + FS + "b" + LS + "c"
+        text = "worktree " + path + "\nHEAD aaa\nbranch refs/heads/agent/s-T1\n"
+        self.assertEqual(cs.parse_worktrees(text),
+                         [cs.Worktree(path, "agent/s-T1", False, False)])
 
 
 class ScratchProblemTest(unittest.TestCase):

@@ -32,7 +32,7 @@ All routine work goes through the Makefile. Run `make help` for the list.
 
 ## Layout
 - `.claude-plugin/`, `agents/`, `hooks/`, `skills/` sit at the repository root: the Claude Code plugin format and the marketplace entry (`source: "."` in `.claude-plugin/marketplace.json`) require them at the plugin root.
-- `bin/`: launchers for the plugin commands `mr-usage`, `mr-audit`, `mr-skills`, `mr-init`, `mr-plan`, `mr-gate`, `mr-cost`, `mr-doctor`.
+- `bin/`: launchers for the plugin commands `mr-usage`, `mr-audit`, `mr-skills`, `mr-init`, `mr-plan`, `mr-gate`, `mr-cost`, `mr-doctor`, `mr-clean`.
 - `config/`: `routing.json`.
 - `policy/`: policy text fragments and agent body templates rendered by `scripts/generate.py`.
 - `scripts/`: the hook scripts and the command implementations.

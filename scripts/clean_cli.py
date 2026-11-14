@@ -10,7 +10,7 @@ import tempfile
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Pattern, Sequence, Tuple
+from typing import AbstractSet, Dict, List, Optional, Pattern, Sequence, Tuple
 
 import clean_git as cg
 import clean_scope as cs
@@ -296,6 +296,29 @@ def _branch_change(repo: Path, action: Action) -> Optional[str]:
     return None
 
 
+def _overlapping_worktree(target: Path, repo: Path,
+                          skip: AbstractSet[str] = frozenset()) -> Optional[str]:
+    """The first present registered worktree, not in skip, that is target,
+    lies inside it or holds it."""
+    for wt in cg.list_worktrees(repo):
+        if not wt.prunable and wt.path not in skip and _overlaps(target, Path(wt.path)):
+            return wt.path
+    return None
+
+
+def _directory_change(repo: Path, target: Path) -> Optional[str]:
+    """Re-check a handoff directory right before removing it."""
+    for wt in cg.list_worktrees(repo)[1:]:
+        if not wt.prunable and cs.path_within(Path(wt.path), target):
+            return f"since the check, it holds the worktree {wt.path}"
+    rel = _relative_to_repo(target, repo)
+    files = cg.unignored_files(repo, rel) if rel else []
+    if files:
+        return ("since the check, it holds files that are tracked or not "
+                f"git-ignored: {files[0]}")
+    return None
+
+
 def _run_one(repo: Path, action: Action) -> Optional[str]:
     if action.kind == "worktree":
         state = cg.worktree_state(Path(action.target))
@@ -306,9 +329,13 @@ def _run_one(repo: Path, action: Action) -> Optional[str]:
     if action.kind == "branch":
         return _branch_change(repo, action) or cg.delete_branch_at(
             repo, action.target, action.sha)
+    target = Path(action.target)
     if action.kind == "directory":
-        return _remove_tree(Path(action.target))
-    return _empty_directory(Path(action.target))
+        return _directory_change(repo, target) or _remove_tree(target)
+    holder = _overlapping_worktree(target, repo)
+    if holder is not None:
+        return f"since the check, it overlaps the worktree {holder}"
+    return _empty_directory(target)
 
 
 def run_actions(repo: Path, actions: Sequence[Action]) -> Dict[str, str]:
@@ -364,11 +391,9 @@ def _guard_scratch(action: Action, repo: Path, cleanup: Cleanup, cwd: Path) -> N
     if cs.path_within(cwd, target, strict=True):
         raise UsageError(f"refused --scratch: {target} holds the current directory {cwd}")
     removed = {item.target for item in cleanup.actions if item.kind == "worktree"}
-    for wt in cg.list_worktrees(repo):
-        if wt.prunable or wt.path in removed:
-            continue
-        if _overlaps(target, Path(wt.path).resolve()):
-            raise UsageError(f"refused --scratch: {target} overlaps the worktree {wt.path}")
+    holder = _overlapping_worktree(target, repo, removed)
+    if holder is not None:
+        raise UsageError(f"refused --scratch: {target} overlaps the worktree {holder}")
 
 
 def _fold(name: str) -> str:

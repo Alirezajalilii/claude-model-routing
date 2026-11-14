@@ -155,9 +155,10 @@ class AgentBodyHandoffTest(unittest.TestCase):
         wanted = {
             "scout": ["DONE <output path>", "BLOCKED <output path> reason=<one line>"],
             "executor": ["commits=<sha>,<sha>", "BLOCKED <output path> reason=<one line>", "never `git add -A`"],
+            # TC6: the verifier status line names FIXED
             "verifier": [
                 "PASS <output path>",
-                "FIX <output path>",
+                "FIXED <output path> commits=<sha>,<sha>",
                 "REPLAN <output path> fix=small",
                 "REPLAN <output path> fix=design",
                 "BLOCKED <output path> reason=<one line>",
@@ -178,8 +179,9 @@ class AgentBodyHandoffTest(unittest.TestCase):
         for tier, text in self.each():
             if tier.role == "scout":
                 self.assertIn("The one exception is your Output file", text, tier.name)
+            # TC6: the verifier write exception names the task's Gate lines
             if tier.role == "verifier":
-                self.assertIn("the only file you write is your Output file", text, tier.name)
+                self.assertIn("Change only files that the task's Gate `files:` and `tests:` lines allow", text, tier.name)
 
     def test_advisor_line_for_non_planners(self):
         for tier, text in self.each():
@@ -188,7 +190,7 @@ class AgentBodyHandoffTest(unittest.TestCase):
 
     def test_size_limits(self):
         for tier, text in self.each():
-            limit = 26000 if tier.role == "planner" else 12000
+            limit = {"planner": 26000, "verifier": 14000}.get(tier.role, 12000)
             self.assertLessEqual(len(text), limit, f"{tier.name} is {len(text)} characters")
 
     def test_new_sections_not_in_dispatcher_parts(self):

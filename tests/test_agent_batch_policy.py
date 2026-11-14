@@ -64,7 +64,7 @@ class AgentBatchPolicyTests(unittest.TestCase):
 
     def test_tc5_guard_sizes_and_pinned_phrase(self):
         for path in agent_files("exec") + agent_files("verify"):
-            self.assertLessEqual(len(read(path)), 12000, path.name)
+            self.assertLessEqual(len(read(path)), 14000 if path.name.startswith("verify-") else 12000, path.name)
         for path in agent_files("verify"):
             self.assertIn("the task ran below its planned executor tier", read(path), path.name)
 

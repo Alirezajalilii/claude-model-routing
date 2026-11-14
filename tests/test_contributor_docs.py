@@ -14,6 +14,7 @@ ARCHITECTURE = ROOT / "docs" / "architecture.md"
 LAUNCHERS = (
     "mr-usage", "mr-audit", "mr-skills", "mr-init",
     "mr-plan", "mr-gate", "mr-cost", "mr-doctor",
+    "mr-clean",  # TC2
 )
 # The home-directory workspace path is built by concatenation so that this file does not contain it.
 BANNED_IN_AGENTS = (

@@ -1,7 +1,8 @@
 ## Forbidden
 - Effort `max` on any agent. It burns several times the tokens without scoring better, and on Sonnet it fans out into out-of-scope work.
 - Effort `xhigh` on Haiku.
-- Opus as an executor.
+- Opus as an executor. An Opus verifier fixes only the defects it finds in the tasks it verifies.
+- Resuming an executor with a verifier's verdict, or a second verifier pass over a task whose verifier returned FIXED.
 - `exec-sonnet-xhigh` for a task without three yes answers, except as the escalation after a failure at `exec-sonnet-high`.
 - Any agent outside the defined tiers and `dispatch.allow_agents`, including `general-purpose` and `fork`.
 - A `model` or `effort` parameter on any Agent call.

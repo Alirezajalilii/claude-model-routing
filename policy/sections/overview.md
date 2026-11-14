@@ -1,6 +1,6 @@
 ## Overview
 
-This policy routes Claude Code work through fixed tiers of subagents so that every task runs on the cheapest model and effort that passes its checks. The main session is the dispatcher and integrator. Planners plan, test cases included; executors implement test-first; the main session gates every task with mechanical checks; verifiers judge only the tasks a verification trigger selects; only planners consult the advisor.
+This policy routes Claude Code work through fixed tiers of subagents so that every task runs on the cheapest model and effort that passes its checks. The main session is the dispatcher and integrator. Planners plan, test cases included; executors implement test-first; the main session gates every task with mechanical checks; verifiers judge, and fix themselves, only the tasks a verification trigger selects; only planners consult the advisor.
 
 Tier names in this policy are short names. Dispatch them as `{{plugin_name}}:<name>`, for example `{{plugin_name}}:exec-haiku-low`; the dispatch guard also accepts the bare name.
 

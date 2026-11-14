@@ -77,7 +77,7 @@ class PluginManifestTest(unittest.TestCase):
         match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
         self.assertIsNotNone(match)
         self.assertEqual(data["version"], match.group(1))
-        self.assertEqual(data["version"], "0.7.0")
+        self.assertEqual(data["version"], "0.8.0")  # TC1: release 0.8.0 pin
 
     def test_keywords(self) -> None:  # TC3
         data = load_json(".claude-plugin/plugin.json")

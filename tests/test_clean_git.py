@@ -373,6 +373,28 @@ class CleanGitTest(unittest.TestCase):
             "status", "--porcelain", "-z", "--ignored=matching",
             "--untracked-files=all", "--ignore-submodules=none"))
 
+    # TC64
+    def test_tc64_icase_pathspec_lists_tracked_file_under_a_case_variant(self) -> None:
+        _commit(self.repo, {".gitignore": "docs/handoffs/\n"}, "ignore")
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-r"
+        run.mkdir(parents=True)
+        (run / "t.md").write_text("t\n")
+        _git(self.repo, "add", "-f", "docs/handoffs/2026-01-01-r/t.md")
+        _git(self.repo, "commit", "-q", "-m", "force")
+        self.assertEqual(cg.unignored_files(self.repo, "docs/HANDOFFS/2026-01-01-r"),
+                         ["docs/handoffs/2026-01-01-r/t.md"])
+        ci = (self.repo / "DOCS" / "HANDOFFS").is_dir()
+        free = self.repo / "free" / "2026-01-01-q"
+        free.mkdir(parents=True)
+        (free / "u.txt").write_text("u\n")
+        if ci:
+            self.assertEqual(
+                [name.lower() for name in cg.unignored_files(self.repo, "FREE/2026-01-01-Q")],
+                ["free/2026-01-01-q/u.txt"])
+        else:
+            self.assertEqual(cg.unignored_files(self.repo, "free/2026-01-01-q"),
+                             ["free/2026-01-01-q/u.txt"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -230,6 +231,25 @@ class ScratchProblemTest(unittest.TestCase):
         self.assertEqual(cs.scratch_problem(path, self.roots),
                          f"{path} does not exist")
 
+    # TC63
+    def test_tc63_directory_must_be_spelled_as_on_disk(self) -> None:
+        path = _dir(self.root / "a" / "b" / "c")
+        with mock.patch.object(cs.os, "listdir", return_value=[]):
+            self.assertEqual(cs.scratch_problem(path, self.roots),
+                             f"{path} is not spelled as on disk")
+        self.assertIsNone(cs.scratch_problem(path, self.roots))
+
+    # TC63
+    def test_tc63_case_variant_of_scratch_directory(self) -> None:
+        variant = self.root / "A" / "B" / "C"
+        _dir(self.root / "a" / "b" / "c")
+        if variant.is_dir():
+            self.assertEqual(cs.scratch_problem(variant, self.roots),
+                             f"{variant} is not spelled as on disk")
+        else:
+            self.assertEqual(cs.scratch_problem(variant, self.roots),
+                             f"{variant} does not exist")
+
 
 class TempRootsTest(unittest.TestCase):
     """temp_roots lists resolved, existing temp directories without duplicates."""
@@ -250,6 +270,57 @@ class TempRootsTest(unittest.TestCase):
     def test_no_duplicates_when_tempdir_is_tmp(self) -> None:
         result = cs.temp_roots("/tmp")
         self.assertEqual(len(result), len(set(result)))
+
+
+class PathWithinTest(unittest.TestCase):
+    """path_within compares by name or by file identity, below the outer directory."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name).resolve()
+
+    # TC58
+    def test_tc58_names_inside_and_outside(self) -> None:
+        a = _dir(self.root / "a")
+        b = _dir(a / "b")
+        x = _dir(self.root / "x")
+        self.assertTrue(cs.path_within(b, a))
+        self.assertTrue(cs.path_within(b, a, strict=True))
+        self.assertTrue(cs.path_within(a, a))
+        self.assertTrue(cs.path_within(a / "ghost" / "g", a))
+        self.assertFalse(cs.path_within(a, a, strict=True))
+        self.assertFalse(cs.path_within(x, a))
+        self.assertFalse(cs.path_within(a, b))
+
+    # TC59
+    def test_tc59_file_identity_on_any_file_system(self) -> None:
+        p = _dir(self.root / "p" / "q")
+        r = _dir(self.root / "r")
+
+        def fake(first: str, second: str) -> bool:
+            return Path(first) == p and Path(second) == r
+
+        with mock.patch.object(cs.os.path, "samefile", side_effect=fake):
+            self.assertTrue(cs.path_within(p / "f", r))
+            self.assertTrue(cs.path_within(p, r))
+            self.assertFalse(cs.path_within(p, r, strict=True))
+        self.assertFalse(cs.path_within(p / "f", r))
+
+    # TC60
+    def test_tc60_case_variant_spelling(self) -> None:
+        a = _dir(self.root / "a")
+        b = _dir(a / "b")
+        variant = self.root / "A"
+        if variant.is_dir():
+            self.assertTrue(cs.path_within(variant / "b", a))
+            self.assertTrue(cs.path_within(variant / "b", a, strict=True))
+            self.assertTrue(cs.path_within(variant, a))
+            self.assertTrue(cs.path_within(b, variant))
+            self.assertFalse(cs.path_within(variant, a, strict=True))
+        else:
+            self.assertFalse(cs.path_within(variant / "b", a))
+            self.assertFalse(cs.path_within(b, variant))
 
 
 class HandoffProblemTest(unittest.TestCase):
@@ -369,6 +440,46 @@ class HandoffProblemTest(unittest.TestCase):
             self.assertEqual(problem, f"{variant} holds {held}")
         else:
             self.assertEqual(problem, f"{variant} does not exist")
+
+    # TC61
+    def test_tc61_git_directory_in_any_letter_case_is_refused(self) -> None:
+        _dir(self.run / "x" / ".GIT")
+        self.assertEqual(cs.handoff_problem(self.run, self.repo, True, []),
+                         f"{self.run} holds a .git entry")
+
+    # TC61
+    def test_tc61_git_file_in_any_letter_case_is_refused(self) -> None:
+        run2 = _dir(self.repo / "docs" / "handoffs" / "2026-01-02-run2")
+        _file(run2 / ".Git")
+        self.assertEqual(cs.handoff_problem(run2, self.repo, True, []),
+                         f"{run2} holds a .git entry")
+
+    # TC62
+    def test_tc62_directory_must_be_spelled_as_on_disk(self) -> None:
+        with mock.patch.object(cs.os, "listdir", return_value=[]):
+            self.assertEqual(cs.handoff_problem(self.run, self.repo, True, []),
+                             f"{self.run} is not spelled as on disk")
+        self.assertIsNone(cs.handoff_problem(self.run, self.repo, True, []))
+
+    # TC62
+    def test_tc62_ascii_case_variant_of_run_directory_is_refused(self) -> None:
+        variant = self.repo / "docs" / "HANDOFFS" / "2026-01-01-run1"
+        problem = cs.handoff_problem(variant, self.repo, True, [])
+        if variant.is_dir():
+            self.assertEqual(problem, f"{variant} is not spelled as on disk")
+        else:
+            self.assertEqual(problem, f"{variant} does not exist")
+
+    # TC62
+    def test_tc62_non_ascii_case_variant_of_run_directory_is_refused(self) -> None:
+        accented = _dir(self.repo / "docs" / "hándoffs" / "2026-01-01-run2")
+        self.assertIsNone(cs.handoff_problem(accented, self.repo, True, []))
+        upper = self.repo / "docs" / "HÁNDOFFS" / "2026-01-01-run2"
+        problem = cs.handoff_problem(upper, self.repo, True, [])
+        if upper.is_dir():
+            self.assertEqual(problem, f"{upper} is not spelled as on disk")
+        else:
+            self.assertEqual(problem, f"{upper} does not exist")
 
 
 class IsProtectedTest(unittest.TestCase):

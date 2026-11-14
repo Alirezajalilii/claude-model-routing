@@ -15,6 +15,7 @@ CLAUDE.local.md
 
 # Routing artifacts of projects that use the plugin; this repository keeps them outside
 docs/plans/
+docs/handoffs/
 docs/model-routing-log.md
 
 # local files, never committed

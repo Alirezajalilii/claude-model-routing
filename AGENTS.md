@@ -27,7 +27,7 @@ All routine work goes through the Makefile. Run `make help` for the list.
 - Functions stay under 50 lines and files under 800 lines; `tests/test_code_limits.py` enforces both.
 - Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), one subject line, no personal data in messages.
 - No personal or machine-specific data anywhere: no home paths, no e-mail addresses other than `example.com`, no IP addresses, tokens or session ids.
-- Plans, routing logs and transcripts never belong in this repository (`docs/plans/` and `docs/model-routing-log.md` are gitignored).
+- Plans, handoff files, routing logs and transcripts never belong in this repository (`docs/plans/`, `docs/handoffs/` and `docs/model-routing-log.md` are gitignored).
 - `docs/cost/` holds token tables derived from a routing log, with no session ids, paths or transcript text.
 
 ## Layout

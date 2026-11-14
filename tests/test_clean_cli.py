@@ -8,6 +8,7 @@ asserts the fallback (the branch is kept as not merged).
 """
 
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import List, Optional, Tuple
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -56,6 +58,14 @@ def _listed_path(repo: Path, branch: str) -> str:
             return next(line[len("worktree "):] for line in lines
                         if line.startswith("worktree "))
     raise AssertionError(f"no worktree on {branch}")
+
+
+def _exclude(repo: Path, *patterns: str) -> None:
+    """Add patterns to the repository's local exclude file (not committed)."""
+    info = repo / ".git" / "info"
+    info.mkdir(parents=True, exist_ok=True)
+    with (info / "exclude").open("a") as handle:
+        handle.write("".join(pattern + "\n" for pattern in patterns))
 
 
 class CleanCliTest(unittest.TestCase):
@@ -185,7 +195,7 @@ class CleanCliTest(unittest.TestCase):
 
     # TC8
     def test_tc8_handoff_directory_dry_run_then_apply(self) -> None:
-        run1 = self.repo / "docs" / "handoffs" / "run1"
+        run1 = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
         run1.mkdir(parents=True)
         (run1 / "out.md").write_text("x\n")
         code, out, _ = self._run("--handoff", str(run1))
@@ -300,7 +310,7 @@ class CleanCliTest(unittest.TestCase):
 
     # TC14
     def test_tc14_handoff_kept_while_branches_are_kept(self) -> None:
-        run1 = self.repo / "docs" / "handoffs" / "run1"
+        run1 = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
         run1.mkdir(parents=True)
         (run1 / "gate.md").write_text("x\n")
         code, out, _ = self._run("--plan", str(self.plan), "--handoff", str(run1),
@@ -341,6 +351,89 @@ class CleanCliTest(unittest.TestCase):
         self.assertEqual(out, "")
         self.assertTrue(plan_copy.exists())
         self.assertIn("agent/s-T1", self._branches())
+
+    # TC29
+    def test_tc29_handoff_refuses_plan_and_agent_directories_without_plan(self) -> None:
+        _exclude(self.repo, "docs/plans/", ".agent/")
+        plans = self.repo / "docs" / "plans"
+        agent = self.repo / ".agent"
+        plans.mkdir(parents=True)
+        (plans / "2026-01-01-s.md").write_text("x\n")
+        agent.mkdir()
+        (agent / "notes.md").write_text("x\n")
+        for directory in (plans, agent):
+            with self.subTest(directory=str(directory)):
+                code, out, err = self._run("--branch", "agent/s-T1", "--handoff",
+                                           str(directory), "--apply")
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")
+                self.assertTrue(err.startswith("mr-clean: refused --handoff:"), err)
+                self.assertIn("is not a run directory named <YYYY-MM-DD>-<topic-slug>",
+                              err)
+                self.assertTrue((plans / "2026-01-01-s.md").exists())
+                self.assertTrue((agent / "notes.md").exists())
+                self.assertEqual(self._branches(), ALL_BRANCHES)
+                self.assertTrue(self.wt_path.is_dir())
+
+    # TC30
+    def test_tc30_tracked_file_in_an_ignored_run_directory_is_refused(self) -> None:
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        run.mkdir(parents=True)
+        (run / "out.md").write_text("x\n")
+        (run / "t.md").write_text("x\n")
+        _git(self.repo, "add", "-f", "docs/handoffs/2026-01-01-run1/t.md")
+        _git(self.repo, "commit", "-q", "-m", "force")
+        code, out, err = self._run("--handoff", str(run), "--apply")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("mr-clean: refused --handoff:"), err)
+        self.assertIn("holds files that are tracked or not git-ignored: "
+                      "docs/handoffs/2026-01-01-run1/t.md", err)
+        self.assertTrue((run / "t.md").exists())
+        self.assertTrue((run / "out.md").exists())
+
+    # TC31
+    def test_tc31_dated_project_named_run_directory_is_removed(self) -> None:
+        _exclude(self.repo, ".agent/")
+        run = self.repo / ".agent" / "runs" / "2026-01-01-x"
+        run.mkdir(parents=True)
+        (run / "a.md").write_text("x\n")
+        code, out, _ = self._run("--handoff", str(run))
+        self.assertEqual(code, 0)
+        self.assertIn(f"remove directory {run.resolve()}", out)
+        self.assertTrue(run.is_dir())
+        code, _, err = self._run("--handoff", str(run), "--apply")
+        self.assertEqual(code, 0, err)
+        self.assertFalse(run.exists())
+        self.assertTrue((self.repo / ".agent" / "runs").exists())
+
+    # TC47
+    def test_tc47_case_variant_of_a_run_directory_with_tracked_file_is_refused(self) -> None:
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        run.mkdir(parents=True)
+        (run / "out.md").write_text("x\n")
+        (run / "t.md").write_text("x\n")
+        _git(self.repo, "add", "-f", "docs/handoffs/2026-01-01-run1/t.md")
+        _git(self.repo, "commit", "-q", "-m", "force")
+        variant = self.repo / "docs" / "HANDOFFS" / "2026-01-01-run1"
+        code, out, err = self._run("--handoff", str(variant), "--apply")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("mr-clean: refused --handoff:"), err)
+        self.assertTrue((run / "t.md").exists())
+        self.assertTrue((run / "out.md").exists())
+        if variant.is_dir():
+            self.assertIn("holds files that are tracked or not git-ignored:", err)
+        else:
+            self.assertIn("does not exist", err)
+
+    # TC49
+    def test_tc49_handoff_help_names_the_run_directory_rule(self) -> None:
+        with mock.patch.dict(os.environ, {"COLUMNS": "200"}):
+            help_text = cli.build_parser().format_help()
+        text = " ".join(help_text.split())
+        self.assertIn("run directory to remove: named <YYYY-MM-DD>-<topic-slug>, "
+                      "git-ignored, inside the repository, holding no tracked file", text)
 
     def test_run_actions_skips_branch_whose_worktree_failed(self) -> None:
         missing = str(self.tempdir / "not-a-worktree")

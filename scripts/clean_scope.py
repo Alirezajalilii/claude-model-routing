@@ -11,7 +11,8 @@ from typing import List, Optional, Pattern, Sequence, Tuple
 DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 PROTECTED = ("main", "master")
 MIN_SCRATCH_DEPTH = 3
-RUN_DIR_RE = re.compile(r"\d{4}-\d{2}-\d{2}-[A-Za-z0-9][A-Za-z0-9._-]*")
+# re.ASCII: without it \d also matches Persian, Arabic-Indic or fullwidth digits.
+RUN_DIR_RE = re.compile(r"\d{4}-\d{2}-\d{2}-[A-Za-z0-9][A-Za-z0-9._-]*", re.ASCII)
 
 
 def plan_slug(plan_path: str) -> str:

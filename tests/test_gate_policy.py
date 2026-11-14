@@ -55,7 +55,8 @@ class GatePolicyTests(unittest.TestCase):
             "groups of at most 6 tasks whose verifier Skills lines together name at most 6 skills",
             "a task that ran below the plan's executor tier, even if the plan marked it Verify: no",
             "a batch verifier gets every task ID with its report and gate file paths",
-            "each in its own detached worktree at the integration branch's head",
+            # TC11: kept-worktree batch verification pin
+            "it checks and fixes each task in that task's kept worktree (see Gate).",
             "An older plan's `Verify: yes` counts as `Verify: task`.",
             "(`checks=green`): resume the same executor instance through SendMessage with the gate file path",
         ):

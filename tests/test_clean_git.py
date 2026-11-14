@@ -320,6 +320,59 @@ class CleanGitTest(unittest.TestCase):
         _init_repo(base)
         self.assertEqual(str(cg.main_worktree(base).resolve()), str(base.resolve()))
 
+    # TC50
+    def test_tc50_assume_unchanged_edit_is_hidden(self) -> None:
+        wt = self._add_worktree("wt")
+        (wt / "base.txt").write_text("edited\n")
+        _git(wt, "update-index", "--assume-unchanged", "base.txt")
+        self.assertEqual(cg.worktree_state(wt), "hidden")
+        self.assertFalse(cg.is_clean(wt))
+
+    # TC51
+    def test_tc51_skip_worktree_edit_is_hidden(self) -> None:
+        wt = self._add_worktree("wt")
+        (wt / "base.txt").write_text("edited\n")
+        _git(wt, "update-index", "--skip-worktree", "base.txt")
+        self.assertEqual(cg.worktree_state(wt), "hidden")
+
+    # TC52
+    def test_tc52_absent_skip_worktree_file_is_clean(self) -> None:
+        wt = self._add_worktree("wt")
+        _git(wt, "update-index", "--skip-worktree", "base.txt")
+        (wt / "base.txt").unlink()
+        self.assertEqual(cg.worktree_state(wt), "clean")
+
+    # TC53
+    def test_tc53_unedited_flagged_file_present_is_hidden(self) -> None:
+        wt = self._add_worktree("wt")
+        _git(wt, "update-index", "--assume-unchanged", "base.txt")
+        self.assertEqual(cg.worktree_state(wt), "hidden")
+
+    # TC54
+    def test_tc54_ls_files_failure_is_unknown(self) -> None:
+        def fake(repo: Path, *args: str) -> subprocess.CompletedProcess:
+            if "status" in args:
+                return subprocess.CompletedProcess(list(args), 0, "", "")
+            return subprocess.CompletedProcess(list(args), 128, "", "fatal")
+
+        with mock.patch.object(cg, "git", side_effect=fake):
+            self.assertEqual(cg.worktree_state(Path("/w")), "unknown")
+
+    # TC55
+    def test_tc55_status_disables_fsmonitor_and_untracked_cache(self) -> None:
+        calls: list = []
+
+        def fake(repo: Path, *args: str) -> subprocess.CompletedProcess:
+            calls.append(args)
+            return subprocess.CompletedProcess(list(args), 0, "", "")
+
+        with mock.patch.object(cg, "git", side_effect=fake):
+            cg.worktree_state(Path("/w"))
+        self.assertEqual(calls[0], (
+            "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false",
+            "status", "--porcelain", "-z", "--ignored=matching",
+            "--untracked-files=all", "--ignore-submodules=none"))
+
 
 if __name__ == "__main__":
     unittest.main()

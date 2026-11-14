@@ -56,7 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base", metavar="NAME", default="main",
                         help="branch the owned branches must be merged into (default: main)")
     parser.add_argument("--handoff", metavar="DIR",
-                        help="handoff directory to remove (git-ignored, inside the repository)")
+                        help=("run directory to remove: named <YYYY-MM-DD>-<topic-slug>, "
+                              "git-ignored, inside the repository, holding no tracked file"))
     parser.add_argument("--scratch", metavar="DIR",
                         help="scratch directory whose contents are emptied (inside a temp directory)")
     parser.add_argument("--repo", metavar="DIR",
@@ -113,7 +114,9 @@ def _handoff_action(args: argparse.Namespace, repo: Path, cwd: Path) -> Action:
     path = cwd / args.handoff
     rel = _relative_to_repo(path, repo)
     ignored = rel is not None and cg.is_ignored(repo, rel)
-    problem = cs.handoff_problem(path, repo, ignored, _held_paths(args, repo, cwd))
+    unignored = cg.unignored_files(repo, rel) if rel else []
+    problem = cs.handoff_problem(path, repo, ignored,
+                                 _held_paths(args, repo, cwd), unignored)
     if problem is not None:
         raise UsageError(f"refused --handoff: {problem}")
     target = path.resolve()

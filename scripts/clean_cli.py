@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import tempfile
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Pattern, Sequence, Tuple
@@ -335,13 +336,30 @@ def _guard_scratch(action: Action, repo: Path, cleanup: Cleanup, cwd: Path) -> N
             raise UsageError(f"refused --scratch: {target} overlaps the worktree {wt.path}")
 
 
+def _fold(name: str) -> str:
+    """A name as a case- and normalization-insensitive file system compares it."""
+    return unicodedata.normalize("NFD", unicodedata.normalize("NFD", name).casefold())
+
+
+def _case_twin(name: str, names: Sequence[str]) -> Optional[str]:
+    """Another branch whose loose ref file such a file system opens for name,
+    so git may read that branch when asked for this one."""
+    key = _fold(name)
+    return next((other for other in names if other != name and _fold(other) == key), None)
+
+
 def build_cleanup(args: argparse.Namespace, cwd: Path,
                   tempdir: str) -> Tuple[Path, Cleanup]:
     """Check every input and plan the actions; nothing is changed here."""
     start = cwd / args.repo if args.repo else cwd
     repo = cg.main_worktree(start).resolve()
-    if args.base not in cg.local_branches(repo):
+    branches = cg.local_branches(repo)
+    if args.base not in branches:
         raise UsageError(f"base branch not found: {args.base}")
+    twin = _case_twin(args.base, branches)
+    if twin is not None:
+        raise UsageError(f"base branch {args.base} is ambiguous: branch {twin} "
+                         "differs only in letter case or Unicode form")
     owned, missing = owned_branches(args, repo, cwd)
     dirs = dir_actions(args, repo, cwd, tempdir)
     cleanup = plan_cleanup(repo, owned, missing, args.base, cwd)

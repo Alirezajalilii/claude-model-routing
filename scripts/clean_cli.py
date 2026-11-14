@@ -22,6 +22,7 @@ DESCRIPTION = ("Remove what one mr run created: its local branches merged into t
 DRY_RUN_HEADER = ("mr-clean: dry run; nothing changed. "
                   "Run again with --apply to remove the items below.")
 STATE_TEXT = {"dirty": "has uncommitted changes",
+              "hidden": "holds files marked assume-unchanged or skip-worktree",
               "ignored": "holds git-ignored files",
               "unknown": "could not be checked"}
 

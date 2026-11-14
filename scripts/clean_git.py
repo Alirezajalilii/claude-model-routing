@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -97,18 +98,44 @@ def merge_state(repo: Path, branch: str, base: str) -> str:
     return "unmerged"
 
 
-def worktree_state(worktree: Path) -> str:
-    """Return clean, dirty (changes or untracked files), ignored (only git-ignored files) or unknown (git failed). git worktree remove deletes ignored files, so only a clean worktree may be removed."""
-    proc = git(worktree, "status", "--porcelain", "-z", "--ignored=matching",
+STATUS_ARGS = ("-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false",
+               "status", "--porcelain", "-z", "--ignored=matching",
                "--untracked-files=all", "--ignore-submodules=none")
+
+
+def _hidden_changes(worktree: Path) -> Optional[bool]:
+    """True when a tracked file marked assume-unchanged (lowercase tag) or
+    skip-worktree (tag S) is present: git status does not compare it, so
+    local edits to it would be lost. An absent one (sparse checkout) holds
+    nothing to lose. None when git fails."""
+    proc = git(worktree, "ls-files", "-v", "-z")
+    if proc.returncode != 0:
+        return None
+    for entry in proc.stdout.split("\0"):
+        tag, name = entry[:1], entry[2:]
+        if name and (tag.islower() or tag == "S") \
+                and os.path.lexists(worktree / name):
+            return True
+    return False
+
+
+def worktree_state(worktree: Path) -> str:
+    """Return clean, dirty (changes or untracked files), hidden (a present file
+    marked assume-unchanged or skip-worktree), ignored (only git-ignored files)
+    or unknown (git failed). git worktree remove deletes ignored files and
+    hidden edits, so only a clean worktree may be removed."""
+    proc = git(worktree, *STATUS_ARGS)
     if proc.returncode != 0:
         return "unknown"
     entries = [entry for entry in proc.stdout.split("\0") if entry]
-    if not entries:
-        return "clean"
-    if all(entry.startswith("!! ") for entry in entries):
-        return "ignored"
-    return "dirty"
+    if any(not entry.startswith("!! ") for entry in entries):
+        return "dirty"
+    hidden = _hidden_changes(worktree)
+    if hidden is None:
+        return "unknown"
+    if hidden:
+        return "hidden"
+    return "ignored" if entries else "clean"
 
 
 def is_clean(worktree: Path) -> bool:

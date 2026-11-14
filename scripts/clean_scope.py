@@ -78,7 +78,10 @@ def _worktree_entry(lines: Sequence[str]) -> Optional[Worktree]:
 def parse_worktrees(porcelain: str) -> List[Worktree]:
     """Parse `git worktree list --porcelain` output; the first entry is the main worktree."""
     entries: List[List[str]] = [[]]
-    for line in porcelain.splitlines():
+    # git ends porcelain lines with "\n" only; str.splitlines() would also
+    # split a worktree path at "\r", "\x1c" or " " and pair a branch
+    # with the wrong path.
+    for line in porcelain.split("\n"):
         if line.strip():
             entries[-1].append(line)
         else:
@@ -135,6 +138,18 @@ def _holds_git_entry(resolved: Path) -> bool:
     return False
 
 
+def _git_owned_ancestor(resolved: Path, root: Path) -> Optional[str]:
+    """Why a directory strictly inside `root` lies in git metadata or a nested checkout."""
+    if any(part.lower() == ".git" for part in resolved.relative_to(root).parts):
+        return "is inside a .git directory"
+    for ancestor in resolved.parents:
+        if ancestor == root:
+            break
+        if os.path.lexists(ancestor / ".git"):
+            return f"is inside the worktree or repository {ancestor}"
+    return None
+
+
 def handoff_problem(path: Path, repo_root: Path, ignored: bool,
                     holds: Sequence[Path]) -> Optional[str]:
     """Return why a handoff directory may not be removed, or None when it may."""
@@ -145,6 +160,9 @@ def handoff_problem(path: Path, repo_root: Path, ignored: bool,
     root = repo_root.resolve()
     if root not in resolved.parents:
         return f"{path} is not inside the repository"
+    nested = _git_owned_ancestor(resolved, root)
+    if nested is not None:
+        return f"{path} {nested}"
     if _holds_git_entry(resolved):
         return f"{path} holds a .git entry"
     for held_path in holds:

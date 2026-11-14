@@ -100,8 +100,8 @@ def _relative_to_repo(path: Path, repo: Path) -> Optional[str]:
 
 
 def _overlaps(first: Path, second: Path) -> bool:
-    """True when one resolved path is the other or lies inside it."""
-    return first == second or first in second.parents or second in first.parents
+    """True when one path is the other or lies inside it, by name or by file identity."""
+    return cs.path_within(first, second) or cs.path_within(second, first)
 
 
 def _held_paths(args: argparse.Namespace, repo: Path, cwd: Path) -> List[Path]:
@@ -151,8 +151,7 @@ def worktree_reason(wt: cs.Worktree, cwd: Path) -> Optional[str]:
         return f"worktree {wt.path} is missing"
     if wt.locked:
         return f"worktree {wt.path} is locked"
-    path = Path(wt.path).resolve()
-    if cwd == path or path in cwd.parents:
+    if cs.path_within(cwd, Path(wt.path)):
         return f"worktree {wt.path} contains the current directory"
     state = cg.worktree_state(Path(wt.path))
     if state != "clean":
@@ -164,9 +163,9 @@ def _nested_worktree(wt: cs.Worktree,
                      registered: Sequence[cs.Worktree]) -> Optional[str]:
     """git worktree remove deletes everything below the worktree, git-ignored
     directories and other worktrees in them included; keep it if it holds one."""
-    outer = Path(wt.path).resolve()
+    outer = Path(wt.path)
     for other in registered:
-        if outer in Path(other.path).resolve().parents:
+        if cs.path_within(Path(other.path), outer, strict=True):
             return f"worktree {wt.path} holds the worktree {other.path}"
     return None
 
@@ -326,7 +325,7 @@ def _guard_scratch(action: Action, repo: Path, cleanup: Cleanup, cwd: Path) -> N
     or a worktree (the main one included) that this run does not remove, or would
     delete files inside such a worktree."""
     target = Path(action.target)
-    if target in cwd.parents:
+    if cs.path_within(cwd, target, strict=True):
         raise UsageError(f"refused --scratch: {target} holds the current directory {cwd}")
     removed = {item.target for item in cleanup.actions if item.kind == "worktree"}
     for wt in cg.list_worktrees(repo):
@@ -341,7 +340,7 @@ def build_cleanup(args: argparse.Namespace, cwd: Path,
     """Check every input and plan the actions; nothing is changed here."""
     start = cwd / args.repo if args.repo else cwd
     repo = cg.main_worktree(start).resolve()
-    if not cg.branch_exists(repo, args.base):
+    if args.base not in cg.local_branches(repo):
         raise UsageError(f"base branch not found: {args.base}")
     owned, missing = owned_branches(args, repo, cwd)
     dirs = dir_actions(args, repo, cwd, tempdir)

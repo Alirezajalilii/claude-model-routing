@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import test_clean_cli as base
-from test_clean_cli import _git, _listed_path
+from test_clean_cli import _commit, _git, _listed_path
 
 cli = base.cli
 W = cli.cs.Worktree
@@ -162,6 +162,46 @@ class CleanCliHardeningTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertNotIn("note remote branch origin/agent/s-T1x", out)
         self.assertNotIn("note remote branch origin/xagent/s-T1", out)
+
+    # TC86
+    def test_tc86_branch_with_case_twin_is_kept(self) -> None:
+        _git(self.repo, "checkout", "-q", "-b", "dev", "main")
+        _commit(self.repo, {"dev.txt": "d\n"}, "unmerged work on dev")
+        dev_sha = _git(self.repo, "rev-parse", "HEAD")
+        _git(self.repo, "checkout", "-q", "main")
+        _git(self.repo, "pack-refs", "--all")
+        _git(self.repo, "branch", "Dev", "main")
+        code, out, _ = self._run("--branch", "dev", "--apply")
+        self.assertEqual(code, 0)
+        self.assertIn("keep branch dev: branch Dev differs only in letter case "
+                      "or Unicode form", out)
+        self.assertEqual(out.splitlines()[-1], "mr-clean: 0 removed, 1 kept, 0 failed")
+        refs = _git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)",
+                    "refs/heads").splitlines()
+        self.assertIn(f"refs/heads/dev {dev_sha}", refs)
+        self.assertTrue(any(line.startswith("refs/heads/Dev ") for line in refs))
+
+    # TC87
+    def test_tc87_unicode_form_twin_is_kept(self) -> None:
+        nfc = "agent/caf" + chr(0xE9)
+        nfd = "agent/cafe" + chr(0x301)
+        with mock.patch.object(cli.cg, "local_branches",
+                               return_value=["main", nfc, nfd]):
+            out = cli.plan_cleanup(self.repo, [nfc], [], "main", self.repo.resolve())
+        self.assertEqual(out.kept, [f"keep branch {nfc}: branch {nfd} "
+                                    "differs only in letter case or Unicode form"])
+        self.assertEqual(out.actions, [])
+        self.assertEqual(out.branches_kept, 1)
+
+    # TC89
+    def test_tc89_registered_worktree_branch_twin_is_kept(self) -> None:
+        listed = [W(str(self.repo), "Agent/other-T1", False, False)]
+        with mock.patch.object(cli.cg, "list_worktrees", return_value=listed):
+            out = cli.plan_cleanup(self.repo, ["agent/other-T1"], [], "main",
+                                   self.repo.resolve())
+        self.assertEqual(out.kept, ["keep branch agent/other-T1: branch Agent/other-T1 "
+                                    "differs only in letter case or Unicode form"])
+        self.assertEqual(out.actions, [])
 
 
 if __name__ == "__main__":

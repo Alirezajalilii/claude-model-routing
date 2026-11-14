@@ -6,15 +6,20 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
+import clean_scope as cs
+
 
 class CleanError(Exception):
     """A git query failed, or the path is not a git repository."""
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    """Run git in repo and return the result; a nonzero exit is not an error here."""
-    return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True)
+    """Run git in repo and return the result; a nonzero exit is not an error here. Output is decoded as UTF-8 with surrogateescape and no newline translation, so any path bytes survive."""
+    proc = subprocess.run(["git", "-C", str(repo), *args], capture_output=True)
+    return subprocess.CompletedProcess(
+        proc.args, proc.returncode,
+        proc.stdout.decode("utf-8", "surrogateescape"),
+        proc.stderr.decode("utf-8", "surrogateescape"))
 
 
 def worktree_porcelain(repo: Path) -> str:
@@ -24,18 +29,26 @@ def worktree_porcelain(repo: Path) -> str:
     return proc.stdout
 
 
+def list_worktrees(repo: Path) -> List[cs.Worktree]:
+    """Registered worktrees, main first. Uses -z (git 2.36+) so any path survives; falls back to the newline form."""
+    proc = git(repo, "worktree", "list", "--porcelain", "-z")
+    if proc.returncode == 0:
+        return cs.parse_worktrees(proc.stdout, "\0")
+    return cs.parse_worktrees(worktree_porcelain(repo))
+
+
 def main_worktree(start: Path) -> Path:
-    for line in worktree_porcelain(start).splitlines():
-        if line.startswith("worktree "):
-            return Path(line[len("worktree "):])
-    raise CleanError(f"not a git repository: {start}")
+    worktrees = list_worktrees(start)
+    if not worktrees:
+        raise CleanError(f"not a git repository: {start}")
+    return Path(worktrees[0].path)
 
 
 def _ref_names(repo: Path, namespace: str, prefix: str) -> List[str]:
     proc = git(repo, "for-each-ref", "--format=%(refname)", namespace)
     if proc.returncode != 0:
         raise CleanError(f"cannot list {namespace} in {repo}")
-    return [line.removeprefix(prefix) for line in proc.stdout.splitlines()
+    return [line.removeprefix(prefix) for line in proc.stdout.split("\n")
             if line.startswith(prefix)]
 
 
@@ -57,7 +70,7 @@ def current_branch(repo: Path) -> Optional[str]:
     proc = git(repo, "symbolic-ref", "--quiet", "HEAD")
     if proc.returncode != 0:
         return None
-    return proc.stdout.strip().removeprefix("refs/heads/")
+    return proc.stdout.rstrip("\n").removeprefix("refs/heads/")
 
 
 def _same_tree_after_merge(repo: Path, branch_ref: str, base_ref: str) -> bool:
@@ -84,13 +97,35 @@ def merge_state(repo: Path, branch: str, base: str) -> str:
     return "unmerged"
 
 
+def worktree_state(worktree: Path) -> str:
+    """Return clean, dirty (changes or untracked files), ignored (only git-ignored files) or unknown (git failed). git worktree remove deletes ignored files, so only a clean worktree may be removed."""
+    proc = git(worktree, "status", "--porcelain", "-z", "--ignored=matching",
+               "--untracked-files=all", "--ignore-submodules=none")
+    if proc.returncode != 0:
+        return "unknown"
+    entries = [entry for entry in proc.stdout.split("\0") if entry]
+    if not entries:
+        return "clean"
+    if all(entry.startswith("!! ") for entry in entries):
+        return "ignored"
+    return "dirty"
+
+
 def is_clean(worktree: Path) -> bool:
-    proc = git(worktree, "status", "--porcelain")
-    return proc.returncode == 0 and proc.stdout.strip() == ""
+    return worktree_state(worktree) == "clean"
 
 
 def is_ignored(repo: Path, rel_path: str) -> bool:
     return git(repo, "check-ignore", "-q", "--", rel_path).returncode == 0
+
+
+def unignored_files(repo: Path, rel_path: str) -> List[str]:
+    """Tracked files and untracked, not-ignored files under rel_path (pathspec taken literally)."""
+    proc = git(repo, "--literal-pathspecs", "ls-files", "-z", "--cached",
+               "--others", "--exclude-standard", "--", rel_path)
+    if proc.returncode != 0:
+        raise CleanError(f"cannot list the files in {rel_path}")
+    return [name for name in proc.stdout.split("\0") if name]
 
 
 def _failure(proc: subprocess.CompletedProcess, default: str) -> Optional[str]:

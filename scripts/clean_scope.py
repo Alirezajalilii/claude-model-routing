@@ -75,13 +75,12 @@ def _worktree_entry(lines: Sequence[str]) -> Optional[Worktree]:
     return Worktree(path, branch, locked, prunable)
 
 
-def parse_worktrees(porcelain: str) -> List[Worktree]:
+def parse_worktrees(porcelain: str, sep: str = "\n") -> List[Worktree]:
     """Parse `git worktree list --porcelain` output; the first entry is the main worktree."""
     entries: List[List[str]] = [[]]
-    # git ends porcelain lines with "\n" only; str.splitlines() would also
-    # split a worktree path at "\r", "\x1c" or " " and pair a branch
-    # with the wrong path.
-    for line in porcelain.split("\n"):
+    # Fields end with sep (newline, or NUL for -z); an empty field ends an entry.
+    # str.splitlines() would also split a path at CR, chr(0x1c) or chr(0x2028).
+    for line in porcelain.split(sep):
         if line.strip():
             entries[-1].append(line)
         else:

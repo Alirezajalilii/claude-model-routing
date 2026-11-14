@@ -134,9 +134,13 @@ def scratch_problem(path: Path, roots: Sequence[Path]) -> Optional[str]:
 
 
 def _holds_git_entry(resolved: Path) -> bool:
-    """True when a `.git` entry (file or directory, in any letter case) sits anywhere below the directory."""
-    for _, dirnames, filenames in os.walk(resolved):
+    """True when a `.git` entry (file or directory) sits anywhere below the directory:
+    by name in any letter case, or by a lookup of `.git`, because a file system may
+    also open it under another name (HFS+ ignores some invisible code points)."""
+    for dirpath, dirnames, filenames in os.walk(resolved):
         if any(name.lower() == ".git" for name in [*dirnames, *filenames]):
+            return True
+        if os.path.lexists(os.path.join(dirpath, ".git")):
             return True
     return False
 

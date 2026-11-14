@@ -5,16 +5,21 @@ test touches the project repository. Repository setup uses subprocess directly
 so the setup does not depend on the code under test.
 """
 
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import clean_git as cg  # noqa: E402
+import clean_scope as cs  # noqa: E402
+
+LS = chr(0x2028)  # Unicode LINE SEPARATOR
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -50,6 +55,17 @@ def _branch_commit(repo: Path, name: str, start: str, files: dict,
 def _worktree_count(repo: Path) -> int:
     return sum(1 for line in cg.worktree_porcelain(repo).splitlines()
                if line.startswith("worktree "))
+
+
+def _init_repo(base: Path) -> None:
+    """Create a repository on branch main with one commit (base.txt) at base."""
+    base.mkdir()
+    _git(base, "init", "-q")
+    _git(base, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(base, "config", "user.email", "test@example.com")
+    _git(base, "config", "user.name", "Test")
+    _git(base, "config", "commit.gpgsign", "false")
+    _commit(base, {"base.txt": "b\n"}, "A")
 
 
 class CleanGitTest(unittest.TestCase):
@@ -121,8 +137,6 @@ class CleanGitTest(unittest.TestCase):
         (wt / "base.txt").write_text("edited\n")
         self.assertFalse(cg.is_clean(wt))
         _git(wt, "checkout", "--", "base.txt")
-        (wt / "ignored.txt").write_text("ignored\n")
-        self.assertTrue(cg.is_clean(wt))
 
     # TC5
     def test_main_worktree_from_linked_worktree(self) -> None:
@@ -184,6 +198,127 @@ class CleanGitTest(unittest.TestCase):
     def test_branch_exists(self) -> None:
         self.assertTrue(cg.branch_exists(self.repo, "main"))
         self.assertFalse(cg.branch_exists(self.repo, "nope"))
+
+    # TC18
+    def test_tc18_main_worktree_with_separator_in_repository_path(self) -> None:
+        base = self.wt_root / ("r" + LS + "x")
+        _init_repo(base)
+        wt = self.wt_root / ("w" + LS + "t")
+        _git(base, "worktree", "add", "-q", str(wt), "-b", "wt2")
+        self.assertEqual(cg.main_worktree(wt).resolve(), base.resolve())
+        self.assertEqual(cg.main_worktree(base).resolve(), base.resolve())
+
+    # TC19
+    def test_tc19_list_worktrees_parses_nul_separated_output(self) -> None:
+        text = ("worktree /r/a\nb\0HEAD aaa\0branch refs/heads/main\0\0"
+                "worktree /r/w\0HEAD bbb\0branch refs/heads/agent/s-T1\0\0")
+
+        def fake(repo: Path, *args: str) -> subprocess.CompletedProcess:
+            if "-z" in args:
+                return subprocess.CompletedProcess(list(args), 0, text, "")
+            return subprocess.CompletedProcess(list(args), 1, "", "")
+
+        with mock.patch.object(cg, "git", side_effect=fake):
+            result = cg.list_worktrees(Path("/r"))
+        self.assertEqual(result, [
+            cs.Worktree("/r/a\nb", "main", False, False),
+            cs.Worktree("/r/w", "agent/s-T1", False, False),
+        ])
+
+    # TC20
+    def test_tc20_list_worktrees_falls_back_without_z(self) -> None:
+        def fake(repo: Path, *args: str) -> subprocess.CompletedProcess:
+            if "-z" in args:
+                return subprocess.CompletedProcess(list(args), 129, "",
+                                                   "error: unknown switch")
+            return subprocess.CompletedProcess(
+                list(args), 0, "worktree /r\nHEAD aaa\nbranch refs/heads/main\n\n", "")
+
+        with mock.patch.object(cg, "git", side_effect=fake):
+            result = cg.list_worktrees(Path("/r"))
+        self.assertEqual(result, [cs.Worktree("/r", "main", False, False)])
+
+    # TC20
+    def test_tc20_list_worktrees_raises_when_git_fails(self) -> None:
+        def fake(repo: Path, *args: str) -> subprocess.CompletedProcess:
+            return subprocess.CompletedProcess(list(args), 128, "", "fatal")
+
+        with mock.patch.object(cg, "git", side_effect=fake):
+            with self.assertRaises(cg.CleanError):
+                cg.list_worktrees(Path("/r"))
+
+    # TC21
+    def test_tc21_list_worktrees_on_real_repository(self) -> None:
+        wt = self._add_worktree("wt")
+        result = cg.list_worktrees(self.repo)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(Path(result[0].path).resolve(), self.repo.resolve())
+        self.assertEqual(result[1].branch, "wt")
+        self.assertEqual(Path(result[1].path).resolve(), wt.resolve())
+
+    # TC22
+    def test_tc22_local_branches_keep_names_with_separator(self) -> None:
+        _git(self.repo, "branch", "agent/s-T1" + LS + "x")
+        self.assertEqual(sorted(cg.local_branches(self.repo)),
+                         ["agent/s-T1" + LS + "x", "main"])
+
+    # TC23
+    def test_tc23_current_branch_keeps_trailing_separator(self) -> None:
+        _git(self.repo, "checkout", "-q", "-b", "agent/s-T1" + LS)
+        self.assertEqual(cg.current_branch(self.repo), "agent/s-T1" + LS)
+
+    # TC24
+    def test_tc24_worktree_state_classifies_changes(self) -> None:
+        _commit(self.repo, {".gitignore": "ignored.txt\n"}, "ignore")
+        wt = self._add_worktree("wt")
+        self.assertEqual(cg.worktree_state(wt), "clean")
+        self.assertTrue(cg.is_clean(wt))
+        (wt / "ignored.txt").write_text("ignored\n")
+        self.assertEqual(cg.worktree_state(wt), "ignored")
+        self.assertFalse(cg.is_clean(wt))
+        (wt / "ignored.txt").unlink()
+        (wt / "new.txt").write_text("untracked\n")
+        self.assertEqual(cg.worktree_state(wt), "dirty")
+        (wt / "new.txt").unlink()
+        (wt / "base.txt").write_text("edited\n")
+        self.assertEqual(cg.worktree_state(wt), "dirty")
+        _git(wt, "checkout", "--", "base.txt")
+        _git(self.repo, "config", "status.showUntrackedFiles", "no")
+        (wt / "new.txt").write_text("untracked\n")
+        self.assertEqual(cg.worktree_state(wt), "dirty")
+        with tempfile.TemporaryDirectory() as plain:
+            self.assertEqual(cg.worktree_state(Path(plain)), "unknown")
+
+    # TC25
+    def test_tc25_unignored_files_lists_tracked_and_not_ignored(self) -> None:
+        _commit(self.repo, {".gitignore": "docs/handoffs/\n"}, "ignore")
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-r"
+        run.mkdir(parents=True)
+        (run / "a.md").write_text("a\n")
+        self.assertEqual(cg.unignored_files(self.repo, "docs/handoffs/2026-01-01-r"), [])
+        (run / "t.md").write_text("t\n")
+        _git(self.repo, "add", "-f", "docs/handoffs/2026-01-01-r/t.md")
+        _git(self.repo, "commit", "-q", "-m", "force")
+        self.assertEqual(cg.unignored_files(self.repo, "docs/handoffs/2026-01-01-r"),
+                         ["docs/handoffs/2026-01-01-r/t.md"])
+        self.assertEqual(cg.unignored_files(self.repo, "docs/handoffs/2026-01-01-*"), [])
+        with tempfile.TemporaryDirectory() as plain:
+            with self.assertRaises(cg.CleanError):
+                cg.unignored_files(Path(plain), "docs")
+
+    # TC26
+    def test_tc26_git_output_keeps_undecodable_bytes(self) -> None:
+        subprocess.run([b"git", b"-C", os.fsencode(str(self.repo)), b"config",
+                        b"x.y", bytes([0xFF])], check=True, capture_output=True)
+        proc = cg.git(self.repo, "config", "x.y")
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, chr(0xDCFF) + "\n")
+
+    # TC46
+    def test_tc46_main_worktree_keeps_carriage_return_in_path(self) -> None:
+        base = self.wt_root / ("r" + chr(13) + "x")
+        _init_repo(base)
+        self.assertEqual(str(cg.main_worktree(base).resolve()), str(base.resolve()))
 
 
 if __name__ == "__main__":

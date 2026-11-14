@@ -21,6 +21,9 @@ DESCRIPTION = ("Remove what one mr run created: its local branches merged into t
                "scratchpad's contents. Dry run unless --apply.")
 DRY_RUN_HEADER = ("mr-clean: dry run; nothing changed. "
                   "Run again with --apply to remove the items below.")
+STATE_TEXT = {"dirty": "has uncommitted changes",
+              "ignored": "holds git-ignored files",
+              "unknown": "could not be checked"}
 
 
 class UsageError(Exception):
@@ -56,7 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base", metavar="NAME", default="main",
                         help="branch the owned branches must be merged into (default: main)")
     parser.add_argument("--handoff", metavar="DIR",
-                        help="handoff directory to remove (git-ignored, inside the repository)")
+                        help=("run directory to remove: named <YYYY-MM-DD>-<topic-slug>, "
+                              "git-ignored, inside the repository, holding no tracked file"))
     parser.add_argument("--scratch", metavar="DIR",
                         help="scratch directory whose contents are emptied (inside a temp directory)")
     parser.add_argument("--repo", metavar="DIR",
@@ -101,8 +105,7 @@ def _overlaps(first: Path, second: Path) -> bool:
 
 def _held_paths(args: argparse.Namespace, repo: Path, cwd: Path) -> List[Path]:
     """Paths a handoff directory may not hold: linked worktrees, the plan file and the current directory."""
-    held = [Path(wt.path)
-            for wt in cs.parse_worktrees(cg.worktree_porcelain(repo))[1:]]
+    held = [Path(wt.path) for wt in cg.list_worktrees(repo)[1:]]
     if args.plan:
         held.append(cwd / args.plan)
     held.append(cwd)
@@ -113,7 +116,9 @@ def _handoff_action(args: argparse.Namespace, repo: Path, cwd: Path) -> Action:
     path = cwd / args.handoff
     rel = _relative_to_repo(path, repo)
     ignored = rel is not None and cg.is_ignored(repo, rel)
-    problem = cs.handoff_problem(path, repo, ignored, _held_paths(args, repo, cwd))
+    unignored = cg.unignored_files(repo, rel) if rel else []
+    problem = cs.handoff_problem(path, repo, ignored,
+                                 _held_paths(args, repo, cwd), unignored)
     if problem is not None:
         raise UsageError(f"refused --handoff: {problem}")
     target = path.resolve()
@@ -148,8 +153,9 @@ def worktree_reason(wt: cs.Worktree, cwd: Path) -> Optional[str]:
     path = Path(wt.path).resolve()
     if cwd == path or path in cwd.parents:
         return f"worktree {wt.path} contains the current directory"
-    if not cg.is_clean(Path(wt.path)):
-        return f"worktree {wt.path} has uncommitted changes"
+    state = cg.worktree_state(Path(wt.path))
+    if state != "clean":
+        return f"worktree {wt.path} {STATE_TEXT.get(state, STATE_TEXT['unknown'])}"
     return None
 
 
@@ -195,7 +201,7 @@ def plan_branch(repo: Path, name: str, base: str, current: Optional[str],
 
 def plan_cleanup(repo: Path, owned: Sequence[str], missing: Sequence[str],
                  base: str, cwd: Path) -> Cleanup:
-    registered = cs.parse_worktrees(cg.worktree_porcelain(repo))
+    registered = cg.list_worktrees(repo)
     linked = registered[1:]
     current = cg.current_branch(repo)
     out = Cleanup()
@@ -260,6 +266,10 @@ def _blocked(action: Action, failed: Sequence[Action]) -> Optional[str]:
 
 def _run_one(repo: Path, action: Action) -> Optional[str]:
     if action.kind == "worktree":
+        state = cg.worktree_state(Path(action.target))
+        if state != "clean":
+            return (f"since the check, worktree {action.target} "
+                    f"{STATE_TEXT.get(state, STATE_TEXT['unknown'])}")
         return cg.remove_worktree(repo, action.target)
     if action.kind == "branch":
         return cg.delete_branch(repo, action.target)
@@ -318,7 +328,7 @@ def _guard_scratch(action: Action, repo: Path, cleanup: Cleanup, cwd: Path) -> N
     if target in cwd.parents:
         raise UsageError(f"refused --scratch: {target} holds the current directory {cwd}")
     removed = {item.target for item in cleanup.actions if item.kind == "worktree"}
-    for wt in cs.parse_worktrees(cg.worktree_porcelain(repo)):
+    for wt in cg.list_worktrees(repo):
         if wt.prunable or wt.path in removed:
             continue
         if _overlaps(target, Path(wt.path).resolve()):

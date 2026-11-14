@@ -11,6 +11,8 @@ from typing import List, Optional, Pattern, Sequence, Tuple
 DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 PROTECTED = ("main", "master")
 MIN_SCRATCH_DEPTH = 3
+# re.ASCII: without it \d also matches Persian, Arabic-Indic or fullwidth digits.
+RUN_DIR_RE = re.compile(r"\d{4}-\d{2}-\d{2}-[A-Za-z0-9][A-Za-z0-9._-]*", re.ASCII)
 
 
 def plan_slug(plan_path: str) -> str:
@@ -75,13 +77,12 @@ def _worktree_entry(lines: Sequence[str]) -> Optional[Worktree]:
     return Worktree(path, branch, locked, prunable)
 
 
-def parse_worktrees(porcelain: str) -> List[Worktree]:
+def parse_worktrees(porcelain: str, sep: str = "\n") -> List[Worktree]:
     """Parse `git worktree list --porcelain` output; the first entry is the main worktree."""
     entries: List[List[str]] = [[]]
-    # git ends porcelain lines with "\n" only; str.splitlines() would also
-    # split a worktree path at "\r", "\x1c" or " " and pair a branch
-    # with the wrong path.
-    for line in porcelain.split("\n"):
+    # Fields end with sep (newline, or NUL for -z); an empty field ends an entry.
+    # str.splitlines() would also split a path at CR, chr(0x1c) or chr(0x2028).
+    for line in porcelain.split(sep):
         if line.strip():
             entries[-1].append(line)
         else:
@@ -150,9 +151,24 @@ def _git_owned_ancestor(resolved: Path, root: Path) -> Optional[str]:
     return None
 
 
+def _same_or_inside(held: Path, directory: Path) -> bool:
+    """True when held is the directory or lies below it, by name or by file identity
+    (a case-insensitive file system or a hard link gives one directory several names)."""
+    resolved = held.resolve()
+    if resolved == directory or directory in resolved.parents:
+        return True
+    for candidate in [resolved, *resolved.parents]:
+        try:
+            if os.path.samefile(candidate, directory):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def handoff_problem(path: Path, repo_root: Path, ignored: bool,
-                    holds: Sequence[Path]) -> Optional[str]:
-    """Return why a handoff directory may not be removed, or None when it may."""
+                    holds: Sequence[Path], unignored: Sequence[str] = ()) -> Optional[str]:
+    """Return why a handoff directory may not be removed, or None when it may. `unignored` lists the files git tracks or does not ignore under it; it is checked before `ignored` because git reports a directory holding a tracked file as not ignored."""
     problem = _missing_or_link_or_file(path)
     if problem is not None:
         return problem
@@ -166,11 +182,14 @@ def handoff_problem(path: Path, repo_root: Path, ignored: bool,
     if _holds_git_entry(resolved):
         return f"{path} holds a .git entry"
     for held_path in holds:
-        held = held_path.resolve()
-        if held == resolved or resolved in held.parents:
+        if _same_or_inside(held_path, resolved):
             return f"{path} holds {held_path}"
+    if unignored:
+        return f"{path} holds files that are tracked or not git-ignored: {unignored[0]}"
     if not ignored:
         return f"{path} is not git-ignored"
+    if not RUN_DIR_RE.fullmatch(resolved.name):
+        return f"{path} is not a run directory named <YYYY-MM-DD>-<topic-slug>"
     return None
 
 

@@ -17,6 +17,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import clean_scope as cs  # noqa: E402
 
+LS = chr(0x2028)  # Unicode LINE SEPARATOR
+FS = chr(0x1c)  # file separator control character
+
 
 def _dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
@@ -152,6 +155,27 @@ class ParseWorktreesTest(unittest.TestCase):
                          [cs.Worktree("/r/b", None, False, False)])
 
 
+class ParseWorktreesSepTest(unittest.TestCase):
+    """parse_worktrees with a separator splits fields on that separator only."""
+
+    # TC16
+    def test_tc16_nul_separated_entries_keep_newline_and_separator_in_paths(self) -> None:
+        text = ("worktree /r/a\nb\0HEAD aaa\0branch refs/heads/main\0\0"
+                "worktree /r/w" + LS + "1\0HEAD bbb\0branch refs/heads/agent/s-T1"
+                "\0locked\0\0")
+        self.assertEqual(cs.parse_worktrees(text, "\0"), [
+            cs.Worktree("/r/a\nb", "main", False, False),
+            cs.Worktree("/r/w" + LS + "1", "agent/s-T1", True, False),
+        ])
+
+    # TC17
+    def test_tc17_newline_form_keeps_control_characters_in_paths(self) -> None:
+        path = "/r/a" + FS + "b" + LS + "c"
+        text = "worktree " + path + "\nHEAD aaa\nbranch refs/heads/agent/s-T1\n"
+        self.assertEqual(cs.parse_worktrees(text),
+                         [cs.Worktree(path, "agent/s-T1", False, False)])
+
+
 class ScratchProblemTest(unittest.TestCase):
     """scratch_problem accepts real directories at least three levels below a temp root."""
 
@@ -235,7 +259,7 @@ class HandoffProblemTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.repo = Path(tmp.name).resolve()
-        self.run = _dir(self.repo / "docs" / "handoffs" / "run1")
+        self.run = _dir(self.repo / "docs" / "handoffs" / "2026-01-01-run1")
 
     # TC8
     def test_ignored_directory_is_accepted(self) -> None:
@@ -304,6 +328,47 @@ class HandoffProblemTest(unittest.TestCase):
     def test_held_path_elsewhere_is_accepted(self) -> None:
         held = _file(self.repo / "docs" / "plans" / "p.md")
         self.assertIsNone(cs.handoff_problem(self.run, self.repo, True, [held]))
+
+    # TC27
+    def test_tc27_names_that_are_not_run_directories_are_refused(self) -> None:
+        names = ["docs/plans", ".agent", "docs/handoffs", "docs/handoffs/run1",
+                 "docs/handoffs/2026-1-14-x", "docs/handoffs/2026-11-14-",
+                 "docs/handoffs/2026-11-14-a b", "docs/handoffs/2026-11-14--x"]
+        for name in names:
+            with self.subTest(name=name):
+                path = _dir(self.repo / name)
+                self.assertEqual(
+                    cs.handoff_problem(path, self.repo, True, []),
+                    f"{path} is not a run directory named <YYYY-MM-DD>-<topic-slug>")
+
+    # TC27
+    def test_tc27_run_directory_names_are_accepted(self) -> None:
+        for name in [".agent/runs/2026-11-14-x",
+                     "docs/handoffs/2026-11-14-Topic_1.v2"]:
+            with self.subTest(name=name):
+                path = _dir(self.repo / name)
+                self.assertIsNone(cs.handoff_problem(path, self.repo, True, []))
+
+    # TC28
+    def test_tc28_tracked_or_unignored_files_are_refused_before_the_ignore_check(self) -> None:
+        listed = ["docs/handoffs/2026-01-01-run1/t.md"]
+        message = (f"{self.run} holds files that are tracked or not git-ignored: "
+                   "docs/handoffs/2026-01-01-run1/t.md")
+        self.assertEqual(cs.handoff_problem(self.run, self.repo, True, [], listed), message)
+        self.assertEqual(cs.handoff_problem(self.run, self.repo, False, [], listed), message)
+        self.assertIsNone(cs.handoff_problem(self.run, self.repo, True, [], []))
+        self.assertEqual(cs.handoff_problem(self.run, self.repo, False, [], []),
+                         f"{self.run} is not git-ignored")
+
+    # TC48
+    def test_tc48_held_path_under_a_case_variant_of_the_directory_is_refused(self) -> None:
+        held = _dir(self.run / "sub")
+        variant = self.repo / "docs" / "HANDOFFS" / "2026-01-01-run1"
+        problem = cs.handoff_problem(variant, self.repo, True, [held])
+        if variant.is_dir():
+            self.assertEqual(problem, f"{variant} holds {held}")
+        else:
+            self.assertEqual(problem, f"{variant} does not exist")
 
 
 class IsProtectedTest(unittest.TestCase):

@@ -4,11 +4,19 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-14
+
 ### Added
 - `scripts/render_charts.py` and `make charts`: four README charts generated from the committed case-study and cost data; `make lint` fails when they are stale.
 
 ### Changed
 - README leads with charts and a workflow diagram instead of long prose.
+- Verifiers fix the defects they find themselves: every verifier tier has the executor's tools, including `Edit`, commits its fixes on the task branch (only in files the task's Gate block allows, never in a file from commit one) and replies `FIXED <path> commits=<sha>,...`. The `FIX` verdict, the executor's fix round from a verdict and the second verifier pass are gone.
+- After a `FIXED` verdict the main session gates the task again with the verdict file as `--report`; a gate failure resumes the same verifier (a verifier round), at most `max_fix_rounds_per_tier` times, and then the task goes to REPLAN.
+- Batch verifiers check and fix each task in its kept task worktree instead of a detached worktree at the integration branch's head.
+- Verifier bodies may be up to 14000 characters; executor bodies stay at 12000.
+- The routing audit accepts `FIXED` status lines.
+- The Forbidden list says an Opus verifier fixing what it finds is not an Opus executor, and forbids resuming an executor with a verifier's verdict or a second verifier pass over a `FIXED` task.
 
 ## [0.7.0] - 2026-11-12
 

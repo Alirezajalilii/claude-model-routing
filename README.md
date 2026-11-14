@@ -72,7 +72,7 @@ flowchart TD
     scouts --> plan["Planner on Opus or Sonnet writes the plan"]
     plan --> exec["Executors write the failing tests first, then the code"]
     exec --> gate{{"mr-gate script checks the task"}}
-    gate -->|"risky task"| review["Verifier reviews it, on Opus for high risk"]
+    gate -->|"risky task"| review["Verifier reviews and fixes it, on Opus for high risk"]
     gate -->|"not risky"| merge
     review --> merge
     classDef haiku fill:lightgreen,color:black
@@ -92,7 +92,7 @@ Green runs on Haiku by default, blue on Sonnet, violet on Opus, yellow is a scri
 | **Scout** | Haiku (Sonnet for deep cross-module digs) | Reads code, logs and docs, and writes the evidence the planner asks for. Read-only. |
 | **Plan** | Opus (Sonnet for work in one module) | Writes the plan file: every task names the files it may touch, its Test Cases, its executor tier and a Gate block. |
 | **Exec** | Haiku (Sonnet for harder code) | Commits the failing tests first, then the change that makes them pass. |
-| **Verify** | Sonnet (Opus for high-risk work) | Reviews a finished task when the plan marks a risk such as authentication, payments, data integrity, migrations or security, when a task ran below its planned tier, or after a failed check. |
+| **Verify** | Sonnet (Opus for high-risk work) | Reviews a finished task when the plan marks a risk such as authentication, payments, data integrity, migrations or security, when a task ran below its planned tier, or after a failed check, and fixes the defects it finds itself on the task branch; the gate then re-checks its commits. |
 
 **Scouting goes to Haiku.** 139 of 237 scouts ran on Haiku, and the same scout tokens cost 92% less there than on Sonnet¹. By tokens, Haiku scouts carried 24% of the reading: the longest reads went to Sonnet more often.
 

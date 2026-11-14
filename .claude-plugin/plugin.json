@@ -1,7 +1,7 @@
 {
   "name": "mr",
   "displayName": "Model Routing (mr)",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Cost-aware model routing for Claude Code: a planner writes test-first tasks, Haiku and Sonnet subagents implement them, a scripted gate and risk-based verifiers check them, and hooks enforce the policy and audit each session.",
   "author": {"name": "Alireza Jalili", "url": "https://github.com/Alirezajalilii"},
   "homepage": "https://github.com/Alirezajalilii/claude-model-routing",

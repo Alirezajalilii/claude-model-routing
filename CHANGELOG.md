@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
+### Added
+- `mr-clean` removes what one run created: its local branches merged into the base branch (`--base`, default `main`), their clean worktrees, its git-ignored handoff directory (`--handoff`) and the session scratchpad's contents (`--scratch`). Owned branches come from the plan (`--plan`: `agent/<plan-slug>-integration` and `agent/<plan-slug>-<task-id>`, with retry numbers) or from `--branch`. Dry run unless `--apply`; unmerged, remote and protected branches, and dirty, locked or missing worktrees, are kept and listed.
+- `mr-clean` keeps worktrees that hold git-ignored files, accepts a handoff directory only when it is a dated run directory (`<YYYY-MM-DD>-<topic-slug>`) inside the repository with no tracked files, and re-checks each worktree before removing it.
+
+### Changed
+- The policy names task branches `agent/<plan-slug>-<task-id>`, keeps the main session's temp files inside its session scratchpad, and ends every run, in both lanes, with `mr-clean` before the final report. The policy says to run `mr-clean` only when no agent of the run is still running. While a run still has kept branches, `mr-clean` keeps its handoff directory.
+- Agents write their outputs to the main checkout's handoff directory, never to a copy inside a worktree.
+
 ## [0.8.0] - 2026-11-14
 
 ### Added

@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-14
+
+### Fixed
+- `mr-clean` keeps worktrees whose tracked files carry edits hidden from `git status` (assume-unchanged or skip-worktree).
+- `mr-clean` compares paths by file identity, and with case folding on case-insensitive file systems.
+- `mr-clean` accepts only ASCII digits in the date prefix of a plan name.
+- `mr-clean` keeps an owned branch that has a case or Unicode-form twin among the local branches, since the twin could be deleted with it.
+- `mr-clean` checks again at apply time that a branch is still merged and unchanged, so a commit made after the dry run is not lost.
+- `mr-clean` checks again at apply time that the scratch and handoff directories are still safe to empty.
+- `mr-clean` notes remote branches under remotes whose names contain a slash.
+
 ## [0.9.0] - 2026-11-14
 
 ### Added

@@ -41,7 +41,7 @@ def _functions_referencing(tree: ast.AST, name: str) -> set:
 class ToolClassTest(unittest.TestCase):
     def test_every_executor_tool_is_classified(self) -> None:
         self.assertEqual(
-            set(CONFIG.roles["executor"].tools), set(EXPECTED),
+            set(rc.STALL_WATCH_TOOLS), set(EXPECTED),
             "classify the new executor tool in tests/test_stall_watch_key_guard.py "
             "and in stall_watch.call_key_fields")
 

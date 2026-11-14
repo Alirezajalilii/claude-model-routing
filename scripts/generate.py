@@ -57,12 +57,13 @@ def render_frontmatter(config: RoutingConfig, tier: Tier) -> str:
     role = config.roles[tier.role]
     extra = list(config.agent_frontmatter)
     extra += list(config.agent_frontmatter_by_model.get(tier.family, ()))
+    tools = [("tools", ", ".join(role.tools))] if role.tools else []
     return _frontmatter([
         ("name", tier.name),
         ("description", json.dumps(tier.description, ensure_ascii=False)),
         ("model", tier.model),
         ("effort", tier.effort),
-        ("tools", ", ".join(role.tools)),
+    ] + tools + [
         ("disallowedTools", ", ".join(role.disallowed_tools)),
     ] + [(key, _format_value(value)) for key, value in extra])
 

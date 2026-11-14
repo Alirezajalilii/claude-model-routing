@@ -12,7 +12,7 @@ LOAD_BY_TOOL = "or call the Skill tool with the skill's name when that name is i
 GROUP_FOLDER = "Read is the only way to load them"
 NO_OTHER_SKILL = "Load no other skill, by Read or by the Skill tool"
 LISTS_LOADED = "listing every skill you loaded"
-ROLE_TOOLS = "Every role has Read, Write and the Skill tool"
+ROLE_TOOLS = "Every role has the Skill tool (like all other tools, by inheritance)"
 SKILLS_LINE_NAMES = "A Skills line that names skills instead of their SKILL.md paths."
 REMOVED_PHRASES = (
     "without the Skill tool",

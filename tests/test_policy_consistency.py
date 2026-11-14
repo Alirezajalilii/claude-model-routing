@@ -78,7 +78,6 @@ class PolicyConsistencyTest(unittest.TestCase):
                 self.assertIn("NO_PLAN_NEEDED", text)
                 self.assertIn("Do not consult it again to check the revision.", text)
                 self.assertIn("One instance per topic", text)
-                self.assertIn("tools: Read, Grep, Glob, Write, Edit, Skill", text)
             else:
                 self.assertIn("Never consult the advisor.", text, tier.name)
 
@@ -108,13 +107,7 @@ class LeanAgentFilesTest(unittest.TestCase):
             head = text.split("\n---\n", 1)[0]
             lines = head.split("\n")
             self.assertIn("omitClaudeMd: true", lines, tier.name)
-            tools = next(ln for ln in lines if ln.startswith("tools: "))
-            self.assertIn("Skill", tools, tier.name)
-            if tier.role != "planner":
-                self.assertIn("Monitor", tools, tier.name)
-                self.assertIn("TaskStop", tools, tier.name)
-            else:
-                self.assertNotIn("Monitor", tools, tier.name)
+            self.assertFalse(any(ln.startswith("tools:") for ln in lines), tier.name)
             self.assertNotIn("autoCompactWindow", head, tier.name)
 
     def test_new_tunables_render(self):

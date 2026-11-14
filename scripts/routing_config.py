@@ -17,6 +17,8 @@ ROLES = ("scout", "planner", "executor", "verifier")
 NESTING_TOOLS = ("Agent", "TeamCreate", "TeamDelete", "SendMessage")
 REQUIRED_TOOLS = ("Read", "Write", "Skill")
 BACKGROUND_TOOLS = ("Monitor", "TaskStop")
+STALL_WATCH_TOOLS = ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop")
+INHERIT_TOOLS = "inherit"  # no tools: line, so the agent gets every tool of the session
 
 INT_TUNABLES = {
     "planner_evidence_budget": 1,
@@ -185,9 +187,10 @@ def _validate_role(name: str, role: Any) -> list:
         return [f"roles.{name}: must be an object"]
     errors = []
     tools = role.get("tools")
+    inherit = tools == INHERIT_TOOLS
     tools_ok = isinstance(tools, list) and bool(tools) and all(isinstance(t, str) for t in tools)
-    if not tools_ok:
-        errors.append(f"roles.{name}.tools: must be a non-empty list of strings")
+    if not tools_ok and not inherit:
+        errors.append(f'roles.{name}.tools: must be "inherit" or a non-empty list of strings')
     disallowed = role.get("disallowed_tools")
     if not isinstance(disallowed, list):
         errors.append(f"roles.{name}.disallowed_tools: must be a list")
@@ -427,7 +430,9 @@ def _watched_tools(config: Mapping, roles: list) -> set:
     config_roles = config.get("roles")
     for name in roles:
         entry = config_roles.get(name) if isinstance(config_roles, dict) else None
-        if isinstance(entry, dict) and isinstance(entry.get("tools"), list):
+        if isinstance(entry, dict) and entry.get("tools") == INHERIT_TOOLS:
+            tools.update(STALL_WATCH_TOOLS)
+        elif isinstance(entry, dict) and isinstance(entry.get("tools"), list):
             tools.update(t for t in entry["tools"] if isinstance(t, str))
     return tools
 
@@ -577,7 +582,7 @@ def _build(raw: Mapping) -> RoutingConfig:
         name: Role(
             name=name,
             prefix=r["prefix"],
-            tools=tuple(r["tools"]),
+            tools=() if r["tools"] == INHERIT_TOOLS else tuple(r["tools"]),
             disallowed_tools=tuple(r["disallowed_tools"]),
             uses_advisor=r["uses_advisor"],
         )

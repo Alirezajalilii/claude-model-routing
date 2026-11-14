@@ -174,19 +174,10 @@ class LeanSchemaTest(unittest.TestCase):
         self.assertTrue(any(needle in m for m in messages), messages)
 
     def test_shipped_tools_per_role(self):
+        # every role inherits all tools of the main session (no tools: line)
         roles = rc.load_config().roles
-        self.assertEqual(
-            roles["scout"].tools,
-            ("Read", "Grep", "Glob", "Bash", "Write", "Skill", "Monitor", "TaskStop"))
-        self.assertEqual(
-            roles["planner"].tools, ("Read", "Grep", "Glob", "Write", "Edit", "Skill"))
-        self.assertEqual(
-            roles["executor"].tools,
-            ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"))
-        # TC6: the verifier tools tuple includes Edit
-        self.assertEqual(
-            roles["verifier"].tools,
-            ("Read", "Edit", "Write", "Grep", "Glob", "Bash", "Skill", "Monitor", "TaskStop"))
+        for name in ("scout", "planner", "executor", "verifier"):
+            self.assertEqual(roles[name].tools, (), name)
 
     def test_skill_required_in_tools(self):
         messages = with_tools(
@@ -217,13 +208,15 @@ class LeanSchemaTest(unittest.TestCase):
             messages, "roles.executor.tools: must contain TaskStop when it contains Bash")
 
     def test_nesting_tool_rejected_in_tools(self):
-        messages = with_frontmatter(lambda r: r["roles"]["executor"]["tools"].append("Agent"))
+        messages = with_tools(
+            "executor", ["Read", "Write", "Skill", "Bash", "Monitor", "TaskStop", "Agent"])
         self.assert_message(messages, "roles.executor.tools: must not contain Agent")
         self.assert_message(
             messages, "roles.executor: Agent is in both tools and disallowed_tools")
 
     def test_disallowed_tool_in_tools_rejected(self):
-        messages = with_frontmatter(lambda r: r["roles"]["scout"]["tools"].append("advisor"))
+        messages = with_tools(
+            "scout", ["Read", "Write", "Skill", "Bash", "Monitor", "TaskStop", "advisor"])
         self.assert_message(
             messages, "roles.scout: advisor is in both tools and disallowed_tools")
 

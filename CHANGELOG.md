@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-14
+
+### Changed
+- Tier agents no longer carry a `tools` allowlist: every role inherits all tools of the main session (Bash, Monitor, MCP tools and the rest). `roles.<role>.tools` takes `"inherit"`, which omits the `tools:` line. `disallowedTools` still blocks nesting (`Agent`, `TeamCreate`, `TeamDelete`, `SendMessage`).
+
 ## [0.9.1] - 2026-11-14
 
 ### Fixed

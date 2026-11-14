@@ -6,7 +6,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 FIXED_STATUS = "`FIXED <output path> commits=<sha>,<sha>`"
 VERIFY_NAMES = ("verify-sonnet-med", "verify-sonnet-high", "verify-opus-high")
-VERIFIER_TOOLS = "tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop"
 
 
 def _read(rel):
@@ -51,7 +50,7 @@ class VerifierSelfFixRedTest(unittest.TestCase):
         # TC4
         for name in VERIFY_NAMES:
             text = _read(f"agents/{name}.md")
-            self.assertIn(VERIFIER_TOOLS, text, name)
+            self.assertNotIn("\ntools:", text, name)
             self.assertIn(FIXED_STATUS, text, name)
 
 

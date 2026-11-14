@@ -3,7 +3,6 @@ name: exec-sonnet-xhigh
 description: "Delegation ceiling executor: only for tasks with three yes answers in tier selection, or after a failure at exec-sonnet-high. Receives a plan path, a task ID and a Skills line; works test-first and commits on its task branch, never pushes or merges."
 model: sonnet
 effort: xhigh
-tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

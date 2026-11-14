@@ -17,7 +17,7 @@ BASE_KEYS = ["name", "description", "model", "effort", "tools", "disallowedTools
 
 
 def expected_keys(tier):
-    return BASE_KEYS
+    return [k for k in BASE_KEYS if k != "tools"]
 
 
 def split_agent(text):
@@ -70,7 +70,7 @@ class GenerateTest(unittest.TestCase):
         role = self.config.roles["executor"]
         self.assertEqual(values["model"], "haiku")
         self.assertEqual(values["effort"], "low")
-        self.assertEqual(values["tools"], ", ".join(role.tools))
+        self.assertNotIn("tools", values)
         self.assertEqual(values["disallowedTools"], ", ".join(role.disallowed_tools))
         tier = next(t for t in self.config.tiers if t.name == "exec-haiku-low")
         self.assertEqual(json.loads(values["description"]), tier.description)
@@ -91,7 +91,7 @@ class GenerateTest(unittest.TestCase):
             self.assertEqual(pairs[-1][0], "omitClaudeMd", name)
             self.assertNotIn("autoCompactWindow", [k for k, _ in pairs])
         pairs, _ = split_agent(self.agent("plan-opus-high"))
-        self.assertEqual(dict(pairs)["tools"], "Read, Grep, Glob, Write, Edit, Skill")
+        self.assertNotIn("tools", dict(pairs))
 
     def test_fixture_config_by_model_only(self):
         raw = json.loads((ROOT / "config" / "routing.json").read_text(encoding="utf-8"))

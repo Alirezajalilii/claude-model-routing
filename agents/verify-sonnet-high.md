@@ -3,7 +3,6 @@ name: verify-sonnet-high
 description: "Verifier for tasks done by exec-sonnet-med or exec-sonnet-high. Runs only when a verification trigger applies (Verify: task or batch, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID (several for a batch), branch or worktree, executor report path, gate results and Skills line; reruns every check, fixes the defects it finds itself and commits them on the task branch, and returns PASS, FIXED, REPLAN or BLOCKED."
 model: sonnet
 effort: high
-tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

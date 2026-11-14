@@ -3,7 +3,6 @@ name: verify-opus-high
 description: "Verifier for tasks planned on exec-sonnet-xhigh and any task touching authentication, payments, data integrity, migrations or security, whichever executor tier did the work. Runs only when a verification trigger applies (Verify: task or batch, a task run below its planned tier, a non-Green gate failure, a post-FIX task, or sampling). Receives the plan path, task ID (several for a batch), branch or worktree, executor report path, gate results and Skills line; reruns every check, fixes the defects it finds itself and commits them on the task branch, and returns PASS, FIXED, REPLAN or BLOCKED."
 model: opus
 effort: high
-tools: Read, Edit, Write, Grep, Glob, Bash, Skill, Monitor, TaskStop
 disallowedTools: Agent, TeamCreate, TeamDelete, SendMessage, advisor
 omitClaudeMd: true
 ---

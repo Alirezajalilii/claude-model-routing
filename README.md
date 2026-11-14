@@ -216,7 +216,7 @@ If your work is multi-step and testable, [install mr](#install-the-plugin) and r
 | PreToolUse on `Read`, `Edit`, `Write`, `Grep`, `Glob`, `Bash`, `Skill` | `scripts/stall_watch.py` | Watches executors only. It nudges, then stops, an executor that repeats the same call or keeps reading without changing anything. Its messages start with `mr stall watch:`. |
 | SessionEnd | `scripts/routing_audit.py --hook` | Writes an audit of the session (policy flags and the executor tier mix) to `audits/` in the plugin data directory. |
 
-The scripts use the Python standard library and make no network requests. They read your Claude Code transcripts, skills and environment. They write to the plugin data directory and, when you run `mr-init`, to your project's `docs/` folder and `CLAUDE.md`. `mr-doctor` runs `claude --version`. `mr-gate` runs the commands written in a plan's Gate blocks, so read a plan before the main session gates it.
+The scripts use the Python standard library and make no network requests. They read your Claude Code transcripts, skills and environment. They write to the plugin data directory and, when you run `mr-init`, to your project's `docs/` folder and `CLAUDE.md`. `mr-doctor` runs `claude --version`. `mr-gate` runs the commands written in a plan's Gate blocks, so read a plan before the main session gates it. `mr-clean --apply` runs git and deletes things: the local branches of one run that are merged into the base branch, their clean worktrees, and, only when you pass `--handoff` or `--scratch`, that run's handoff directory or the contents of a scratch directory. A dry run (no `--apply`) changes nothing.
 
 The dispatch guard denies every agent type that is neither a tier nor on its allowlist (`claude-code-guide` and `statusline-setup`). That includes `general-purpose` and `fork`, so commands such as `/code-review` and `/simplify` stop with a `mr dispatch guard:` message while the plugin is on. Turn the plugin off in `/plugin` when you need them.
 
@@ -228,7 +228,7 @@ The plugin puts these commands on the PATH of Claude Code's Bash tool. Ask Claud
 | --- | --- |
 | `mr-init [--claude-md]` | Creates `docs/plans/README.md` and `docs/model-routing-log.md` in the project; `--claude-md` also adds the policy pointer to `CLAUDE.md`. |
 | `mr-doctor` | Checks Python, the Claude Code version, the settings the policy relies on, `ANTHROPIC_API_KEY` and the project setup. |
-| `mr-clean` | Ends a run: removes the run's local branches merged into `main` (or `--base`), their clean worktrees, its git-ignored handoff directory and the session scratchpad's contents. Never touches unmerged or remote branches. A dry run unless given `--apply`. |
+| `mr-clean` | Ends a run: removes the run's local branches merged into `main` (or `--base`) and their clean worktrees. With `--handoff DIR` it also removes that git-ignored handoff directory, but only when the run keeps no branch (an unmerged, protected or blocked branch keeps it). With `--scratch DIR` it empties that scratch directory, and only then. Never touches unmerged or remote branches. A dry run unless given `--apply`. |
 | `mr-usage <session-id>` | Model, effort and tokens for each subagent of a session; `--json` prints machine-readable rows. |
 | `mr-cost <file>` or `mr-cost -` | Prices `mr-usage --json` rows at API list prices and re-prices the same tokens at Sonnet 5.5 and Opus 5.5 rates. |
 | `mr-audit <session-id>` | Policy compliance flags for a session. |

@@ -9,7 +9,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Pattern, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Pattern, Sequence, Tuple
 
 import clean_git as cg
 import clean_scope as cs
@@ -94,12 +94,18 @@ def _relative_to_repo(path: Path, repo: Path) -> Optional[str]:
         return None
 
 
+def _overlaps(first: Path, second: Path) -> bool:
+    """True when one resolved path is the other or lies inside it."""
+    return first == second or first in second.parents or second in first.parents
+
+
 def _held_paths(args: argparse.Namespace, repo: Path, cwd: Path) -> List[Path]:
-    """Paths a handoff directory may not hold: linked worktrees and the plan file."""
+    """Paths a handoff directory may not hold: linked worktrees, the plan file and the current directory."""
     held = [Path(wt.path)
             for wt in cs.parse_worktrees(cg.worktree_porcelain(repo))[1:]]
     if args.plan:
         held.append(cwd / args.plan)
+    held.append(cwd)
     return held
 
 
@@ -147,13 +153,25 @@ def worktree_reason(wt: cs.Worktree, cwd: Path) -> Optional[str]:
     return None
 
 
+def _nested_worktree(wt: cs.Worktree,
+                     registered: Sequence[cs.Worktree]) -> Optional[str]:
+    """git worktree remove deletes everything below the worktree, git-ignored
+    directories and other worktrees in them included; keep it if it holds one."""
+    outer = Path(wt.path).resolve()
+    for other in registered:
+        if outer in Path(other.path).resolve().parents:
+            return f"worktree {wt.path} holds the worktree {other.path}"
+    return None
+
+
 def _keep_branch(out: Cleanup, text: str) -> None:
     out.kept.append(text)
     out.branches_kept += 1
 
 
 def plan_branch(repo: Path, name: str, base: str, current: Optional[str],
-                linked: Sequence[cs.Worktree], cwd: Path, out: Cleanup) -> None:
+                linked: Sequence[cs.Worktree], cwd: Path, out: Cleanup,
+                registered: Sequence[cs.Worktree] = ()) -> None:
     if cs.is_protected(name, base, current):
         _keep_branch(out, f"keep branch {name}: protected")
         return
@@ -163,7 +181,7 @@ def plan_branch(repo: Path, name: str, base: str, current: Optional[str],
         return
     wt = next((item for item in linked if item.branch == name), None)
     if wt is not None:
-        reason = worktree_reason(wt, cwd)
+        reason = worktree_reason(wt, cwd) or _nested_worktree(wt, registered)
         if reason is not None:
             _keep_branch(out, f"keep branch {name}: {reason}")
             return
@@ -177,11 +195,12 @@ def plan_branch(repo: Path, name: str, base: str, current: Optional[str],
 
 def plan_cleanup(repo: Path, owned: Sequence[str], missing: Sequence[str],
                  base: str, cwd: Path) -> Cleanup:
-    linked = cs.parse_worktrees(cg.worktree_porcelain(repo))[1:]
+    registered = cs.parse_worktrees(cg.worktree_porcelain(repo))
+    linked = registered[1:]
     current = cg.current_branch(repo)
     out = Cleanup()
     for name in owned:
-        plan_branch(repo, name, base, current, linked, cwd, out)
+        plan_branch(repo, name, base, current, linked, cwd, out, registered)
     for name in missing:
         out.kept.append(f"keep branch {name}: no such local branch")
     owned_set = set(owned)
@@ -222,12 +241,27 @@ def _remove_tree(path: Path) -> Optional[str]:
     return None
 
 
-def _run_one(repo: Path, action: Action, failed_worktrees: Set[str]) -> Optional[str]:
+def _blocked(action: Action, failed: Sequence[Action]) -> Optional[str]:
+    """Why an earlier failure forbids this action: a branch whose worktree stayed,
+    a handoff directory of a run that still has a branch, or a scratch directory
+    that holds a worktree that stayed."""
+    failed_worktrees = [item.target for item in failed if item.kind == "worktree"]
+    if action.kind == "branch" and action.needs in failed_worktrees:
+        return "its worktree was not removed"
+    if action.kind == "directory" and failed:
+        return "a branch of the run was not removed"
+    if action.kind == "scratch":
+        target = Path(action.target)
+        for path in failed_worktrees:
+            if _overlaps(target, Path(path).resolve()):
+                return f"it holds the worktree {path}, which was not removed"
+    return None
+
+
+def _run_one(repo: Path, action: Action) -> Optional[str]:
     if action.kind == "worktree":
         return cg.remove_worktree(repo, action.target)
     if action.kind == "branch":
-        if action.needs and action.needs in failed_worktrees:
-            return "its worktree was not removed"
         return cg.delete_branch(repo, action.target)
     if action.kind == "directory":
         return _remove_tree(Path(action.target))
@@ -237,14 +271,14 @@ def _run_one(repo: Path, action: Action, failed_worktrees: Set[str]) -> Optional
 def run_actions(repo: Path, actions: Sequence[Action]) -> Dict[str, str]:
     """Perform the actions in order; return the failure reason keyed by action text."""
     failures: Dict[str, str] = {}
-    failed_worktrees: Set[str] = set()
+    failed: List[Action] = []
     for action in actions:
-        reason = _run_one(repo, action, failed_worktrees)
+        reason = _blocked(action, failed) or _run_one(repo, action)
         if reason is None:
             continue
         failures[action.text] = reason
-        if action.kind == "worktree":
-            failed_worktrees.add(action.target)
+        if action.kind in ("worktree", "branch"):
+            failed.append(action)
     return failures
 
 
@@ -276,6 +310,21 @@ def render(cleanup: Cleanup, applied: bool, failures: Dict[str, str]) -> str:
     return "\n".join(lines)
 
 
+def _guard_scratch(action: Action, repo: Path, cleanup: Cleanup, cwd: Path) -> None:
+    """Refuse a scratch directory whose emptying would delete the current directory,
+    or a worktree (the main one included) that this run does not remove, or would
+    delete files inside such a worktree."""
+    target = Path(action.target)
+    if target in cwd.parents:
+        raise UsageError(f"refused --scratch: {target} holds the current directory {cwd}")
+    removed = {item.target for item in cleanup.actions if item.kind == "worktree"}
+    for wt in cs.parse_worktrees(cg.worktree_porcelain(repo)):
+        if wt.prunable or wt.path in removed:
+            continue
+        if _overlaps(target, Path(wt.path).resolve()):
+            raise UsageError(f"refused --scratch: {target} overlaps the worktree {wt.path}")
+
+
 def build_cleanup(args: argparse.Namespace, cwd: Path,
                   tempdir: str) -> Tuple[Path, Cleanup]:
     """Check every input and plan the actions; nothing is changed here."""
@@ -286,6 +335,9 @@ def build_cleanup(args: argparse.Namespace, cwd: Path,
     owned, missing = owned_branches(args, repo, cwd)
     dirs = dir_actions(args, repo, cwd, tempdir)
     cleanup = plan_cleanup(repo, owned, missing, args.base, cwd)
+    for action in dirs:
+        if action.kind == "scratch":
+            _guard_scratch(action, repo, cleanup, cwd)
     add_dir_actions(cleanup, dirs)
     return repo, cleanup
 

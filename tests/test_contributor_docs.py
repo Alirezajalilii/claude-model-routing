@@ -70,10 +70,11 @@ class ContributorDocsTest(unittest.TestCase):
         for address in EMAIL_RE.findall(text):
             self.assertTrue(address.endswith(ALLOWED_DOMAIN), address)
 
+    # TC2: docs/architecture.md names mr-clean too.
     def test_architecture(self):
         # TC6: docs/architecture.md lists the two new launchers.
         text = read(ARCHITECTURE)
-        for name in ("mr-cost", "mr-doctor"):
+        for name in ("mr-cost", "mr-doctor", "mr-clean"):
             self.assertIn(name, text, name)
 
 

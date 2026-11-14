@@ -11,6 +11,7 @@ def read(name):
 
 
 class InstallDocsTests(unittest.TestCase):
+    # TC1: README.md names mr-clean in its commands table.
     def test_readme_sections_and_commands(self):
         # TC1: the install, update and uninstall strings use the owner shorthand, with no <owner> placeholder.
         readme = read("README.md")
@@ -32,6 +33,7 @@ class InstallDocsTests(unittest.TestCase):
             "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1",
             "mr-doctor",
             "mr-cost",
+            "mr-clean",  # TC1
             "/mr:init-project",
         ):
             self.assertIn(text, readme)

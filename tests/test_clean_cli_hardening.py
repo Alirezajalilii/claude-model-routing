@@ -277,6 +277,54 @@ class CleanCliHardeningTest(unittest.TestCase):
                          "case or Unicode form from agent/other-T1")
         self.assertIn("agent/other-T1", self._branches())
 
+    # TC83
+    def test_tc83_worktree_added_to_scratch_after_planning_is_kept(self) -> None:
+        scratch = self.tempdir / "a" / "b" / "s"
+        scratch.mkdir(parents=True)
+        (scratch / "f.txt").write_text("f\n")
+        args = cli.build_parser().parse_args(["--scratch", str(scratch)])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        _git(self.repo, "worktree", "add", "-q", str(scratch / "wt2"), "-b", "agent/x-T9")
+        (scratch / "wt2" / "u.txt").write_text("u\n")
+        listed = _listed_path(self.repo, "agent/x-T9")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures[f"empty directory {scratch.resolve()}"],
+                         f"since the check, it overlaps the worktree {listed}")
+        self.assertTrue((scratch / "wt2" / "u.txt").exists())
+        self.assertTrue((scratch / "f.txt").exists())
+
+    # TC84
+    def test_tc84_worktree_added_to_handoff_after_planning_is_kept(self) -> None:
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        run.mkdir(parents=True)
+        (run / "out.md").write_text("out\n")
+        args = cli.build_parser().parse_args(["--handoff", str(run)])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        _git(self.repo, "worktree", "add", "-q", str(run / "wt3"), "-b", "agent/x-T8")
+        (run / "wt3" / "u.txt").write_text("u\n")
+        listed = _listed_path(self.repo, "agent/x-T8")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures[f"remove directory {run.resolve()}"],
+                         f"since the check, it holds the worktree {listed}")
+        self.assertTrue((run / "wt3" / "u.txt").exists())
+        self.assertTrue((run / "out.md").exists())
+
+    # TC85
+    def test_tc85_tracked_file_added_to_handoff_after_planning_is_kept(self) -> None:
+        run = self.repo / "docs" / "handoffs" / "2026-01-01-run1"
+        run.mkdir(parents=True)
+        (run / "out.md").write_text("out\n")
+        args = cli.build_parser().parse_args(["--handoff", str(run)])
+        repo, cleanup = cli.build_cleanup(args, self.repo.resolve(), str(self.tempdir))
+        (run / "t.md").write_text("t\n")
+        _git(self.repo, "add", "-f", "docs/handoffs/2026-01-01-run1/t.md")
+        _git(self.repo, "commit", "-q", "-m", "force")
+        failures = cli.run_actions(repo, cleanup.actions)
+        self.assertEqual(failures[f"remove directory {run.resolve()}"],
+                         "since the check, it holds files that are tracked or not "
+                         "git-ignored: docs/handoffs/2026-01-01-run1/t.md")
+        self.assertTrue((run / "t.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

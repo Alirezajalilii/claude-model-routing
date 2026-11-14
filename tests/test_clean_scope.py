@@ -6,7 +6,9 @@ tempfile.TemporaryDirectory(), so no test touches a real run directory. Nothing
 here runs git.
 """
 
+import ast
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -20,6 +22,26 @@ import clean_scope as cs  # noqa: E402
 
 LS = chr(0x2028)  # Unicode LINE SEPARATOR
 FS = chr(0x1c)  # file separator control character
+PERSIAN_ZERO = 0x06F0  # Unicode block of Arabic-Indic (Persian) digits
+FULLWIDTH_ZERO = 0xFF10  # Unicode block of fullwidth digits
+
+
+def _digits(zero: int, text: str) -> str:
+    """Spell the ASCII digits of text with the digits of the block starting at zero."""
+    return "".join(chr(zero + int(char)) if char.isdigit() else char for char in text)
+
+
+PERSIAN_DATE = _digits(PERSIAN_ZERO, "2026-11-14")  # 2026-11-14 in Persian digits
+FULLWIDTH_DATE = _digits(FULLWIDTH_ZERO, "2026-11-14")  # 2026-11-14 in fullwidth digits
+UNICODE_CLASS_RE = re.compile(r"\\[dDwWsSbB]")
+DIGIT_METHODS = {"isdigit", "isdecimal", "isnumeric", "isalnum", "isalpha"}
+RE_FUNCS = {"compile", "match", "search", "fullmatch", "sub", "subn", "split",
+            "findall", "finditer"}
+
+
+def _is_re_attr(node: ast.AST, names: set) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr in names
+            and isinstance(node.value, ast.Name) and node.value.id == "re")
 
 
 def _dir(path: Path) -> Path:
@@ -49,6 +71,15 @@ class PlanSlugTest(unittest.TestCase):
     # TC1
     def test_name_without_suffix(self) -> None:
         self.assertEqual(cs.plan_slug("2026-01-02-a-b"), "a-b")
+
+    # TC71
+    def test_tc71_non_ascii_digit_prefixes_are_not_date_prefixes(self) -> None:
+        self.assertEqual(cs.plan_slug("docs/plans/" + PERSIAN_DATE + "-x.md"),
+                         PERSIAN_DATE + "-x")
+        self.assertEqual(cs.plan_slug(FULLWIDTH_DATE + "-x.md"), FULLWIDTH_DATE + "-x")
+        pattern = cs.owned_pattern(cs.plan_slug(PERSIAN_DATE + "-x.md"), ["T1"])
+        self.assertIsNone(pattern.fullmatch("agent/x-T1"))
+        self.assertEqual(cs.plan_slug("docs/plans/2026-11-14-x.md"), "x")
 
 
 class OwnedPatternTest(unittest.TestCase):
@@ -87,6 +118,13 @@ class OwnedPatternTest(unittest.TestCase):
         self.assertFalse(pattern.fullmatch("agent/aXb-T.1"))
         self.assertFalse(pattern.fullmatch("agent/a.b-TX1"))
         self.assertTrue(pattern.fullmatch("agent/a.b-T.1"))
+
+    # TC72
+    def test_tc72_retry_suffix_takes_ascii_digits_only(self) -> None:
+        pattern = cs.owned_pattern("s", ["T1"])
+        self.assertTrue(pattern.fullmatch("agent/s-T1-2"))
+        self.assertIsNone(pattern.fullmatch("agent/s-T1-" + _digits(PERSIAN_ZERO, "2")))
+        self.assertIsNone(pattern.fullmatch("agent/s-T1-" + _digits(FULLWIDTH_ZERO, "2")))
 
 
 class SelectOwnedTest(unittest.TestCase):
@@ -481,6 +519,14 @@ class HandoffProblemTest(unittest.TestCase):
         else:
             self.assertEqual(problem, f"{upper} does not exist")
 
+    # TC73
+    def test_tc73_run_directory_dated_in_non_ascii_digits_is_refused(self) -> None:
+        for date in (PERSIAN_DATE, FULLWIDTH_DATE):
+            with self.subTest(date=date):
+                path = _dir(self.repo / "docs" / "handoffs" / (date + "-x"))
+                self.assertEqual(cs.handoff_problem(path, self.repo, True, []),
+                                 f"{path} is not a run directory named <YYYY-MM-DD>-<topic-slug>")
+
 
 class IsProtectedTest(unittest.TestCase):
     """is_protected covers the base branch, main, master and the current branch."""
@@ -496,6 +542,47 @@ class IsProtectedTest(unittest.TestCase):
     def test_unprotected_names(self) -> None:
         self.assertFalse(cs.is_protected("agent/s-T1", "main", "main"))
         self.assertFalse(cs.is_protected("agent/s-T1", "main", None))
+
+
+def _call_problems(name: str, node: ast.Call) -> list:
+    """Return the problem strings for one call: a digit test, int(), or a regex
+    with a Unicode-aware class and no re.ASCII flag."""
+    func = node.func
+    found = ""
+    if isinstance(func, ast.Attribute) and func.attr in DIGIT_METHODS:
+        found = f"{func.attr}()"
+    elif isinstance(func, ast.Name) and func.id == "int":
+        found = "int()"
+    elif _is_re_attr(func, RE_FUNCS) and node.args and _has_unicode_class(node.args[0]):
+        if not _has_ascii_flag(node):
+            found = "regex with a Unicode-aware class and no re.ASCII"
+    return [f"{name}:{node.lineno} {found}"] if found else []
+
+
+def _has_unicode_class(node: ast.AST) -> bool:
+    return any(isinstance(sub, ast.Constant) and isinstance(sub.value, str)
+               and UNICODE_CLASS_RE.search(sub.value) is not None
+               for sub in ast.walk(node))
+
+
+def _has_ascii_flag(node: ast.Call) -> bool:
+    parts = [*node.args[1:], *[keyword.value for keyword in node.keywords]]
+    return any(_is_re_attr(sub, {"ASCII", "A"})
+               for part in parts for sub in ast.walk(part))
+
+
+class AsciiDigitSweepTest(unittest.TestCase):
+    """Every regex and digit test in the three mr-clean modules is ASCII-only."""
+
+    # TC74
+    def test_tc74_no_unicode_aware_digit_or_class_matching(self) -> None:
+        problems: list = []
+        for name in ("clean_scope.py", "clean_git.py", "clean_cli.py"):
+            text = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+            for node in ast.walk(ast.parse(text)):
+                if isinstance(node, ast.Call):
+                    problems.extend(_call_problems(name, node))
+        self.assertEqual(problems, [])
 
 
 if __name__ == "__main__":

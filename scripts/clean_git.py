@@ -1,4 +1,4 @@
-"""mr-clean git adapter: the only mr-clean module that runs git. Deletes only through remove_worktree (git worktree remove, never --force) and delete_branch."""
+"""mr-clean git adapter: the only mr-clean module that runs git. Deletes only through remove_worktree (git worktree remove, never --force) delete_branch and delete_branch_at (only while the branch still points at the checked commit)."""
 
 from __future__ import annotations
 
@@ -176,3 +176,23 @@ def remove_worktree(repo: Path, path: str) -> Optional[str]:
 
 def delete_branch(repo: Path, name: str) -> Optional[str]:
     return _failure(git(repo, "branch", "-D", name), "git branch -D failed")
+
+
+def branch_tip(repo: Path, name: str) -> Optional[str]:
+    """The commit the local branch points at, or None when it does not exist."""
+    proc = git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{name}")
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def delete_branch_at(repo: Path, name: str, sha: str) -> Optional[str]:
+    """Delete the branch only while it still points at sha (compare-and-delete,
+    never through a symbolic ref), then drop its config section as git branch -D
+    does. Return why it stayed, or None."""
+    failure = _failure(git(repo, "update-ref", "--no-deref", "-d",
+                           f"refs/heads/{name}", sha),
+                       "git update-ref -d failed")
+    if failure is None:
+        git(repo, "config", "--remove-section", f"branch.{name}")
+    return failure

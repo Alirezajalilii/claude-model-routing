@@ -34,12 +34,14 @@ class UsageError(Exception):
 
 @dataclass(frozen=True)
 class Action:
-    """One change; kind is worktree, branch, directory or scratch, needs the worktree a branch depends on."""
+    """One change; kind is worktree, branch, directory or scratch. needs is the worktree a branch depends on; sha and base are a branch's commit and base branch at the check."""
 
     kind: str
     target: str
     text: str
     needs: str = ""
+    sha: str = ""
+    base: str = ""
 
 
 @dataclass
@@ -197,7 +199,8 @@ def plan_branch(repo: Path, name: str, base: str, current: Optional[str],
     by = "" if state == "ancestor" else " by content"
     out.actions.append(Action("branch", name,
                               f"delete branch {name} (merged into {base}{by})",
-                              needs=wt.path if wt is not None else ""))
+                              needs=wt.path if wt is not None else "",
+                              sha=cg.branch_tip(repo, name) or "", base=base))
 
 
 def plan_cleanup(repo: Path, owned: Sequence[str], missing: Sequence[str],
@@ -270,6 +273,26 @@ def _blocked(action: Action, failed: Sequence[Action]) -> Optional[str]:
     return None
 
 
+def _branch_change(repo: Path, action: Action) -> Optional[str]:
+    """Re-check a branch right before deleting it: no case twin, same commit,
+    still merged into the base, checked out in no worktree."""
+    name = action.target
+    names = cg.local_branches(repo) + [wt.branch for wt in cg.list_worktrees(repo)
+                                       if wt.branch]
+    twin = _case_twin(name, names)
+    if twin is not None:
+        return (f"since the check, branch {twin} differs only in letter case "
+                f"or Unicode form from {name}")
+    if cg.branch_tip(repo, name) != action.sha:
+        return f"since the check, branch {name} moved or was deleted"
+    if cg.merge_state(repo, name, action.base) == "unmerged":
+        return f"since the check, branch {name} is no longer merged into {action.base}"
+    for wt in cg.list_worktrees(repo):
+        if wt.branch == name:
+            return f"since the check, branch {name} is checked out in {wt.path}"
+    return None
+
+
 def _run_one(repo: Path, action: Action) -> Optional[str]:
     if action.kind == "worktree":
         state = cg.worktree_state(Path(action.target))
@@ -278,7 +301,8 @@ def _run_one(repo: Path, action: Action) -> Optional[str]:
                     f"{STATE_TEXT.get(state, STATE_TEXT['unknown'])}")
         return cg.remove_worktree(repo, action.target)
     if action.kind == "branch":
-        return cg.delete_branch(repo, action.target)
+        return _branch_change(repo, action) or cg.delete_branch_at(
+            repo, action.target, action.sha)
     if action.kind == "directory":
         return _remove_tree(Path(action.target))
     return _empty_directory(Path(action.target))
@@ -289,7 +313,10 @@ def run_actions(repo: Path, actions: Sequence[Action]) -> Dict[str, str]:
     failures: Dict[str, str] = {}
     failed: List[Action] = []
     for action in actions:
-        reason = _blocked(action, failed) or _run_one(repo, action)
+        try:
+            reason = _blocked(action, failed) or _run_one(repo, action)
+        except cg.CleanError as error:
+            reason = str(error)
         if reason is None:
             continue
         failures[action.text] = reason

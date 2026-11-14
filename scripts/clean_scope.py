@@ -128,13 +128,15 @@ def scratch_problem(path: Path, roots: Sequence[Path]) -> Optional[str]:
     if len(resolved.relative_to(root).parts) < MIN_SCRATCH_DEPTH:
         return (f"{path} is less than {MIN_SCRATCH_DEPTH} levels below "
                 f"the temp directory {root}")
+    if not _spelled_as_on_disk(resolved, root):
+        return f"{path} is not spelled as on disk"
     return None
 
 
 def _holds_git_entry(resolved: Path) -> bool:
-    """True when a `.git` entry (file or directory) sits anywhere below the directory."""
+    """True when a `.git` entry (file or directory, in any letter case) sits anywhere below the directory."""
     for _, dirnames, filenames in os.walk(resolved):
-        if ".git" in dirnames or ".git" in filenames:
+        if any(name.lower() == ".git" for name in [*dirnames, *filenames]):
             return True
     return False
 
@@ -151,19 +153,37 @@ def _git_owned_ancestor(resolved: Path, root: Path) -> Optional[str]:
     return None
 
 
-def _same_or_inside(held: Path, directory: Path) -> bool:
-    """True when held is the directory or lies below it, by name or by file identity
-    (a case-insensitive file system or a hard link gives one directory several names)."""
-    resolved = held.resolve()
-    if resolved == directory or directory in resolved.parents:
+def path_within(inner: Path, outer: Path, strict: bool = False) -> bool:
+    """True when inner is outer or lies below it (only below it when strict),
+    by name or by file identity: a case-insensitive file system or a hard
+    link gives one directory several names."""
+    resolved = inner.resolve()
+    container = outer.resolve()
+    candidates = list(resolved.parents) if strict else [resolved, *resolved.parents]
+    if container in candidates:
         return True
-    for candidate in [resolved, *resolved.parents]:
+    for candidate in candidates:
         try:
-            if os.path.samefile(candidate, directory):
+            if os.path.samefile(candidate, container):
                 return True
         except OSError:
             continue
     return False
+
+
+def _spelled_as_on_disk(resolved: Path, root: Path) -> bool:
+    """True when every name below root appears exactly so in its parent
+    directory; a case- or normalization-insensitive file system also opens
+    other spellings, which git's own matching may not fold."""
+    current = root
+    for part in resolved.relative_to(root).parts:
+        try:
+            if part not in os.listdir(current):
+                return False
+        except OSError:
+            return False
+        current = current / part
+    return True
 
 
 def handoff_problem(path: Path, repo_root: Path, ignored: bool,
@@ -182,7 +202,7 @@ def handoff_problem(path: Path, repo_root: Path, ignored: bool,
     if _holds_git_entry(resolved):
         return f"{path} holds a .git entry"
     for held_path in holds:
-        if _same_or_inside(held_path, resolved):
+        if path_within(held_path, resolved):
             return f"{path} holds {held_path}"
     if unignored:
         return f"{path} holds files that are tracked or not git-ignored: {unignored[0]}"
@@ -190,6 +210,8 @@ def handoff_problem(path: Path, repo_root: Path, ignored: bool,
         return f"{path} is not git-ignored"
     if not RUN_DIR_RE.fullmatch(resolved.name):
         return f"{path} is not a run directory named <YYYY-MM-DD>-<topic-slug>"
+    if not _spelled_as_on_disk(resolved, root):
+        return f"{path} is not spelled as on disk"
     return None
 
 

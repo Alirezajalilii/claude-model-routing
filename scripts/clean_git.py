@@ -120,9 +120,16 @@ def is_ignored(repo: Path, rel_path: str) -> bool:
 
 
 def unignored_files(repo: Path, rel_path: str) -> List[str]:
-    """Tracked files and untracked, not-ignored files under rel_path (pathspec taken literally)."""
-    proc = git(repo, "--literal-pathspecs", "ls-files", "-z", "--cached",
-               "--others", "--exclude-standard", "--", rel_path)
+    """Tracked files and untracked, not-ignored files under rel_path.
+
+    The pathspec is literal (no glob, no magic) and case-insensitive: on a
+    case-insensitive file system rel_path may differ in case from the index,
+    and an exact match would then miss tracked files. On a case-sensitive one
+    a sibling differing only in case may also be listed, which only refuses
+    more. GIT_LITERAL_PATHSPECS=1 makes git fail here, so nothing is missed.
+    """
+    proc = git(repo, "--icase-pathspecs", "ls-files", "-z", "--cached",
+               "--others", "--exclude-standard", "--", ":(literal)" + rel_path)
     if proc.returncode != 0:
         raise CleanError(f"cannot list the files in {rel_path}")
     return [name for name in proc.stdout.split("\0") if name]

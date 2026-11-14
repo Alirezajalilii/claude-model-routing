@@ -143,6 +143,26 @@ class CleanCliHardeningTest(unittest.TestCase):
         self.assertTrue(err.startswith("mr-clean: base branch not found: DEV"), err)
         self.assertIn("dev", self._branches())
 
+    # TC75
+    def test_tc75_remote_name_with_slash_gets_note(self) -> None:
+        sha = _git(self.repo, "rev-parse", "agent/s-T1")
+        _git(self.repo, "update-ref", "refs/remotes/team/origin/agent/s-T1", sha)
+        code, out, _ = self._run("--plan", str(self.plan), "--apply")
+        self.assertEqual(code, 0)
+        self.assertIn("note remote branch team/origin/agent/s-T1 left as is", out)
+        self.assertEqual(
+            _git(self.repo, "rev-parse", "refs/remotes/team/origin/agent/s-T1"), sha)
+
+    # TC76
+    def test_tc76_similar_remote_names_get_no_note(self) -> None:
+        sha = _git(self.repo, "rev-parse", "main")
+        _git(self.repo, "update-ref", "refs/remotes/origin/agent/s-T1x", sha)
+        _git(self.repo, "update-ref", "refs/remotes/origin/xagent/s-T1", sha)
+        code, out, _ = self._run("--plan", str(self.plan))
+        self.assertEqual(code, 0)
+        self.assertNotIn("note remote branch origin/agent/s-T1x", out)
+        self.assertNotIn("note remote branch origin/xagent/s-T1", out)
+
 
 if __name__ == "__main__":
     unittest.main()
